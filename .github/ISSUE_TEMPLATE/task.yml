@@ -1,0 +1,22 @@
+name: Task
+description: One implementable unit from an approved plan (normally created by the architect)
+labels: ["type:task"]
+body:
+  - type: input
+    id: spec
+    attributes: { label: Spec / plan path, placeholder: specs/001-name/ }
+    validations: { required: true }
+  - type: textarea
+    id: goal
+    attributes: { label: Goal }
+    validations: { required: true }
+  - type: textarea
+    id: ac
+    attributes: { label: Acceptance criteria }
+    validations: { required: true }
+  - type: textarea
+    id: tests
+    attributes: { label: Test expectations }
+  - type: textarea
+    id: deps
+    attributes: { label: Dependencies / blocked by }
