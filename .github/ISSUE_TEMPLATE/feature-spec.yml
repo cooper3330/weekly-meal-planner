@@ -1,0 +1,26 @@
+name: Feature spec
+description: A product feature defined as a spec (what and why, not how)
+labels: ["type:feature"]
+body:
+  - type: textarea
+    id: why
+    attributes: { label: Why, description: Problem and user value }
+    validations: { required: true }
+  - type: textarea
+    id: stories
+    attributes: { label: User stories }
+    validations: { required: true }
+  - type: textarea
+    id: requirements
+    attributes: { label: Functional requirements }
+    validations: { required: true }
+  - type: textarea
+    id: ac
+    attributes: { label: Acceptance criteria, description: "Numbered and testable: AC-1: Given... when... then..." }
+    validations: { required: true }
+  - type: textarea
+    id: oos
+    attributes: { label: Out of scope }
+  - type: textarea
+    id: questions
+    attributes: { label: Open questions }

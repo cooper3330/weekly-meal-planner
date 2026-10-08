@@ -1,0 +1,11 @@
+name: Architecture question
+description: A design decision or ADR needed before or during planning
+labels: ["type:architecture"]
+body:
+  - type: textarea
+    id: question
+    attributes: { label: Decision needed }
+    validations: { required: true }
+  - type: textarea
+    id: constraints
+    attributes: { label: Constraints and options considered }
