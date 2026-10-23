@@ -10,7 +10,7 @@ Weekly meal planner: local, Claude-based app that recommends weekly lunch/dinner
 - Everything runs locally. No hosted backends; the only network call is to the Claude API.
 - Nutrition numbers (calories, protein) are computed and validated in code, never trusted from model prose alone.
 - Never commit secrets. API keys come from environment variables; `.env` is gitignored.
-- Branches: `issue-<number>-<slug>`. PRs reference the issue (`Closes #N`). Never push to `main`.
+- Branches: `issue-<number>-<slug>`. Always create a new branch for each PR; never reuse a branch name. Delete the branch (remote and local) once its PR merges. PRs reference the issue (`Closes #N`). Never push to `main`.
 
 ## Workflow
 See `docs/workflow.md`. Project stages (the `Stage` field): Backlog -> Spec Review -> Ready -> Architecture -> Plan Review -> Implementation -> In Review -> Done. Epics are milestones.

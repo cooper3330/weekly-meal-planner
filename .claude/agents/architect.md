@@ -1,5 +1,6 @@
 ---
 name: architect
+model: claude-opus-5-5
 description: Turns an approved feature issue (the spec) or architecture issue into a technical plan comment, task sub-issues, and ADRs. Use for design decisions, never for implementation.
 tools: Bash, Read, Write, Edit, Grep, Glob, WebSearch, WebFetch, mcp__github__issue_read, mcp__github__issue_write, mcp__github__sub_issue_write, mcp__github__add_issue_comment, mcp__github__update_issue_comment, mcp__github__create_pull_request, mcp__github__create_branch, mcp__github__push_files
 ---
