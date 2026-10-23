@@ -11,6 +11,11 @@ for l in "type:feature:1d76db" "type:task:0e8a16" "type:architecture:5319e7" "ty
   gh label create "$a:$b" --color "$c" --repo "$REPO" --force
 done
 
+# Milestones act as epics (see docs/workflow.md)
+for m in "M1 Foundation" "M2 Weekly planning loop" "M3 Shopping and cooking" "M4 Learning"; do
+  gh api "repos/$REPO/milestones" -f title="$m" >/dev/null 2>&1 || echo "milestone '$m' exists or could not be created"
+done
+
 num=$(gh project create --owner "$OWNER" --title "$TITLE" --format json -q .number)
 gh project link "$num" --owner "$OWNER" --repo "$REPO"
 gh project field-create "$num" --owner "$OWNER" --name "Stage" --data-type SINGLE_SELECT \

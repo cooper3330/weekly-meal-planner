@@ -7,7 +7,7 @@ Principles that every spec, plan, and PR must respect. Changing one requires an 
 3. **Learn from feedback, transparently.** Preferences are stored as explicit, user-viewable, user-editable records (likes, dislikes, allergies, cuisines, effort, repeat frequency), not hidden in prompts. Every pick, skip, and rating is a signal.
 4. **The user decides.** The app proposes; it never auto-commits a week. Selection happens before any grocery list or recipe is generated.
 5. **Structured outputs.** All model calls return schema-validated JSON (tool use / structured output). Invalid output is retried or rejected, never rendered.
-6. **Spec before code.** Behavior is defined in `specs/` first. Acceptance criteria in a spec must be testable.
+6. **Spec before code.** Behavior is defined in an approved feature issue first. Acceptance criteria in a spec must be testable.
 7. **Small, tested, reviewable.** One task per PR. Tests accompany behavior. Model calls are mockable; tests never hit the network.
 8. **Simple over clever.** Prefer the boring option and the fewest dependencies. Justify additions in an ADR.
 9. **Safe by default.** Allergies and hard exclusions are enforced as filters in code, not only requested in the prompt.

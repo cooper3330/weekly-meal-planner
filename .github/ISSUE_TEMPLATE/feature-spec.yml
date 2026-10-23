@@ -1,5 +1,5 @@
 name: Feature spec
-description: A product feature defined as a spec (what and why, not how)
+description: A product feature defined as a spec (what and why, not how). This issue is the spec; assign it to a milestone
 labels: ["type:feature"]
 body:
   - type: textarea

@@ -4,7 +4,7 @@ A locally hosted, Claude-powered meal planner. It learns your food preferences a
 
 ## How the project is built
 
-Development is **spec-driven** and run through a **GitHub Project** by three Claude agents:
+Development is **spec-driven**, with specs, plans, and tasks living in **GitHub issues**, run through a **GitHub Project** by three Claude agents:
 
 | Agent | File | Job |
 |---|---|---|
@@ -19,8 +19,7 @@ Read [`docs/workflow.md`](docs/workflow.md) for the full lifecycle, [`docs/const
 ```
 .claude/agents/      agent definitions (coordinator, architect, developer)
 .github/             issue templates, PR template
-docs/                constitution, product spec, workflow, ADRs
-specs/NNN-name/      one folder per feature: spec.md -> plan.md -> tasks.md
+docs/                constitution, product spec, workflow, backlog, ADRs (docs/adr/)
 scripts/             project setup + coordinator loop
 CLAUDE.md            instructions every Claude session loads
 ```
@@ -29,6 +28,6 @@ CLAUDE.md            instructions every Claude session loads
 
 1. Create the GitHub Project and labels: `./scripts/setup-project.sh` (needs `gh` with the `project` scope).
 2. Start the coordinator: `./scripts/coordinator.sh` (polls every few minutes; `--once` for a single pass).
-3. Write a feature spec as a GitHub issue using the **Feature spec** template and move it to **Ready**.
+3. Write a feature spec as a GitHub issue using the **Feature spec** template, assign it to a milestone, and move it to **Ready**.
 
 The first issues to file are listed in [`docs/backlog.md`](docs/backlog.md).
