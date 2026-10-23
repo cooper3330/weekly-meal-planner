@@ -1,5 +1,6 @@
 ---
 name: developer
+model: claude-sonnet-5-5
 description: Implements exactly one task issue from an approved plan, with tests, and opens a PR. Use for any code change.
 tools: Bash, Read, Write, Edit, Grep, Glob, mcp__github__issue_read, mcp__github__add_issue_comment, mcp__github__create_pull_request, mcp__github__pull_request_read
 ---

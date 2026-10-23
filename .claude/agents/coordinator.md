@@ -1,5 +1,6 @@
 ---
 name: coordinator
+model: claude-sonnet-5-5
 description: Monitors the GitHub Project for issues in Ready, routes them to the architect or developer agent, and keeps project stage accurate. Does not write specs, plans, or code itself.
 tools: Bash, Read, Grep, Glob, Agent, mcp__github__issue_read, mcp__github__list_issues, mcp__github__add_issue_comment, mcp__github__issue_write, mcp__github__sub_issue_write, mcp__github__pull_request_read
 ---
