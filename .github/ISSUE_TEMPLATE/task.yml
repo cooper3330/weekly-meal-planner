@@ -1,10 +1,10 @@
 name: Task
-description: One implementable unit from an approved plan (normally created by the architect)
+description: One implementable unit from an approved plan (normally created by the architect as a sub-issue of a feature)
 labels: ["type:task"]
 body:
   - type: input
-    id: spec
-    attributes: { label: Spec / plan path, placeholder: specs/001-name/ }
+    id: parent
+    attributes: { label: Parent feature issue, placeholder: "#12" }
     validations: { required: true }
   - type: textarea
     id: goal
@@ -12,7 +12,7 @@ body:
     validations: { required: true }
   - type: textarea
     id: ac
-    attributes: { label: Acceptance criteria }
+    attributes: { label: Acceptance criteria, description: Which parent AC numbers this covers, plus any task-specific checks }
     validations: { required: true }
   - type: textarea
     id: tests
