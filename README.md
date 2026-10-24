@@ -1,6 +1,6 @@
 # weekly-meal-planner
 
-A locally hosted, Claude-powered meal planner. It learns your food preferences and each week proposes a slate of lunch and dinner options that hit your protein and calorie targets (think Factor's weekly menu). You pick the meals you want; it then produces a consolidated grocery list and a recipe for each pick.
+A locally hosted, Claude-powered meal planner for one person. It learns your food preferences and each week proposes a slate of lunch and dinner options that fit your tastes and dietary restrictions, showing the calories and macros of each (think Factor's weekly menu). You pick the meals you want; it then produces a consolidated grocery list and a recipe for each pick.
 
 ## How the project is built
 
