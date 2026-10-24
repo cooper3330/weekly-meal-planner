@@ -1,26 +1,62 @@
 #!/usr/bin/env bash
-# One-time setup: labels + GitHub Project with a "Stage" field.
-# Requires: gh authenticated with the `project` scope (gh auth refresh -s project).
+# Setup for labels, milestones, and a GitHub Project with a "Stage" field.
+# Safe to re-run: it reuses whatever already exists and only creates what is missing.
+#
+# Requires: gh authenticated with repo access and the project scope (gh auth refresh -s project).
+# Env:   REPO   owner/name (default: the current repository)
+#        OWNER  project owner (default: the repository owner; `gh project link` requires
+#               --owner to match the repo owner, so '@me' is not used)
 set -euo pipefail
-OWNER="${OWNER:-@me}"
-REPO="${REPO:-$(gh repo view --json nameWithOwner -q .nameWithOwner)}"
-TITLE="Weekly Meal Planner"
 
+command -v gh >/dev/null 2>&1 || { echo "missing required command: gh" >&2; exit 1; }
+
+REPO="${REPO:-$(gh repo view --json nameWithOwner -q .nameWithOwner)}"
+OWNER="${OWNER:-${REPO%%/*}}"
+TITLE="Weekly Meal Planner"
+STAGES="Backlog,Spec Review,Ready,Architecture,Plan Review,Implementation,In Review,Done,Blocked"
+
+# Labels (--force updates the color of one that already exists)
 for l in "type:feature:1d76db" "type:task:0e8a16" "type:architecture:5319e7" "type:bug:d73a4a"; do
   IFS=: read -r a b c <<<"$l"
   gh label create "$a:$b" --color "$c" --repo "$REPO" --force
 done
 
-# Milestones act as epics (see docs/workflow.md)
+# Milestones act as epics (see docs/workflow.md). Create only the missing ones.
+existing_milestones=$(gh api "repos/$REPO/milestones?state=all&per_page=100" --jq '.[].title')
 for m in "M1 Foundation" "M2 Weekly planning loop" "M3 Shopping and cooking" "M4 Learning"; do
-  gh api "repos/$REPO/milestones" -f title="$m" >/dev/null 2>&1 || echo "milestone '$m' exists or could not be created"
+  if grep -Fxq -- "$m" <<<"$existing_milestones"; then
+    echo "milestone exists: $m"
+  else
+    gh api "repos/$REPO/milestones" -f title="$m" >/dev/null
+    echo "milestone created: $m"
+  fi
 done
 
-num=$(gh project create --owner "$OWNER" --title "$TITLE" --format json -q .number)
-gh project link "$num" --owner "$OWNER" --repo "$REPO"
-gh project field-create "$num" --owner "$OWNER" --name "Stage" --data-type SINGLE_SELECT \
-  --single-select-options "Backlog,Spec Review,Ready,Architecture,Plan Review,Implementation,In Review,Done,Blocked"
+# Project: reuse one with this title if it exists.
+num=$(gh project list --owner "$OWNER" --limit 100 --format json \
+  -q "[.projects[] | select(.title==\"$TITLE\") | .number] | first // empty")
+if [ -z "$num" ]; then
+  num=$(gh project create --owner "$OWNER" --title "$TITLE" --format json -q .number)
+  echo "Created project #$num"
+else
+  echo "Using existing project #$num"
+fi
 
-echo "Project #$num created. Add to your environment:  export PROJECT_NUMBER=$num"
+# Linking is a convenience, so a failure (for example already linked) is not fatal.
+if ! gh project link "$num" --owner "$OWNER" --repo "$REPO"; then
+  echo "warning: could not link project #$num to $REPO (it may already be linked); continuing" >&2
+fi
+
+# Stage field: create only if missing.
+field_names=$(gh project field-list "$num" --owner "$OWNER" --format json -q '.fields[].name')
+if grep -Fxq -- "Stage" <<<"$field_names"; then
+  echo "Stage field exists"
+else
+  gh project field-create "$num" --owner "$OWNER" --name "Stage" --data-type SINGLE_SELECT \
+    --single-select-options "$STAGES"
+  echo "Stage field created"
+fi
+
+echo "Project #$num is ready. Add to your environment:  export PROJECT_NUMBER=$num"
 echo "Optional: in the project UI, add a board view grouped by Stage and enable the"
 echo "'Auto-add to project' workflow for $REPO."

@@ -31,3 +31,5 @@ CLAUDE.md            instructions every Claude session loads
 3. Write a feature spec as a GitHub issue using the **Feature spec** template, assign it to a milestone, and move it to **Ready**.
 
 The first issues to file are listed in [`docs/backlog.md`](docs/backlog.md).
+
+The helper scripts have offline tests (stubbed `gh`, `claude`, and `date`): `bash tests/scripts/run.sh`. `./scripts/setup-project.sh` is safe to re-run. The coordinator runs headless, so it only uses an allowlist of commands; add more with `EXTRA_ALLOWED_TOOLS` (comma-separated) if a run stalls on one.
