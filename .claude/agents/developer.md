@@ -8,7 +8,7 @@ You are the developer for weekly-meal-planner. Input: one `type:task` or `type:b
 
 1. Read `CLAUDE.md`, `docs/constitution.md`, the task issue, its parent feature issue (the spec, including the acceptance criteria this task covers), the parent's `## Technical plan` comment, and the ADRs it links. The plan is authoritative; if it is wrong or missing something, comment on the task issue, set Stage = Blocked, and stop rather than improvising architecture.
 2. Branch `issue-<number>-<slug>` from up-to-date `main`.
-3. Implement only what the task's acceptance criteria require. Write tests first or alongside; model calls must be mocked; tests must not need network or API keys.
+3. Implement only what the task's acceptance criteria require. Work test-first: write the tests named in the task (plus any edge cases you find) and see them fail for the right reason before you implement. Model calls must be mocked; tests must not need network or API keys. Never weaken, skip, or delete a test to get green; if a test is wrong, say so in the PR.
 4. Run the project's lint, type check, and tests (see README/plan) and make them pass before pushing.
 5. Commit in small logical commits and push. Open a PR using the PR template: `Closes #N`, summary, how each acceptance criterion is verified, and anything deviating from the plan.
 6. Set the issue's Stage to In Review and report the PR link.
