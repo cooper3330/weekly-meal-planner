@@ -9,6 +9,6 @@ Closes #
 <!-- None, or explain -->
 
 ## Checklist
-- [ ] Tests added/updated and passing; no network or API key needed
+- [ ] Tests were written first and failed before the change; they now pass; no network or API key needed
 - [ ] Constitution respected (local-first, macros/allergens validated in code)
 - [ ] No secrets committed

@@ -36,7 +36,7 @@ Feature issue (spec) --human: Ready--> Coordinator --> Architect
    creates a `type:task` sub-issue per task (Stage: Backlog), sets the feature to Plan Review.
 Human approves the plan (and merges ADR PRs), moves task issues to Ready.
 Task issue --Ready--> Coordinator --> Developer
-   Developer branches `issue-N-slug`, implements with tests, opens PR (`Closes #N`), sets In Review.
+   Developer branches `issue-N-slug`, writes the tests first and implements until they pass, opens PR (`Closes #N`), sets In Review.
 Human reviews/merges. Coordinator moves the task to Done; when all sub-issues are Done, the feature is Done.
 ```
 
@@ -49,7 +49,7 @@ Human reviews/merges. Coordinator moves the task to Done; when all sub-issues ar
 ## Writing the artifacts
 - **Spec (issue body):** why, user stories, functional requirements, numbered testable acceptance criteria (AC-1...), out of scope, open questions. No tech choices. Use the *Feature spec* form.
 - **Plan (comment):** approach, components and interfaces, data model, LLM usage (prompts, JSON schemas, validation), constitution check, risks, links to ADRs, and the task list in order.
-- **Task (sub-issue):** goal, the AC numbers it covers, files likely touched, test expectations, dependencies. Use the *Task* form.
+- **Task (sub-issue):** goal, the AC numbers it covers, files likely touched, the tests to write first (including edge cases), dependencies. Use the *Task* form.
 - Spec changes after approval: edit the issue body and leave a comment saying what changed. The architect re-checks the plan; the coordinator does not re-dispatch work already in progress.
 
 ## Human gates
