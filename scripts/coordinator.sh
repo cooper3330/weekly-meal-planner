@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Coordinator loop: polls the GitHub Project for items in Stage=Ready and
+# Coordinator loop: polls the GitHub Project for items in Status=Ready and
 # hands each to the coordinator agent (which dispatches the architect/developer).
 #
 # Usage: PROJECT_NUMBER=1 ./scripts/coordinator.sh [--once]
@@ -43,26 +43,39 @@ if [ -n "${EXTRA_ALLOWED_TOOLS:-}" ]; then
   ALLOWED_TOOLS+=("${extra[@]}")
 fi
 
-# Resolve the board IDs `gh project item-edit` needs (project node ID, Stage field ID, and
-# the ID of each Stage option). Doing it here, not in the agent, keeps the headless run from
+# The board's built-in single-select Status field must have these options (see docs/workflow.md).
+STATUSES=("Backlog" "Spec Review" "Ready" "Architecture" "Plan Review" "Implementation" "In Review" "Done" "Blocked")
+
+# Resolve the board IDs `gh project item-edit` needs (project node ID, Status field ID, and
+# the ID of each Status option). Doing it here, not in the agent, keeps the headless run from
 # having to discover them and from guessing. Prints one compact JSON object.
 board_ids() {
-  local project_id fields stage
+  local project_id fields status missing name
   project_id=$(gh project view "$PROJECT_NUMBER" --owner "$OWNER" --format json -q .id)
   fields=$(gh project field-list "$PROJECT_NUMBER" --owner "$OWNER" --format json)
-  stage=$(jq -c '[.fields[] | select(.name=="Stage")] | first // empty' <<<"$fields")
-  if [ -z "$stage" ] || [ -z "$project_id" ]; then
-    echo "$(ts) project #$PROJECT_NUMBER has no 'Stage' field (or could not be read); run scripts/setup-project.sh" >&2
+  status=$(jq -c '[.fields[] | select(.name=="Status")] | first // empty' <<<"$fields")
+  if [ -z "$status" ] || [ -z "$project_id" ]; then
+    echo "$(ts) project #$PROJECT_NUMBER has no 'Status' field (or could not be read); run scripts/setup-project.sh" >&2
+    return 1
+  fi
+  missing=""
+  for name in "${STATUSES[@]}"; do
+    if ! jq -e --arg n "$name" '[.options[].name] | index($n)' <<<"$status" >/dev/null; then
+      missing="$missing${missing:+, }$name"
+    fi
+  done
+  if [ -n "$missing" ]; then
+    echo "$(ts) the Status field is missing options: $missing; set them in the project UI (see docs/workflow.md)" >&2
     return 1
   fi
   jq -c --arg project "$project_id" \
-    '{project_id: $project, stage_field_id: .id, stage_options: ([.options[] | {(.name): .id}] | add)}' <<<"$stage"
+    '{project_id: $project, status_field_id: .id, status_options: ([.options[] | {(.name): .id}] | add)}' <<<"$status"
 }
 
 pass() {
   local ready ids
   ready=$(gh project item-list "$PROJECT_NUMBER" --owner "$OWNER" --limit 200 --format json \
-    | jq -c '[.items[] | select(.stage=="Ready" and .content.number != null)
+    | jq -c '[.items[] | select(.status=="Ready" and .content.number != null)
               | {item_id: .id, number: .content.number, title: .content.title, labels: (.labels // [])}]')
   if [ "$(jq length <<<"$ready")" -eq 0 ]; then
     echo "$(ts) nothing Ready"
@@ -71,7 +84,7 @@ pass() {
   ids=$(board_ids) || return 1
   echo "$(ts) Ready items: $ready"
   # The prompt goes first: --allowedTools takes a list and would swallow a trailing prompt.
-  claude -p "Project $PROJECT_NUMBER (owner $OWNER), MAX_PARALLEL=$MAX_PARALLEL. Board IDs: $ids. Items in Ready (item_id is the board item ID): $ready. Run one coordination pass per docs/workflow.md and report what you dispatched. To change an item's Stage, run: gh project item-edit --id <item_id> --project-id <project_id> --field-id <stage_field_id> --single-select-option-id <id from stage_options>. Use only these IDs; never guess one." \
+  claude -p "Project $PROJECT_NUMBER (owner $OWNER), MAX_PARALLEL=$MAX_PARALLEL. Board IDs: $ids. Items in Ready (item_id is the board item ID): $ready. Run one coordination pass per docs/workflow.md and report what you dispatched. To change an item's Status, run: gh project item-edit --id <item_id> --project-id <project_id> --field-id <status_field_id> --single-select-option-id <id from status_options>. Use only these IDs; never guess one." \
     --agent coordinator --permission-mode acceptEdits \
     --allowedTools "${ALLOWED_TOOLS[@]}"
 }

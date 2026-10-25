@@ -15,4 +15,4 @@ Weekly meal planner: local, Claude-based app for one user that recommends weekly
 - Branches: `issue-<number>-<slug>`. Always create a new branch for each PR; never reuse a branch name. GitHub deletes the remote branch when its PR merges; delete the local branch too. PRs reference the issue (`Closes #N`). Never push to `main`; it is protected and every change goes through a PR.
 
 ## Workflow
-See `docs/workflow.md`. Project stages (the `Stage` field): Backlog -> Spec Review -> Ready -> Architecture -> Plan Review -> Implementation -> In Review -> Done. Epics are milestones.
+See `docs/workflow.md`. Project statuses (the built-in `Status` field): Backlog -> Spec Review -> Ready -> Architecture -> Plan Review -> Implementation -> In Review -> Done. Epics are milestones.
