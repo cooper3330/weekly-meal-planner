@@ -29,6 +29,7 @@ new_sandbox() {
   echo '{"projects":[],"totalCount":0}' > "$T/projects.json"
   echo '{"fields":[{"name":"Title"},{"name":"Status"}],"totalCount":2}' > "$T/fields.json"
   echo '[]' > "$T/milestones.json"
+  echo '{"id":"PVT_abc","number":1,"title":"Weekly Meal Planner"}' > "$T/project.json"
 
   cat > "$T/bin/gh" <<'STUB'
 #!/usr/bin/env bash
@@ -48,6 +49,7 @@ case "$1 $2" in
   "repo view")           echo "${STUB_REPO:-cooper3330/weekly-meal-planner}" ;;
   "project item-list")   emit "$STUB_DIR/items.json" ;;
   "project list")        emit "$STUB_DIR/projects.json" ;;
+  "project view")        emit "$STUB_DIR/project.json" ;;
   "project field-list")  emit "$STUB_DIR/fields.json" ;;
   "project create")      echo '{"number":7}' > "$STUB_DIR/created.json"; emit "$STUB_DIR/created.json" ;;
   "project link")        if [ -n "${STUB_LINK_FAIL:-}" ]; then echo "has different owner from '@me'" >&2; exit 1; fi ;;
