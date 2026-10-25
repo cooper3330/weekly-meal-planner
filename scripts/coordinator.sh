@@ -32,6 +32,7 @@ ts() { date '+%Y-%m-%dT%H:%M:%S%z'; }
 ALLOWED_TOOLS=(
   "Bash(gh issue view *)" "Bash(gh issue comment *)" "Bash(gh issue create *)" "Bash(gh issue edit *)"
   "Bash(gh project item-list *)" "Bash(gh project item-edit *)" "Bash(gh project field-list *)"
+  "Bash(gh project view *)" "Bash(gh project list *)"
   "Bash(gh pr create *)" "Bash(gh pr view *)" "Bash(gh pr list *)"
   "Bash(gh api repos/$REPO/*)"
   "Bash(git checkout *)" "Bash(git add *)" "Bash(git commit *)" "Bash(git push *)"
@@ -42,18 +43,35 @@ if [ -n "${EXTRA_ALLOWED_TOOLS:-}" ]; then
   ALLOWED_TOOLS+=("${extra[@]}")
 fi
 
+# Resolve the board IDs `gh project item-edit` needs (project node ID, Stage field ID, and
+# the ID of each Stage option). Doing it here, not in the agent, keeps the headless run from
+# having to discover them and from guessing. Prints one compact JSON object.
+board_ids() {
+  local project_id fields stage
+  project_id=$(gh project view "$PROJECT_NUMBER" --owner "$OWNER" --format json -q .id)
+  fields=$(gh project field-list "$PROJECT_NUMBER" --owner "$OWNER" --format json)
+  stage=$(jq -c '[.fields[] | select(.name=="Stage")] | first // empty' <<<"$fields")
+  if [ -z "$stage" ] || [ -z "$project_id" ]; then
+    echo "$(ts) project #$PROJECT_NUMBER has no 'Stage' field (or could not be read); run scripts/setup-project.sh" >&2
+    return 1
+  fi
+  jq -c --arg project "$project_id" \
+    '{project_id: $project, stage_field_id: .id, stage_options: ([.options[] | {(.name): .id}] | add)}' <<<"$stage"
+}
+
 pass() {
-  local ready
+  local ready ids
   ready=$(gh project item-list "$PROJECT_NUMBER" --owner "$OWNER" --limit 200 --format json \
     | jq -c '[.items[] | select(.stage=="Ready" and .content.number != null)
-              | {number: .content.number, title: .content.title, labels: (.labels // [])}]')
+              | {item_id: .id, number: .content.number, title: .content.title, labels: (.labels // [])}]')
   if [ "$(jq length <<<"$ready")" -eq 0 ]; then
     echo "$(ts) nothing Ready"
     return 0
   fi
+  ids=$(board_ids) || return 1
   echo "$(ts) Ready items: $ready"
   # The prompt goes first: --allowedTools takes a list and would swallow a trailing prompt.
-  claude -p "Project $PROJECT_NUMBER (owner $OWNER), MAX_PARALLEL=$MAX_PARALLEL. Items in Ready: $ready. Run one coordination pass per docs/workflow.md and report what you dispatched." \
+  claude -p "Project $PROJECT_NUMBER (owner $OWNER), MAX_PARALLEL=$MAX_PARALLEL. Board IDs: $ids. Items in Ready (item_id is the board item ID): $ready. Run one coordination pass per docs/workflow.md and report what you dispatched. To change an item's Stage, run: gh project item-edit --id <item_id> --project-id <project_id> --field-id <stage_field_id> --single-select-option-id <id from stage_options>. Use only these IDs; never guess one." \
     --agent coordinator --permission-mode acceptEdits \
     --allowedTools "${ALLOWED_TOOLS[@]}"
 }

@@ -3,13 +3,15 @@
 . "$(dirname "$0")/lib.sh"
 SCRIPT="$ROOT/scripts/coordinator.sh"
 
+STAGE_FIELDS='{"fields":[{"id":"PVTF_title","name":"Title","type":"ProjectV2Field"},{"id":"PVTSSF_stage","name":"Stage","type":"ProjectV2SingleSelectField","options":[{"id":"o_back","name":"Backlog"},{"id":"o_ready","name":"Ready"},{"id":"o_arch","name":"Architecture"},{"id":"o_impl","name":"Implementation"},{"id":"o_blocked","name":"Blocked"}]}],"totalCount":2}'
+
 READY='{"items":[
  {"id":"I1","stage":"Ready","content":{"number":5,"title":"Architecture baseline"},"labels":["type:architecture"]},
  {"id":"I2","stage":"Backlog","content":{"number":6,"title":"Profile"},"labels":["type:feature"]},
  {"id":"I3","stage":"Ready","content":{"title":"A draft note with no issue number"}}]}'
 
 echo "coordinator: dispatches Ready issues with an explicit tool allowlist"
-new_sandbox; echo "$READY" > "$T/items.json"
+new_sandbox; echo "$READY" > "$T/items.json"; echo "$STAGE_FIELDS" > "$T/fields.json"
 PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1; rc=$?
 assert_eq "$rc" "0" "exits 0"
 assert_count "$T/claude.calls" "called" 1 "claude is invoked exactly once"
@@ -43,7 +45,7 @@ assert_count "$T/claude.calls" "called" 0 "claude is not invoked"
 assert_grep "$T/out" 'nothing Ready' "reports that nothing is Ready"
 
 echo "coordinator: extra allowed tools"
-new_sandbox; echo "$READY" > "$T/items.json"
+new_sandbox; echo "$READY" > "$T/items.json"; echo "$STAGE_FIELDS" > "$T/fields.json"
 EXTRA_ALLOWED_TOOLS='Bash(npm test),Bash(ls *)' PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
 assert_grep "$T/claude.args" '^Bash\(npm test\)$' "EXTRA_ALLOWED_TOOLS adds a rule containing a space"
 assert_grep "$T/claude.args" '^Bash\(ls \*\)$' "EXTRA_ALLOWED_TOOLS adds a second rule"
@@ -53,5 +55,30 @@ new_sandbox
 env -u PROJECT_NUMBER bash "$SCRIPT" --once > "$T/out" 2>&1; rc=$?
 if [ "$rc" -ne 0 ]; then ok "exits non-zero"; else bad "exits non-zero"; fi
 assert_grep "$T/out" 'PROJECT_NUMBER' "names the missing variable"
+
+echo "coordinator: resolves the board IDs itself and hands them to the agent"
+new_sandbox; echo "$READY" > "$T/items.json"; echo "$STAGE_FIELDS" > "$T/fields.json"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_grep "$T/claude.args" 'PVT_abc' "prompt carries the project node ID"
+assert_grep "$T/claude.args" 'PVTSSF_stage' "prompt carries the Stage field ID"
+assert_grep "$T/claude.args" '"Implementation":"o_impl"' "prompt carries the Implementation option ID"
+assert_grep "$T/claude.args" '"Architecture":"o_arch"' "prompt carries the Architecture option ID"
+assert_grep "$T/claude.args" '"item_id":"I1"' "each Ready item carries its board item ID"
+assert_grep "$T/claude.args" 'item-edit --id .*--project-id .*--field-id .*--single-select-option-id' "prompt shows the exact item-edit command shape"
+assert_grep "$T/claude.args" 'Bash\(gh project view \*\)' "allows gh project view"
+assert_grep "$T/claude.args" 'Bash\(gh project list \*\)' "allows gh project list"
+
+echo "coordinator: fails clearly when the Stage field is missing"
+new_sandbox; echo "$READY" > "$T/items.json"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1; rc=$?
+if [ "$rc" -ne 0 ]; then ok "exits non-zero"; else bad "exits non-zero"; fi
+assert_count "$T/claude.calls" "called" 0 "claude is not invoked"
+assert_grep "$T/out" 'Stage' "names the missing field"
+assert_grep "$T/out" 'setup-project' "points at the setup script"
+
+echo "coordinator: makes no board lookups when nothing is Ready"
+new_sandbox; echo '{"items":[]}' > "$T/items.json"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_no_grep "$T/gh.log" 'project (view|field-list)' "no project view or field-list calls"
 
 finish
