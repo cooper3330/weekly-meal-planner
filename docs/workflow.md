@@ -10,12 +10,12 @@ GitHub issues are the source of truth for specs, plans, and tasks. The repo hold
 | Tasks | Sub-issues of the feature issue (`type:task`) |
 | Epics / major objectives | Milestones. Assign feature issues to a milestone. Use a parent issue only if an objective needs its own discussion thread |
 | Architecture decisions | ADR files in `docs/adr/`, merged by PR. Plans and issues link to them |
-| Work state | GitHub Project, `Stage` field |
+| Work state | GitHub Project, built-in `Status` field |
 
 ## Project board
-A GitHub Project ("Weekly Meal Planner") with a single-select **Stage** field:
+A GitHub Project ("Weekly Meal Planner") using the built-in single-select **Status** field, with exactly these nine options in this order (`scripts/setup-project.sh` checks them):
 
-| Stage | Meaning | Who moves it |
+| Status | Meaning | Who moves it |
 |---|---|---|
 | Backlog | Idea, draft, or unpromoted task | Human (architect creates tasks here) |
 | Spec Review | Spec written, awaiting human approval | Human |
@@ -24,8 +24,18 @@ A GitHub Project ("Weekly Meal Planner") with a single-select **Stage** field:
 | Plan Review | Plan and task sub-issues awaiting human approval | Architect -> Human |
 | Implementation | Developer is building a task | Coordinator |
 | In Review | PR open | Developer |
-| Done | Merged | Coordinator |
+| Done | Merged | Built-in project workflow (see below); coordinator for a feature whose sub-issues are all Done |
 | Blocked | Needs human input (see comment) | Any agent |
+
+### Board automation
+The Status field is the board's built-in field, so GitHub's own project workflows can move cards. In the project, open **Workflows** and enable:
+
+- **Auto-add to project** for this repo (a filter of `is:issue` keeps one card per task; PR cards are not needed because `Closes #N` closes the issue).
+- **Item added to project**: set Status to **Backlog**.
+- **Item closed**: set Status to **Done**.
+- **Pull request merged**: set Status to **Done** (only matters if PR cards are on the board).
+
+Everything else is moved by a human or the agents as in the table above. An item with no Status shows in a "No Status" column; treat it as untriaged. The coordinator only acts on **Ready** and refuses to run if the Status field lacks any of the nine options.
 
 Issue types are set by labels: `type:feature` (a spec), `type:task` (one implementable unit from a plan), `type:architecture` (a design question that produces ADRs), `type:bug`.
 
@@ -33,11 +43,11 @@ Issue types are set by labels: `type:feature` (a spec), `type:task` (one impleme
 ```
 Feature issue (spec) --human: Ready--> Coordinator --> Architect
    Architect posts/updates the `## Technical plan` comment, opens a PR for any ADRs,
-   creates a `type:task` sub-issue per task (Stage: Backlog), sets the feature to Plan Review.
+   creates a `type:task` sub-issue per task (Status: Backlog), sets the feature to Plan Review.
 Human approves the plan (and merges ADR PRs), moves task issues to Ready.
 Task issue --Ready--> Coordinator --> Developer
    Developer branches `issue-N-slug`, writes the tests first and implements until they pass, opens PR (`Closes #N`), sets In Review.
-Human reviews/merges. Coordinator moves the task to Done; when all sub-issues are Done, the feature is Done.
+Human reviews/merges. The PR's `Closes #N` closes the task, and the built-in project workflows move it to Done; when all sub-issues are Done, the coordinator moves the feature to Done.
 ```
 
 ## Routing rules (coordinator)

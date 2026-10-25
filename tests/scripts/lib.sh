@@ -27,7 +27,7 @@ new_sandbox() {
   : > "$T/claude.calls"
   echo '{"items":[]}' > "$T/items.json"
   echo '{"projects":[],"totalCount":0}' > "$T/projects.json"
-  echo '{"fields":[{"name":"Title"},{"name":"Status"}],"totalCount":2}' > "$T/fields.json"
+  echo '{"fields":[{"id":"PVTF_title","name":"Title","type":"ProjectV2Field"},{"id":"PVTSSF_status","name":"Status","type":"ProjectV2SingleSelectField","options":[{"id":"o_todo","name":"Todo"},{"id":"o_prog","name":"In Progress"},{"id":"o_done","name":"Done"}]}],"totalCount":2}' > "$T/fields.json"
   echo '[]' > "$T/milestones.json"
   echo '{"id":"PVT_abc","number":1,"title":"Weekly Meal Planner"}' > "$T/project.json"
 
