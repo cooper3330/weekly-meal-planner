@@ -25,4 +25,20 @@ assert_grep "docs/workflow.md" 'Request changes' "documents the Request changes 
 assert_grep "docs/workflow.md" '<!-- agent:' "documents the agent marker"
 assert_grep "docs/workflow.md" 'OWNER' "documents who is trusted"
 
+echo "agents: planned work flows to Ready; Plan Review is only for open questions"
+assert_grep ".claude/agents/architect.md" 'Status = Ready' "architect puts new tasks in Ready by default"
+assert_grep ".claude/agents/architect.md" 'open questions' "architect defines when it needs a human"
+assert_grep ".claude/agents/architect.md" 'Plan Review' "architect uses Plan Review for open questions"
+assert_grep ".claude/agents/architect.md" 'Blocked by:' "architect writes a machine-readable Blocked by: line"
+assert_grep ".claude/agents/architect.md" 'item-add' "architect puts new tasks on the board itself"
+assert_grep ".claude/agents/architect.md" 'Board IDs' "architect uses the Board IDs from the prompt"
+assert_no_grep ".claude/agents/architect.md" 'humans promote to Ready' "the old human-promotes-to-Ready rule is gone"
+assert_no_grep ".claude/agents/coordinator.md" 'never move anything to Ready \(humans only\)' "coordinator no longer says Ready is humans-only"
+assert_grep ".claude/agents/coordinator.md" 'Blocked by:' "coordinator knows tasks are gated by the Blocked by: line"
+assert_grep "docs/workflow.md" 'Blocked by:' "workflow.md documents the Blocked by: line"
+assert_grep "docs/workflow.md" 'open questions' "workflow.md says Plan Review is for open questions"
+assert_no_grep "docs/workflow.md" 'humans? promotes? (the )?(task|tasks)' "workflow.md no longer has the human promote tasks"
+
+assert_grep ".github/ISSUE_TEMPLATE/task.yml" "Blocked by: " "task form explains the Blocked by: line"
+
 finish

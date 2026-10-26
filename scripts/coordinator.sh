@@ -32,7 +32,7 @@ ts() { date '+%Y-%m-%dT%H:%M:%S%z'; }
 ALLOWED_TOOLS=(
   "Bash(gh issue view *)" "Bash(gh issue comment *)" "Bash(gh issue create *)" "Bash(gh issue edit *)"
   "Bash(gh project item-list *)" "Bash(gh project item-edit *)" "Bash(gh project field-list *)"
-  "Bash(gh project view *)" "Bash(gh project list *)"
+  "Bash(gh project view *)" "Bash(gh project list *)" "Bash(gh project item-add *)"
   "Bash(gh pr create *)" "Bash(gh pr view *)" "Bash(gh pr list *)"
   "Bash(gh api repos/$REPO/*)"
   "Bash(git checkout *)" "Bash(git add *)" "Bash(git commit *)" "Bash(git push *)"
@@ -94,7 +94,7 @@ post_comment() { # kind number body
 # as handled so a persistent failure is not retried every pass; the reviewer comments /revise
 # again after fixing it.
 revise_pass() {
-  local pending count i item kind number agent branch ack prompt wt fail
+  local pending count i item kind number agent branch ack prompt wt fail ids
   pending=$(REPO="$REPO" ./scripts/pending-revisions.sh) || return 1
   count=$(jq length <<<"$pending")
   i=0
@@ -107,6 +107,10 @@ revise_pass() {
     branch=$(jq -r '.branch // empty' <<<"$item")
     wt=$(mktemp -d "${TMPDIR:-/tmp}/revise-XXXXXX")
     fail=""
+    # The architect puts task issues on the board, so it needs the Board IDs; they are looked up
+    # only when an architect run is actually needed, and a revision still runs without them.
+    ids=""
+    if [ "$agent" = "architect" ]; then ids=$(board_ids 2>/dev/null) || ids=""; fi
     if [ "$kind" = "pr" ]; then
       echo "$(ts) revising PR #$number ($branch) with the $agent agent"
       if ! { git fetch -q origin main "+refs/heads/$branch:refs/remotes/origin/$branch" \
@@ -123,6 +127,9 @@ revise_pass() {
         fail="Could not create a git worktree for the plan revision (is the network down?). Fix that and comment /revise again."
       fi
       prompt="Revise after review (revision mode). Repository $REPO, plan feedback on issue #$number; you are in a git worktree at origin/main. A trusted reviewer left feedback newer than your last reply. Follow the 'Revise after review' section of your agent definition: read the issue comments yourself, update the Technical plan comment, the ADR PR and the task sub-issues as needed, and reply. This prompt deliberately does not repeat the feedback."
+    fi
+    if [ -n "$ids" ]; then
+      prompt="$prompt Project $PROJECT_NUMBER (owner $OWNER). Board IDs: $ids. When you have resolved the open questions, move the affected task issues from Plan Review to Ready and the feature to Implementation (see your agent definition)."
     fi
     if [ -n "$fail" ]; then
       echo "$(ts) revision of $kind #$number not started: $fail" >&2
@@ -141,11 +148,44 @@ revise_pass() {
   done
 }
 
+# Echoes each blocker of issue $1 that is not done yet, one number per line. Blockers are the #N
+# references on the issue body's "Blocked by:" line (plain, bulleted, or bold). A closed issue is
+# done; a PR counts only once it is merged. No such line, or "none", means no blockers.
+open_blockers() {
+  local body refs ref st
+  body=$(gh issue view "$1" --repo "$REPO" --json body -q .body) || return 0
+  # Only the first sentence of the line counts: "Blocked by #17. Can run in parallel with #18."
+  # blocks on #17 alone.
+  refs=$(grep -iE '^[[:space:]]*[-*]*[[:space:]]*\**blocked by' <<<"$body" | sed -E 's/\. .*$//' | grep -oE '#[0-9]+' | tr -d '#' | sort -un || true)
+  for ref in $refs; do
+    st=$(gh api "repos/$REPO/issues/$ref" --jq 'if .state == "closed" and ((.pull_request // null) == null or .pull_request.merged_at != null) then "done" else "open" end' 2>/dev/null) || st=open
+    if [ "$st" != "done" ]; then echo "$ref"; fi
+  done
+}
+
+# Dispatches Ready work. Tasks and bugs are Ready by default once planned, so the script (not the
+# model) holds back any whose blockers are not done; features and architecture issues are not gated.
 ready_pass() {
-  local ready ids
-  ready=$(gh project item-list "$PROJECT_NUMBER" --owner "$OWNER" --limit 200 --format json \
+  local all ready count i item n waiting ids
+  all=$(gh project item-list "$PROJECT_NUMBER" --owner "$OWNER" --limit 200 --format json \
     | jq -c '[.items[] | select(.status=="Ready" and .content.number != null)
               | {item_id: .id, number: .content.number, title: .content.title, labels: (.labels // [])}]')
+  count=$(jq length <<<"$all")
+  ready="[]"
+  i=0
+  while [ "$i" -lt "$count" ]; do
+    item=$(jq -c ".[$i]" <<<"$all")
+    i=$((i + 1))
+    n=$(jq -r .number <<<"$item")
+    if jq -e '.labels | any(. == "type:task" or . == "type:bug")' <<<"$item" >/dev/null; then
+      waiting=$(open_blockers "$n" | sed 's/^/#/' | paste -sd, - | sed 's/,/, /g')
+      if [ -n "$waiting" ]; then
+        echo "$(ts) #$n waits on $waiting"
+        continue
+      fi
+    fi
+    ready=$(jq -c --argjson it "$item" '. + [$it]' <<<"$ready")
+  done
   if [ "$(jq length <<<"$ready")" -eq 0 ]; then
     echo "$(ts) nothing Ready"
     return 0
@@ -153,7 +193,7 @@ ready_pass() {
   ids=$(board_ids) || return 1
   echo "$(ts) Ready items: $ready"
   # The prompt goes first: --allowedTools takes a list and would swallow a trailing prompt.
-  claude -p "Project $PROJECT_NUMBER (owner $OWNER), MAX_PARALLEL=$MAX_PARALLEL. Board IDs: $ids. Items in Ready (item_id is the board item ID): $ready. Run one coordination pass per docs/workflow.md and report what you dispatched. To change an item's Status, run: gh project item-edit --id <item_id> --project-id <project_id> --field-id <status_field_id> --single-select-option-id <id from status_options>. Use only these IDs; never guess one." \
+  claude -p "Project $PROJECT_NUMBER (owner $OWNER), MAX_PARALLEL=$MAX_PARALLEL. Board IDs: $ids. Items in Ready (item_id is the board item ID): $ready. Only tasks whose Blocked by: blockers are done are listed. Run one coordination pass per docs/workflow.md and report what you dispatched. When you dispatch the architect, pass it the project number, owner, and these Board IDs so it can put the task issues it creates on the board: in Ready, or in Plan Review if it has open questions for the owner. To change an item's Status, run: gh project item-edit --id <item_id> --project-id <project_id> --field-id <status_field_id> --single-select-option-id <id from status_options>. Use only these IDs; never guess one." \
     --agent coordinator --permission-mode acceptEdits \
     --allowedTools "${ALLOWED_TOOLS[@]}"
 }
