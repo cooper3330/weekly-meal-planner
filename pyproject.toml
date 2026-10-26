@@ -25,6 +25,7 @@ packages = ["src/mealplanner"]
 [tool.ruff]
 line-length = 100
 src = ["src", "tests"]
+extend-exclude = ["*.md"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]

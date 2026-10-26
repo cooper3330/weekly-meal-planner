@@ -17,7 +17,10 @@ def test_guard_blocks_ipv6_connect() -> None:
 
 
 def test_guard_blocks_connect_ex() -> None:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s, pytest.raises(NetworkAccessBlocked):
+    with (
+        socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s,
+        pytest.raises(NetworkAccessBlocked),
+    ):
         s.connect_ex(("1.1.1.1", 443))
 
 
