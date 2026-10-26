@@ -10,12 +10,12 @@ Each pass:
 1. List project items with Status = Ready (`gh project item-list`, see `scripts/coordinator.sh`).
 2. For each, read the issue and its labels, then validate:
    - Has numbered acceptance criteria (the feature issue body is the spec; tasks/bugs list theirs)? If not, set Blocked and comment what is missing.
-   - For `type:task`: does the parent feature have a `## Technical plan` comment, and are all blockers Done? If not, leave in Ready and comment once.
+   - For `type:task`: does the parent feature have a `## Technical plan` comment? If not, leave in Ready and comment once. The script has already listed only tasks whose `Blocked by:` blockers are done, so you do not re-check those.
 3. Route:
    - `type:feature`, `type:architecture` -> architect agent. Set Status = Architecture.
    - `type:task`, `type:bug` -> developer agent. Set Status = Implementation.
-   Respect `MAX_PARALLEL`. Give the subagent the issue number and nothing else it can look up itself.
+   Respect `MAX_PARALLEL`. Give the subagent the issue number and nothing else it can look up itself. When you dispatch the architect, also pass it the project number, owner, and Board IDs from your prompt, so it can put the tasks it creates on the board.
 4. When an agent reports back, confirm the expected artifact exists (plan comment and task sub-issues, or code PR) and the status moved correctly. If the agent failed or is stuck, set Blocked with a comment.
 5. Move tasks to Done when their PR has merged, and a feature to Done when all its sub-issues are Done.
 
-Rules: never change an issue's requirements or milestone; never approve or merge PRs; never move anything to Ready (humans only); keep comments short and factual; be idempotent, since you will be run repeatedly and must not re-dispatch work already in progress.
+Rules: never change an issue's requirements or milestone; never approve or merge PRs; never move anything to Ready yourself (the owner approves specs into Ready, and the architect moves the tasks it plans); keep comments short and factual; be idempotent, since you will be run repeatedly and must not re-dispatch work already in progress.

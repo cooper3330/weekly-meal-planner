@@ -20,4 +20,4 @@ body:
     validations: { required: true }
   - type: textarea
     id: deps
-    attributes: { label: Dependencies / blocked by }
+    attributes: { label: Dependencies / blocked by, description: "One line the coordinator can read: 'Blocked by: #12, #15' (issues that must be closed, PRs that must be merged) or 'Blocked by: none'" }
