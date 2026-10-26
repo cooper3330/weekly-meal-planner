@@ -179,4 +179,103 @@ assert_eq "$rc" "0" "exits 0"
 assert_count "$T/claude.calls" "called" 2 "the Ready dispatch still happens"
 assert_grep "$T/out" 'revision (of|for) .*failed|revision failed' "the failure is reported"
 
+# --- tasks go to Ready by default, so the script gates them on their "Blocked by:" line -------
+task_items() { # numbers... -> a board with those Ready type:task cards
+  local out='{"items":[' sep=""
+  for n in "$@"; do
+    out="$out$sep{\"id\":\"T$n\",\"status\":\"Ready\",\"content\":{\"number\":$n,\"title\":\"Task $n\"},\"labels\":[\"type:task\"]}"; sep=","
+  done
+  echo "$out]}"
+}
+body() { jq -nc --arg b "$2" '{body: $b}' > "$T/issue_$1.json"; }   # body ISSUE TEXT
+run_gate() { PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1; }
+
+echo "gating: a task waits while a blocker is open"
+new_sandbox; task_items 16 > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+body 16 $'Goal: scaffold\n\nBlocked by: #15'
+run_gate
+assert_count "$T/claude.calls" "called" 0 "not dispatched"
+assert_grep "$T/out" '#16 waits on #15' "says what it is waiting on"
+assert_grep "$T/out" 'nothing Ready' "reports that nothing can be dispatched"
+
+echo "gating: a closed blocker releases the task"
+new_sandbox; task_items 16 > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+body 16 'Blocked by: #15'; echo '{"state":"closed"}' > "$T/issue_state_15.json"
+run_gate
+assert_count "$T/claude.calls" "called" 1 "dispatched"
+assert_grep "$T/claude.args" '"number":16' "task 16 is in the prompt"
+
+echo "gating: a PR blocker must be merged, not just closed"
+new_sandbox; task_items 16 > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+body 16 'Blocked by: #15'; echo '{"state":"closed","pull_request":{"merged_at":null}}' > "$T/issue_state_15.json"
+run_gate
+assert_count "$T/claude.calls" "called" 0 "a closed-but-unmerged PR does not release the task"
+new_sandbox; task_items 16 > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+body 16 'Blocked by: #15'; echo '{"state":"closed","pull_request":{"merged_at":"2026-10-26T01:00:00Z"}}' > "$T/issue_state_15.json"
+run_gate
+assert_count "$T/claude.calls" "called" 1 "a merged PR releases the task"
+
+echo "gating: every listed blocker must be done"
+new_sandbox; task_items 16 > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+body 16 'Blocked by: #14, #15'; echo '{"state":"closed"}' > "$T/issue_state_14.json"
+run_gate
+assert_count "$T/claude.calls" "called" 0 "one open blocker is enough to wait"
+assert_grep "$T/out" '#16 waits on #15' "only the open blocker is named"
+assert_no_grep "$T/out" 'waits on .*#14' "the closed blocker is not named"
+
+echo "gating: no blockers"
+for text in 'Blocked by: none' $'Goal only, no dependency line' $'## Dependencies / blocked by\nSee #15 for context'; do
+  new_sandbox; task_items 16 > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+  body 16 "$text"
+  run_gate
+  assert_count "$T/claude.calls" "called" 1 "dispatched for: $(echo "$text" | head -1)"
+done
+
+echo "gating: markdown and bullet forms of the line are understood"
+for text in '**Blocked by:** #15' '- Blocked by: #15' 'blocked by #15'; do
+  new_sandbox; task_items 16 > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+  body 16 "$text"
+  run_gate
+  assert_count "$T/claude.calls" "called" 0 "waits for: $text"
+done
+
+echo "gating: the architect's existing wording (#17-#20) is understood"
+new_sandbox; task_items 20 > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+body 20 $'**Dependencies / blocked by**\nBlocked by #17. Can run in parallel with #18 and #19.'; echo '{"state":"closed"}' > "$T/issue_state_17.json"
+run_gate
+assert_count "$T/claude.calls" "called" 1 "refs after the first sentence are not blockers (parallel-with note)"
+new_sandbox; task_items 19 > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+body 19 $'**Dependencies / blocked by**\nBlocked by #17 and #18.'; echo '{"state":"closed"}' > "$T/issue_state_17.json"
+run_gate
+assert_count "$T/claude.calls" "called" 0 "'#17 and #18' means both are required"
+assert_grep "$T/out" '#19 waits on #18' "and the open one is named"
+
+echo "gating: only the unblocked tasks reach the coordinator"
+new_sandbox; task_items 16 17 > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+body 16 'Blocked by: #15'; body 17 'Blocked by: none'
+run_gate
+assert_grep "$T/claude.args" '"number":17' "the free task is dispatched"
+assert_no_grep "$T/claude.args" '"number":16' "the blocked task is held back"
+
+echo "gating: features and architecture issues are never gated"
+new_sandbox; echo '{"items":[{"id":"F5","status":"Ready","content":{"number":5,"title":"Arch"},"labels":["type:architecture"]}]}' > "$T/items.json"
+echo "$STATUS_FIELDS" > "$T/fields.json"; body 5 'Blocked by: #99'
+run_gate
+assert_count "$T/claude.calls" "called" 1 "dispatched regardless of any Blocked by line"
+
+echo "coordinator: tells the architect how to set task Status"
+assert_grep "$T/claude.args" 'dispatch the architect, pass it' "the dispatch prompt asks the coordinator to forward the Board IDs to the architect"
+assert_grep "$T/claude.args" 'Ready.*Plan Review|Plan Review.*Ready' "and explains Ready versus Plan Review"
+assert_grep "$T/claude.args" 'Bash\(gh project item-add \*\)' "item-add is allowed so the architect can put new tasks on the board"
+
+echo "revisions: the architect gets the Board IDs, other agents do not need them"
+new_sandbox; echo "$PRS15" > "$T/prs.json"; echo "$PR_REVISE" > "$T/issue_comments_15.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_grep "$T/claude.args" 'PVT_abc' "architect revision prompt carries the project node ID"
+assert_grep "$T/claude.args" 'Project 1 \(owner cooper3330\)' "and the project number and owner"
+new_sandbox; echo "$PRS15" > "$T/prs.json"; echo "$PR_REVISE" > "$T/issue_comments_15.json"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_count "$T/claude.calls" "called" 1 "a revision still runs when the Status field is not set up"
+assert_no_grep "$T/claude.args" 'PVT_abc' "without Board IDs in the prompt"
+
 finish

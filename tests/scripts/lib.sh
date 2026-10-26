@@ -66,6 +66,10 @@ if [ "$1" = "api" ]; then
     repos/*/issues/*/comments) n="${path#repos/*/issues/}"; emit "$STUB_DIR/issue_comments_${n%%/*}.json" ;;
     repos/*/pulls/*/comments)  n="${path#repos/*/pulls/}";  emit "$STUB_DIR/pr_comments_${n%%/*}.json" ;;
     repos/*/pulls/*/reviews)   n="${path#repos/*/pulls/}";  emit "$STUB_DIR/pr_reviews_${n%%/*}.json" ;;
+    repos/*/issues/*)          # a single issue or PR: state (and pull_request.merged_at for PRs); default open
+      n="${path#repos/*/issues/}"; f="$STUB_DIR/issue_state_${n%%/*}.json"
+      [ -f "$f" ] || echo '{"state":"open"}' > "$f"
+      emit "$f" ;;
     *) echo '[]' ;;
   esac
   exit 0
@@ -80,6 +84,7 @@ case "$1 $2" in
   "project link")        if [ -n "${STUB_LINK_FAIL:-}" ]; then echo "has different owner from '@me'" >&2; exit 1; fi ;;
   "pr list")             emit "$STUB_DIR/prs.json" ;;
   "issue list")          emit "$STUB_DIR/issues.json" ;;
+  "issue view")          f="$STUB_DIR/issue_$3.json"; [ -f "$f" ] || echo '{"body":""}' > "$f"; emit "$f" ;;
   *) ;;                  # label create, pr comment, issue comment, ...: only logged
 esac
 exit 0

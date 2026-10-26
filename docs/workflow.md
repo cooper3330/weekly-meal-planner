@@ -17,11 +17,11 @@ A GitHub Project ("Weekly Meal Planner") using the built-in single-select **Stat
 
 | Status | Meaning | Who moves it |
 |---|---|---|
-| Backlog | Idea, draft, or unpromoted task | Human (architect creates tasks here) |
+| Backlog | Idea or draft, not yet ready to build | Human |
 | Spec Review | Spec written, awaiting human approval | Human |
-| **Ready** | Approved; agents may start | Human |
+| **Ready** | Approved; agents may start | Human (specs); the architect, for the tasks it plans |
 | Architecture | Architect is producing the plan and tasks | Coordinator |
-| Plan Review | Plan and task sub-issues awaiting human approval | Architect -> Human |
+| Plan Review | The architect has open questions for the owner (only then) | Architect -> Human |
 | Implementation | Developer is building a task | Coordinator |
 | In Review | PR open | Developer |
 | Done | Merged | Built-in project workflow (see below); coordinator for a feature whose sub-issues are all Done |
@@ -43,27 +43,36 @@ Issue types are set by labels: `type:feature` (a spec), `type:task` (one impleme
 ```
 Feature issue (spec) --human: Ready--> Coordinator --> Architect
    Architect posts/updates the `## Technical plan` comment, opens a PR for any ADRs,
-   creates a `type:task` sub-issue per task (Status: Backlog), sets the feature to Plan Review.
-Human approves the plan (and merges ADR PRs), moves task issues to Ready.
-Task issue --Ready--> Coordinator --> Developer
+   creates a `type:task` sub-issue per task, each with a `Blocked by:` line.
+   No open questions: the tasks go to Ready and the feature to Implementation.
+   Open questions: one comment with the questions and recommended answers; the tasks and the
+   feature go to Plan Review. The owner answers (and moves the tasks to Ready, or comments
+   `/revise` so the architect resolves them and promotes the tasks).
+Task issue --Ready, all blockers done--> Coordinator --> Developer
    Developer branches `issue-N-slug`, writes the tests first and implements until they pass, opens PR (`Closes #N`), sets In Review.
 Human reviews/merges. The PR's `Closes #N` closes the task, and the built-in project workflows move it to Done; when all sub-issues are Done, the coordinator moves the feature to Done.
 ```
 
 ## Routing rules (coordinator)
 - `type:feature` or `type:architecture` in **Ready** -> Architect.
-- `type:task` or `type:bug` in **Ready** -> Developer, only if its blockers are Done and (for tasks) the parent feature has a `## Technical plan` comment.
+- `type:task` or `type:bug` in **Ready** -> Developer, only if every blocker on its `Blocked by:` line is done (an issue is closed, a PR is merged) and (for tasks) the parent feature has a `## Technical plan` comment. The coordinator script checks the blockers itself and logs `#N waits on #M` for a held-back task.
 - Anything lacking acceptance criteria -> **Blocked** with a comment asking for them.
 - One active item per agent role at a time (avoids merge conflicts early on); raise the limit via `MAX_PARALLEL` in `scripts/coordinator.sh`.
 
 ## Writing the artifacts
 - **Spec (issue body):** why, user stories, functional requirements, numbered testable acceptance criteria (AC-1...), out of scope, open questions. No tech choices. Use the *Feature spec* form.
 - **Plan (comment):** approach, components and interfaces, data model, LLM usage (prompts, JSON schemas, validation), constitution check, risks, links to ADRs, and the task list in order.
-- **Task (sub-issue):** goal, the AC numbers it covers, files likely touched, the tests to write first (including edge cases), dependencies. Use the *Task* form.
+- **Task (sub-issue):** goal, the AC numbers it covers, files likely touched, the tests to write first (including edge cases), and a machine-readable line `Blocked by: #12, #15` (or `Blocked by: none`) naming the tasks and the ADR PR it waits on. Use the *Task* form.
 - Spec changes after approval: edit the issue body and leave a comment saying what changed. The architect re-checks the plan; the coordinator does not re-dispatch work already in progress.
 
+## Planned work flows to Ready
+Moving every planned task to Ready by hand was a chore, not a decision, so the architect does it. When it has no open questions it puts each task in Ready itself; open questions (conflicting requirements, a security concern, a trade-off the spec and constitution do not settle) are the only reason a plan waits in Plan Review. Dependencies are explicit: a task is dispatched only once everything on its `Blocked by:` line is done. Tasks that rely on the architect's ADRs list the ADR PR there, so development starts after you accept the decisions by merging that PR (until the reviewer agent and risk-based auto-merge in #4 take that over).
+
 ## Human gates
-Spec approval (moving to Ready), plan approval (promoting tasks to Ready), and PR merge are always human.
+- Spec approval: moving a spec to Ready.
+- Answering the architect's open questions, when it has any (Plan Review).
+- Accepting architecture decisions by merging the ADR PR, and merging PRs generally, until #4 automates low-risk merges.
+- Plan approval is no longer a routine gate.
 
 ## Models
 `.claude/settings.json` pins the executor model to Sonnet 5.5 and enables Opus 5.5 as the [advisor](https://code.claude.com/docs/en/advisor.md) (experimental). Claude consults the advisor at decision points (before committing to an approach, when stuck, before declaring done), so the coordinator, architect, and developer agents all get Opus guidance while keeping Sonnet's cost for routine turns. Each agent in `.claude/agents/` also pins its model in frontmatter so it doesn't depend on how the session was started: the coordinator and developer run on `claude-sonnet-5-5`, and the architect runs on `claude-opus-5-5` (planning is where the strongest model pays off). Opus main with the Opus advisor is an accepted pairing, so the advisor stays attached to all three. Subagents inherit the advisor from settings. The `settings.json` `model` line also makes Sonnet 5.5 the default for interactive sessions in this repo.
