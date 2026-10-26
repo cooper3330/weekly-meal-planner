@@ -35,3 +35,14 @@ The first issues to file are listed in [`docs/backlog.md`](docs/backlog.md).
 To ask an agent to change its PR or its plan, comment `/revise` (or submit a review as **Request changes**); see the review and revision loop in [`docs/workflow.md`](docs/workflow.md).
 
 The helper scripts have offline tests (stubbed `gh`, `claude`, and `date`): `bash tests/scripts/run.sh`. `./scripts/setup-project.sh` is safe to re-run. The coordinator runs headless, so it only uses an allowlist of commands; add more with `EXTRA_ALLOWED_TOOLS` (comma-separated) if a run stalls on one.
+
+## Development
+
+The app is Python 3.12+ managed with [uv](https://docs.astral.sh/uv/) (ADR 0004).
+
+1. Install uv: `brew install uv`.
+2. Install dependencies: `uv sync` (or `make sync`).
+3. Run all checks: `make check`. It runs ruff format, ruff lint, mypy, pytest, then the script tests, and stops at the first failure. Exit 0 means green. `make fmt` applies formatting fixes.
+4. Follow the test-first loop (ADR 0010): write the tests named in the task and run `make check` to see them fail for the right reason; commit the failing tests first; then implement until `make check` exits 0. Never weaken, skip, or delete a test to get green.
+
+Tests run offline with no API key: an autouse fixture blocks internet sockets and removes `ANTHROPIC_API_KEY`. Copy `.env.example` to `.env` for local runs.

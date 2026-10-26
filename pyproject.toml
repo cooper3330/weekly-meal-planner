@@ -1,0 +1,37 @@
+[project]
+name = "mealplanner"
+version = "0.1.0"
+description = "Local, Claude-based weekly meal planner"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "jinja2",
+    "python-multipart",
+    "pydantic",
+    "anthropic",
+]
+
+[dependency-groups]
+dev = ["pytest", "httpx", "ruff", "mypy"]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+# ruff would reformat code blocks inside Markdown (ADRs, README); docs are not linted code.
+extend-exclude = ["docs", "README.md"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.mypy]
+strict = true
+files = ["src"]
+mypy_path = "src"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
