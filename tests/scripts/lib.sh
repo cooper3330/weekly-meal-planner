@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Test helpers: run the project's shell scripts offline against stubbed gh, claude and date.
+# Test helpers: run the project's shell scripts offline against stubbed gh, git, claude and date.
 # The date stub rejects GNU-only -I flags the way macOS (BSD) date does.
 set -u
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -18,18 +18,28 @@ assert_count()   { # file regex expected message
 assert_eq()      { if [ "$1" = "$2" ]; then ok "$3"; else bad "$3 (expected '$2', got '$1')"; fi; }
 
 # new_sandbox: creates $T with stub binaries and empty fixtures; sets STUB_DIR and PATH.
+#
+# Fixtures (all optional, default to empty) that the gh stub serves:
+#   items.json projects.json fields.json project.json milestones.json   (project setup / board)
+#   prs.json issues.json                                                (gh pr list / gh issue list)
+#   issue_comments_<N>.json pr_comments_<N>.json pr_reviews_<N>.json    (REST comment endpoints)
 new_sandbox() {
   T="$(mktemp -d)"
   STUB_DIR="$T"
   export STUB_DIR
   mkdir -p "$T/bin"
   : > "$T/gh.log"
+  : > "$T/git.log"
   : > "$T/claude.calls"
+  : > "$T/claude.all"
+  : > "$T/claude.cwds"
   echo '{"items":[]}' > "$T/items.json"
   echo '{"projects":[],"totalCount":0}' > "$T/projects.json"
   echo '{"fields":[{"id":"PVTF_title","name":"Title","type":"ProjectV2Field"},{"id":"PVTSSF_status","name":"Status","type":"ProjectV2SingleSelectField","options":[{"id":"o_todo","name":"Todo"},{"id":"o_prog","name":"In Progress"},{"id":"o_done","name":"Done"}]}],"totalCount":2}' > "$T/fields.json"
   echo '[]' > "$T/milestones.json"
   echo '{"id":"PVT_abc","number":1,"title":"Weekly Meal Planner"}' > "$T/project.json"
+  echo '[]' > "$T/prs.json"
+  echo '[]' > "$T/issues.json"
 
   cat > "$T/bin/gh" <<'STUB'
 #!/usr/bin/env bash
@@ -38,13 +48,28 @@ args=("$@"); jqexpr=""; has_f=""
 for ((i = 0; i < ${#args[@]}; i++)); do
   case "${args[$i]}" in
     -q|--jq) jqexpr="${args[$((i + 1))]}" ;;
-    -f) has_f=1 ;;
+    -f|-F) has_f=1 ;;
+    -X) [ "${args[$((i + 1))]}" != "GET" ] && has_f=1 ;;
   esac
 done
-emit() { if [ -n "$jqexpr" ]; then jq -r "$jqexpr" < "$1"; else cat "$1"; fi; }
-case "$1" in
-  api) if [ -n "$has_f" ]; then exit 0; else emit "$STUB_DIR/milestones.json"; fi; exit 0 ;;
-esac
+# emit FILE: print the fixture (or [] if it does not exist), through --jq/-q if given.
+emit() {
+  local f="$1"
+  if [ ! -f "$f" ]; then f="$STUB_DIR/empty.json"; echo '[]' > "$f"; fi
+  if [ -n "$jqexpr" ]; then jq -r "$jqexpr" < "$f"; else cat "$f"; fi
+}
+if [ "$1" = "api" ]; then
+  if [ -n "$has_f" ]; then exit 0; fi          # a write (POST/PATCH): just logged
+  path="${2%%\?*}"
+  case "$path" in
+    repos/*/milestones)        emit "$STUB_DIR/milestones.json" ;;
+    repos/*/issues/*/comments) n="${path#repos/*/issues/}"; emit "$STUB_DIR/issue_comments_${n%%/*}.json" ;;
+    repos/*/pulls/*/comments)  n="${path#repos/*/pulls/}";  emit "$STUB_DIR/pr_comments_${n%%/*}.json" ;;
+    repos/*/pulls/*/reviews)   n="${path#repos/*/pulls/}";  emit "$STUB_DIR/pr_reviews_${n%%/*}.json" ;;
+    *) echo '[]' ;;
+  esac
+  exit 0
+fi
 case "$1 $2" in
   "repo view")           echo "${STUB_REPO:-cooper3330/weekly-meal-planner}" ;;
   "project item-list")   emit "$STUB_DIR/items.json" ;;
@@ -53,15 +78,36 @@ case "$1 $2" in
   "project field-list")  emit "$STUB_DIR/fields.json" ;;
   "project create")      echo '{"number":7}' > "$STUB_DIR/created.json"; emit "$STUB_DIR/created.json" ;;
   "project link")        if [ -n "${STUB_LINK_FAIL:-}" ]; then echo "has different owner from '@me'" >&2; exit 1; fi ;;
-  *) ;;
+  "pr list")             emit "$STUB_DIR/prs.json" ;;
+  "issue list")          emit "$STUB_DIR/issues.json" ;;
+  *) ;;                  # label create, pr comment, issue comment, ...: only logged
 esac
+exit 0
+STUB
+
+  cat > "$T/bin/git" <<'STUB'
+#!/usr/bin/env bash
+# Records every call. `git worktree add` creates the target directory so callers can cd into it.
+echo "git $*" >> "$STUB_DIR/git.log"
+# STUB_WORKTREE_FAIL / STUB_MERGE_FAIL make those operations fail (merge --abort always works).
+case " $* " in
+  *" worktree add "*) [ -n "${STUB_WORKTREE_FAIL:-}" ] && { echo "fatal: worktree add failed" >&2; exit 128; } ;;
+  *" merge --abort "*) exit 0 ;;
+  *" merge "*) [ -n "${STUB_MERGE_FAIL:-}" ] && { echo "CONFLICT (content): merge conflict" >&2; exit 1; } ;;
+esac
+if [ "${1:-}" = "worktree" ] && [ "${2:-}" = "add" ]; then
+  args=("$@"); n=${#args[@]}
+  mkdir -p "${args[$((n - 2))]}"
+fi
 exit 0
 STUB
 
   cat > "$T/bin/claude" <<'STUB'
 #!/usr/bin/env bash
 echo "called" >> "$STUB_DIR/claude.calls"
+pwd >> "$STUB_DIR/claude.cwds"
 printf '%s\n' "$@" > "$STUB_DIR/claude.args"
+{ echo "---CALL---"; printf '%s\n' "$@"; } >> "$STUB_DIR/claude.all"
 STUB
 
   cat > "$T/bin/date" <<'STUB'
@@ -71,7 +117,7 @@ for a in "$@"; do
 done
 exec /bin/date "$@"
 STUB
-  chmod +x "$T/bin/gh" "$T/bin/claude" "$T/bin/date"
+  chmod +x "$T/bin/gh" "$T/bin/git" "$T/bin/claude" "$T/bin/date"
   PATH="$T/bin:$PATH"
 }
 

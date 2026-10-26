@@ -73,3 +73,23 @@ Spec approval (moving to Ready), plan approval (promoting tasks to Ready), and P
 - Advisor calls bill at Opus rates. There is no setting to force or cap them; ask for one in the task prompt if needed.
 - Personal override: `/advisor off` or `claude --advisor <model>` for a session.
 
+
+## Review and revision loop
+You review agent PRs and plan issues in GitHub as usual. The coordinator picks up your feedback and sends it to the agent that owns the work.
+
+**How to ask for changes**
+- On a PR (an `arch-*` ADR PR or an `issue-*` code PR): leave inline comments and submit the review as **Request changes**, or add any comment containing the word `/revise`.
+- On a feature or architecture issue (feedback on the plan): comment with `/revise`.
+- Only comments from the repo's OWNER, MEMBER, or COLLABORATOR count. Ordinary comments without `/revise` are ignored, so you can discuss freely.
+
+**What happens**
+1. Each coordinator pass (`scripts/coordinator.sh`, or the Actions coordinator once #4 lands) runs `scripts/pending-revisions.sh`. It lists work whose newest trusted feedback is newer than the newest agent comment.
+2. For each item the coordinator posts a short acknowledgement, creates a throwaway detached git worktree on the PR branch (or on `origin/main` for plan feedback) so your own checkout and local branches are untouched, merges `origin/main` into the PR worktree first (so the agent runs the current protocol; a conflict is reported on the PR instead), and runs the owning agent in revision mode: the architect for `arch-*` branches and plan issues, the developer for `issue-*` branches. The prompt names the PR or issue but not the feedback text; the agent reads the comments itself and ignores untrusted authors.
+3. The agent adds new commits (never amends or force-pushes), replies on every thread, and pushes. You re-review, resolve the threads, and merge.
+
+**The marker.** Agents post with the owner's own GitHub account, so every agent comment ends with a hidden marker, `<!-- agent:NAME -->`. The marker, not the author, is how the loop tells agent comments from yours. It also means an agent's reply, even one that quotes `/revise`, is never treated as feedback.
+
+**Limits**
+- It runs while the coordinator runs: loop mode polls every `INTERVAL` seconds, `--once` does a single pass.
+- A failed run is reported in the coordinator's output. Comment `/revise` again to retry.
+- You still resolve threads and merge. The reviewer agent and risk-based auto-merge in #4 will take that over.
