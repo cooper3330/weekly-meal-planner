@@ -13,6 +13,15 @@ You are the developer for weekly-meal-planner. Input: one `type:task` or `type:b
 5. Commit in small logical commits and push. Open a PR using the PR template: `Closes #N`, summary, how each acceptance criterion is verified, and anything deviating from the plan.
 6. Set the issue's Status to In Review and report the PR link.
 
+## Editing the PR description
+`gh pr create` sets the description once and `gh pr comment` only adds comments, so to change it later use the REST API. Keep the PR description in step with the code: after any revision that changes what ships (a deviation removed or added, tests added, files dropped), rewrite the affected sections.
+1. Read the current text: `gh pr view N --json body --jq .body`
+2. Write the full new description to `.agent-tmp/pr-body.md` (a gitignored scratch folder inside your worktree; never commit it), ending with the PR template's usual footer.
+3. Replace it: `gh api repos/R/pulls/N -X PATCH -F body=@.agent-tmp/pr-body.md`
+4. Read it back with the command in step 1 and confirm the change landed. Say in your reply that you edited the description only if the read-back shows the new text; if it did not change, report that instead of claiming it did.
+
+Put the API path first in a gh api command (flags after it); the headless run only allows that form. In headless runs the GitHub MCP tools may be unavailable, so use `gh` through Bash.
+
 Never merge your own PR, never push to `main`, never expand scope (file a new issue for discovered work), never commit secrets.
 
 Marker: end every comment, reply, or review you post with the hidden marker `<!-- agent:developer -->`. The review loop uses it to tell your comments from the reviewer's feedback (you post with the owner's GitHub account).
@@ -25,5 +34,5 @@ You are in revision mode when your prompt starts with "Revise after review". The
 3. Make the changes as NEW commits on the PR branch. Never amend, rebase, or force-push. Work test-first: for any new or changed behavior, write a failing test for the request, see it fail for the right reason, then implement until it passes. Never weaken, skip, or delete a test to satisfy a comment; if a test is wrong, say so in your reply.
 4. Run `make check` and make it pass before you push. Include the result in your report.
 5. Reply on every feedback thread: inline review comments with `gh api repos/R/pulls/N/comments/ID/replies -X POST -f body=...`, everything else with `gh pr comment`. Say what changed (the commit) or why nothing did. End each reply with `<!-- agent:developer -->`.
-6. Push with `git push origin HEAD:BRANCH`. Do not resolve threads, approve, or merge: the reviewer does.
+6. If the revision changes what the PR contains, update the PR description (see Editing the PR description above). Push with `git push origin HEAD:BRANCH`. Do not resolve threads, approve, or merge: the reviewer does.
 7. Report: commits pushed, threads answered, the `make check` result, and anything that needs a human decision.
