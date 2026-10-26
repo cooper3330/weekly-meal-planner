@@ -41,7 +41,7 @@ assert_no_grep "docs/workflow.md" 'humans? promotes? (the )?(task|tasks)' "workf
 
 assert_grep ".github/ISSUE_TEMPLATE/task.yml" "Blocked by: " "task form explains the Blocked by: line"
 
-\necho "agents: comments are edited and replied to with path-first gh api commands"
+echo "agents: comments are edited and replied to with path-first gh api commands"
 assert_grep ".claude/agents/architect.md" 'gh api repos/R/issues/comments/ID -X PATCH -F body=@' "architect has the exact command to edit an existing comment"
 for a in architect developer; do
   assert_no_grep ".claude/agents/$a.md" 'gh api (-X|--method)' "$a: no flag-first gh api (it would not match the allowlist)"
@@ -49,9 +49,15 @@ for a in architect developer; do
 done
 assert_grep ".claude/agents/architect.md" 'MCP' "architect is told the GitHub MCP tools may be unavailable in headless runs"
 
-\necho "agents: scratch files stay inside the worktree and out of git"
+echo "agents: scratch files stay inside the worktree and out of git"
 assert_grep ".claude/agents/architect.md" '\.agent-tmp/' "architect writes comment text under .agent-tmp/ (inside the worktree, where headless edits are allowed)"
 assert_no_grep ".claude/agents/architect.md" 'TMPDIR' "architect is not told to write outside the worktree"
 assert_grep ".gitignore" '^\.agent-tmp/$' ".agent-tmp/ is gitignored so scratch text is never committed"
+
+echo "agents: a PR description can be edited by the agent that owns the PR"
+for a in architect developer; do
+  assert_grep ".claude/agents/$a.md" 'gh api repos/R/pulls/N -X PATCH -F body=@\.agent-tmp/pr-body\.md' "$a: has the exact command to edit its PR description"
+done
+assert_grep ".claude/agents/developer.md" 'description (is|must be|stays) (accurate|current)|[Kk]eep the PR description' "developer keeps the PR description in step with the code"
 
 finish

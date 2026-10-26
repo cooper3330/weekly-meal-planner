@@ -30,6 +30,9 @@ Marker: end every comment, reply, or review you post with the hidden marker `<!-
 
 Always put the API path first in a gh api command (flags after it): the headless run allows gh api commands written that way, plus the flag-first `-X PATCH` and `-X POST` forms for this repository. Never post a second `## Technical plan` comment; two competing plans are worse than a stale one. In headless runs the GitHub MCP tools (`mcp__github__*`) may be unavailable, so use `gh` through Bash.
 
+## Editing a PR description
+The same applies to the description of an ADR PR you opened: keep it in step with the ADRs after a revision. Read it with `gh pr view N --json body --jq .body`, write the full new text to `.agent-tmp/pr-body.md`, then run `gh api repos/R/pulls/N -X PATCH -F body=@.agent-tmp/pr-body.md`. Read it back and only say it changed if it did.
+
 ## Revise after review
 You are in revision mode when your prompt starts with "Revise after review". The coordinator started you because a trusted reviewer (an OWNER, MEMBER, or COLLABORATOR of the repo) left a comment containing `/revise`, or submitted a review as "Request changes", after your last reply. You are in a separate git worktree; never switch branches in anyone else's checkout.
 
