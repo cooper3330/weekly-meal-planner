@@ -13,6 +13,15 @@ def test_guard_blocks_ipv4_connect() -> None:
         socket.create_connection(("1.1.1.1", 443), timeout=1)
 
 
+def _ipv6_available() -> bool:
+    try:
+        socket.socket(socket.AF_INET6, socket.SOCK_STREAM).close()
+    except OSError:
+        return False
+    return True
+
+
+@pytest.mark.skipif(not _ipv6_available(), reason="host cannot create AF_INET6 sockets")
 def test_guard_blocks_ipv6_connect() -> None:
     with pytest.raises(RuntimeError, match=BLOCKED):
         socket.create_connection(("2606:4700:4700::1111", 443), timeout=1)
