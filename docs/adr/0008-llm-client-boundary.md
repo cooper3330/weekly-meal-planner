@@ -26,7 +26,7 @@ Issue #5, decision 5: how the local app calls the Claude API. Constitution princ
   - Large, stable prompt parts (for example the ingredient catalog id list, ADR 0007) are marked for prompt caching.
 - **Fake implementation (`FakeLLMClient`):** constructed with a queue of scripted responses (dicts to validate, or exceptions to raise). It records every call and runs the same validation path as the real client, so retry and rejection logic is tested offline. It lives in the package so tests and local demo runs can use it.
 - **Two validation layers:**
-  1. Schema validation in the client (shape and types).
+  1. Schema validation in the client (shape, types, and closed vocabularies such as catalog ingredient ids, ADR 0007). A failure here is retried, so the model can correct it.
   2. Domain validation in feature code: catalog resolution, nutrition computation and checks (ADR 0007), and exclusion filtering.
   
   Domain failures never reach the UI. Each feature plan defines its own bounded replacement policy.
