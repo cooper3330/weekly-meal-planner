@@ -96,4 +96,87 @@ new_sandbox; echo '{"items":[]}' > "$T/items.json"
 PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
 assert_no_grep "$T/gh.log" 'project (view|field-list)' "no project view or field-list calls"
 
+# --- review / revision loop -------------------------------------------------------------
+PR_REVISE='[{"id":1,"created_at":"2026-10-26T10:00:00Z","body":"Please change ADR 0004 /revise","author_association":"OWNER"}]'
+PRS15='[{"number":15,"headRefName":"arch-5-architecture-baseline"}]'
+
+echo "coordinator: dispatches the architect to revise a PR with feedback"
+new_sandbox; echo "$PRS15" > "$T/prs.json"; echo "$PR_REVISE" > "$T/issue_comments_15.json"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1; rc=$?
+assert_eq "$rc" "0" "exits 0"
+assert_count "$T/claude.calls" "called" 1 "claude is invoked once, only for the revision"
+assert_grep "$T/claude.args" '^architect$' "uses the architect agent"
+assert_grep "$T/claude.args" 'Revise after review' "prompt asks for revision mode"
+assert_grep "$T/claude.args" 'PR #15' "prompt names the PR"
+assert_grep "$T/claude.args" 'arch-5-architecture-baseline' "prompt names the branch"
+assert_no_grep "$T/claude.args" 'Please change ADR 0004' "comment text (untrusted) is not pasted into the prompt"
+assert_grep "$T/claude.args" '^--allowedTools$' "revision runs with the same explicit allowlist"
+assert_grep "$T/claude.args" 'Bash\(gh pr comment \*\)' "allows replying on the PR"
+assert_grep "$T/claude.args" 'Bash\(make check\)' "allows running make check"
+assert_grep "$T/gh.log" 'pr comment 15 .*agent:ack' "posts a hidden acknowledgement on the PR first"
+assert_grep "$T/git.log" 'worktree add .*arch-5-architecture-baseline' "works in a separate git worktree on the PR branch"
+assert_grep "$T/git.log" 'worktree remove' "removes the worktree afterwards"
+if [ -s "$T/claude.cwds" ] && ! grep -Fxq "$ROOT" "$T/claude.cwds"; then ok "runs outside the user's own checkout"; else bad "runs outside the user's own checkout"; fi
+
+echo "coordinator: revision worktrees are safe and current"
+assert_no_grep "$T/git.log" 'worktree add .* -B ' "never resets a local branch (detached worktree)"
+assert_grep "$T/git.log" 'worktree add -q --detach .* origin/arch-5-architecture-baseline' "checks the PR branch out detached"
+assert_grep "$T/git.log" 'merge -q --no-edit origin/main' "merges main in first so the agent runs the current protocol"
+
+echo "coordinator: a merge conflict with main is reported, not run"
+new_sandbox; echo "$PRS15" > "$T/prs.json"; echo "$PR_REVISE" > "$T/issue_comments_15.json"
+STUB_MERGE_FAIL=1 PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1; rc=$?
+assert_eq "$rc" "0" "exits 0"
+assert_count "$T/claude.calls" "called" 0 "the agent is not started"
+assert_grep "$T/git.log" 'merge --abort' "the failed merge is aborted"
+assert_grep "$T/gh.log" 'pr comment 15 .*conflict.*agent:ack' "tells the reviewer on the PR, with the marker so it is not retried forever"
+assert_grep "$T/git.log" 'worktree remove' "the worktree is cleaned up"
+
+echo "coordinator: a worktree failure is reported, not run in an empty directory"
+new_sandbox; echo "$PRS15" > "$T/prs.json"; echo "$PR_REVISE" > "$T/issue_comments_15.json"
+STUB_WORKTREE_FAIL=1 PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1; rc=$?
+assert_eq "$rc" "0" "exits 0"
+assert_count "$T/claude.calls" "called" 0 "the agent is not started"
+assert_grep "$T/gh.log" 'pr comment 15 .*Could not (create|start).*agent:ack' "tells the reviewer on the PR"
+
+echo "coordinator: does not re-dispatch feedback that was already acknowledged"
+new_sandbox; echo "$PRS15" > "$T/prs.json"
+echo '[{"id":1,"created_at":"2026-10-26T10:00:00Z","body":"/revise","author_association":"OWNER"},{"id":2,"created_at":"2026-10-26T10:00:05Z","body":"Picked up. <!-- agent:ack -->","author_association":"OWNER"}]' > "$T/issue_comments_15.json"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_count "$T/claude.calls" "called" 0 "an acknowledged trigger is not dispatched again"
+
+echo "coordinator: dispatches the architect to revise a plan from an issue comment"
+new_sandbox
+echo '[{"number":5,"labels":[{"name":"type:architecture"}]}]' > "$T/issues.json"
+echo '[{"id":1,"created_at":"2026-10-26T10:00:00Z","body":"add a task /revise","author_association":"OWNER"}]' > "$T/issue_comments_5.json"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_count "$T/claude.calls" "called" 1 "one run"
+assert_grep "$T/claude.args" '^architect$' "architect agent"
+assert_grep "$T/claude.args" 'issue #5' "prompt names the issue"
+assert_grep "$T/gh.log" 'issue comment 5 .*agent:ack' "acknowledges on the issue"
+assert_grep "$T/git.log" 'worktree add .*origin/main' "plan revisions start from main"
+
+echo "coordinator: developer revises its own PR"
+new_sandbox; echo '[{"number":30,"headRefName":"issue-16-scaffold"}]' > "$T/prs.json"
+echo '[{"id":3,"submitted_at":"2026-10-26T10:00:00Z","state":"CHANGES_REQUESTED","body":"","author_association":"OWNER"}]' > "$T/pr_reviews_30.json"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_grep "$T/claude.args" '^developer$' "developer agent"
+
+echo "coordinator: revisions run before new Ready work in the same pass"
+new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+echo "$PRS15" > "$T/prs.json"; echo "$PR_REVISE" > "$T/issue_comments_15.json"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_count "$T/claude.calls" "called" 2 "two runs: one revision, one dispatch"
+seq=$(grep -A1 '^--agent$' "$T/claude.all" | grep -vE '^(--agent|--)$' | tr '\n' ' ')
+assert_eq "$seq" "architect coordinator " "revision first, then the coordinator"
+
+echo "coordinator: a failed revision does not stop the pass"
+new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+echo "$PRS15" > "$T/prs.json"; echo "$PR_REVISE" > "$T/issue_comments_15.json"
+printf '#!/usr/bin/env bash\necho called >> "$STUB_DIR/claude.calls"\nprintf "%%s\\n" "$@" > "$STUB_DIR/claude.args"\n{ echo ---CALL---; printf "%%s\\n" "$@"; } >> "$STUB_DIR/claude.all"\n[ "$2" != "" ] && case "$*" in *"Revise after review"*) exit 1;; esac\n' > "$T/bin/claude"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1; rc=$?
+assert_eq "$rc" "0" "exits 0"
+assert_count "$T/claude.calls" "called" 2 "the Ready dispatch still happens"
+assert_grep "$T/out" 'revision (of|for) .*failed|revision failed' "the failure is reported"
+
 finish
