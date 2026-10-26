@@ -43,8 +43,8 @@ Issue #5, decision 9, Requirement 4, AC-6 and AC-8: the app runs on the user's m
 - Per-user UI concerns (a user switcher, sharing) become their own feature issues.
 
 **Future considerations (post-MVP, not decided here)**
-- **App-level login, decoupled from Tailscale.** Moving identity out of the network layer may come soon after the first MVP. The identity middleware is already the only place a `user_id` is produced, and feature code takes `user_id` as an explicit input (ADR 0011). A login-based identity would therefore replace that one middleware, plus a login page and session handling, without touching feature packages. Whoever adopts it supersedes this ADR's access-control section with a new ADR.
-- **Email notifications when new meal options are ready (MVP2 candidate).** Two parts of this need their own decisions:
+- **App-level login, decoupled from Tailscale (tracked in #25).** Moving identity out of the network layer may come soon after the first MVP. The identity middleware is already the only place a `user_id` is produced, and feature code takes `user_id` as an explicit input (ADR 0011). A login-based identity would therefore replace that one middleware, plus a login page and session handling, without touching feature packages. Whoever adopts it supersedes this ADR's access-control section with a new ADR.
+- **Email notifications when new meal options are ready (MVP2 candidate, tracked in #26).** Two parts of this need their own decisions:
   - Sending email is a second outbound channel, which principle 1 does not allow today. It needs an ADR amending the constitution.
   - "Options refreshed and ready for review" implies generation running in the background on a schedule; today the user triggers it. Generation already lives in feature packages callable without HTTP (ADR 0011), so a scheduled job could call the same functions. Principle 4 still holds: refreshed options are proposals, never a committed week.
 
