@@ -1,19 +1,21 @@
 #!/usr/bin/env bash
-# Setup for labels, milestones, and a GitHub Project with a "Stage" field.
+# Setup for labels, milestones, and a GitHub Project that uses the built-in Status field.
 # Safe to re-run: it reuses whatever already exists and only creates what is missing.
 #
-# Requires: gh authenticated with repo access and the project scope (gh auth refresh -s project).
+# Requires: gh authenticated with repo access and the project scope (gh auth refresh -s project), and jq.
 # Env:   REPO   owner/name (default: the current repository)
 #        OWNER  project owner (default: the repository owner; `gh project link` requires
 #               --owner to match the repo owner, so '@me' is not used)
 set -euo pipefail
 
-command -v gh >/dev/null 2>&1 || { echo "missing required command: gh" >&2; exit 1; }
+for cmd in gh jq; do
+  command -v "$cmd" >/dev/null 2>&1 || { echo "missing required command: $cmd" >&2; exit 1; }
+done
 
 REPO="${REPO:-$(gh repo view --json nameWithOwner -q .nameWithOwner)}"
 OWNER="${OWNER:-${REPO%%/*}}"
 TITLE="Weekly Meal Planner"
-STAGES="Backlog,Spec Review,Ready,Architecture,Plan Review,Implementation,In Review,Done,Blocked"
+STATUSES=("Backlog" "Spec Review" "Ready" "Architecture" "Plan Review" "Implementation" "In Review" "Done" "Blocked")
 
 # Labels (--force updates the color of one that already exists)
 for l in "type:feature:1d76db" "type:task:0e8a16" "type:architecture:5319e7" "type:bug:d73a4a"; do
@@ -47,16 +49,23 @@ if ! gh project link "$num" --owner "$OWNER" --repo "$REPO"; then
   echo "warning: could not link project #$num to $REPO (it may already be linked); continuing" >&2
 fi
 
-# Stage field: create only if missing.
-field_names=$(gh project field-list "$num" --owner "$OWNER" --format json -q '.fields[].name')
-if grep -Fxq -- "Stage" <<<"$field_names"; then
-  echo "Stage field exists"
+# Status field: GitHub creates it with Todo / In Progress / Done, and the CLI cannot change a
+# field's options, so this only checks them and says what to set in the project UI.
+fields=$(gh project field-list "$num" --owner "$OWNER" --format json)
+have=$(jq -r '[.fields[] | select(.name=="Status")] | first | .options[]?.name' <<<"$fields")
+missing=""
+for name in "${STATUSES[@]}"; do
+  if ! grep -Fxq -- "$name" <<<"$have"; then missing="$missing${missing:+, }$name"; fi
+done
+if [ -z "$missing" ]; then
+  echo "Status field has all ${#STATUSES[@]} options"
 else
-  gh project field-create "$num" --owner "$OWNER" --name "Stage" --data-type SINGLE_SELECT \
-    --single-select-options "$STAGES"
-  echo "Stage field created"
+  echo "WARNING: the project's Status field is missing these options: $missing" >&2
+  echo "In the project UI (Project > Settings > Fields > Status), set the options in this order:" >&2
+  (IFS=,; echo "  ${STATUSES[*]}" | sed 's/,/, /g') >&2
 fi
 
 echo "Project #$num is ready. Add to your environment:  export PROJECT_NUMBER=$num"
-echo "Optional: in the project UI, add a board view grouped by Stage and enable the"
-echo "'Auto-add to project' workflow for $REPO."
+echo "Next, in the project UI: add a board view grouped by Status, then under Workflows enable"
+echo "'Auto-add to project' for $REPO plus the built-in 'Item added to project' (Backlog),"
+echo "'Item closed' (Done) and 'Pull request merged' (Done). See docs/workflow.md."

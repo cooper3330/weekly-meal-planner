@@ -10,12 +10,12 @@ GitHub issues are the source of truth for specs, plans, and tasks. The repo hold
 | Tasks | Sub-issues of the feature issue (`type:task`) |
 | Epics / major objectives | Milestones. Assign feature issues to a milestone. Use a parent issue only if an objective needs its own discussion thread |
 | Architecture decisions | ADR files in `docs/adr/`, merged by PR. Plans and issues link to them |
-| Work state | GitHub Project, `Stage` field |
+| Work state | GitHub Project, built-in `Status` field |
 
 ## Project board
-A GitHub Project ("Weekly Meal Planner") with a single-select **Stage** field:
+A GitHub Project ("Weekly Meal Planner") using the built-in single-select **Status** field, with exactly these nine options in this order (`scripts/setup-project.sh` checks them):
 
-| Stage | Meaning | Who moves it |
+| Status | Meaning | Who moves it |
 |---|---|---|
 | Backlog | Idea, draft, or unpromoted task | Human (architect creates tasks here) |
 | Spec Review | Spec written, awaiting human approval | Human |
@@ -24,8 +24,18 @@ A GitHub Project ("Weekly Meal Planner") with a single-select **Stage** field:
 | Plan Review | Plan and task sub-issues awaiting human approval | Architect -> Human |
 | Implementation | Developer is building a task | Coordinator |
 | In Review | PR open | Developer |
-| Done | Merged | Coordinator |
+| Done | Merged | Built-in project workflow (see below); coordinator for a feature whose sub-issues are all Done |
 | Blocked | Needs human input (see comment) | Any agent |
+
+### Board automation
+The Status field is the board's built-in field, so GitHub's own project workflows can move cards. In the project, open **Workflows** and enable:
+
+- **Auto-add to project** for this repo (a filter of `is:issue` keeps one card per task; PR cards are not needed because `Closes #N` closes the issue).
+- **Item added to project**: set Status to **Backlog**.
+- **Item closed**: set Status to **Done**.
+- **Pull request merged**: set Status to **Done** (only matters if PR cards are on the board).
+
+Everything else is moved by a human or the agents as in the table above. An item with no Status shows in a "No Status" column; treat it as untriaged. The coordinator only acts on **Ready** and refuses to run if the Status field lacks any of the nine options.
 
 Issue types are set by labels: `type:feature` (a spec), `type:task` (one implementable unit from a plan), `type:architecture` (a design question that produces ADRs), `type:bug`.
 
@@ -33,11 +43,11 @@ Issue types are set by labels: `type:feature` (a spec), `type:task` (one impleme
 ```
 Feature issue (spec) --human: Ready--> Coordinator --> Architect
    Architect posts/updates the `## Technical plan` comment, opens a PR for any ADRs,
-   creates a `type:task` sub-issue per task (Stage: Backlog), sets the feature to Plan Review.
+   creates a `type:task` sub-issue per task (Status: Backlog), sets the feature to Plan Review.
 Human approves the plan (and merges ADR PRs), moves task issues to Ready.
 Task issue --Ready--> Coordinator --> Developer
    Developer branches `issue-N-slug`, writes the tests first and implements until they pass, opens PR (`Closes #N`), sets In Review.
-Human reviews/merges. Coordinator moves the task to Done; when all sub-issues are Done, the feature is Done.
+Human reviews/merges. The PR's `Closes #N` closes the task, and the built-in project workflows move it to Done; when all sub-issues are Done, the coordinator moves the feature to Done.
 ```
 
 ## Routing rules (coordinator)
@@ -63,3 +73,23 @@ Spec approval (moving to Ready), plan approval (promoting tasks to Ready), and P
 - Advisor calls bill at Opus rates. There is no setting to force or cap them; ask for one in the task prompt if needed.
 - Personal override: `/advisor off` or `claude --advisor <model>` for a session.
 
+
+## Review and revision loop
+You review agent PRs and plan issues in GitHub as usual. The coordinator picks up your feedback and sends it to the agent that owns the work.
+
+**How to ask for changes**
+- On a PR (an `arch-*` ADR PR or an `issue-*` code PR): leave inline comments and submit the review as **Request changes**, or add any comment containing the word `/revise`.
+- On a feature or architecture issue (feedback on the plan): comment with `/revise`.
+- Only comments from the repo's OWNER, MEMBER, or COLLABORATOR count. Ordinary comments without `/revise` are ignored, so you can discuss freely.
+
+**What happens**
+1. Each coordinator pass (`scripts/coordinator.sh`, or the Actions coordinator once #4 lands) runs `scripts/pending-revisions.sh`. It lists work whose newest trusted feedback is newer than the newest agent comment.
+2. For each item the coordinator posts a short acknowledgement, creates a throwaway detached git worktree on the PR branch (or on `origin/main` for plan feedback) so your own checkout and local branches are untouched, merges `origin/main` into the PR worktree first (so the agent runs the current protocol; a conflict is reported on the PR instead), and runs the owning agent in revision mode: the architect for `arch-*` branches and plan issues, the developer for `issue-*` branches. The prompt names the PR or issue but not the feedback text; the agent reads the comments itself and ignores untrusted authors.
+3. The agent adds new commits (never amends or force-pushes), replies on every thread, and pushes. You re-review, resolve the threads, and merge.
+
+**The marker.** Agents post with the owner's own GitHub account, so every agent comment ends with a hidden marker, `<!-- agent:NAME -->`. The marker, not the author, is how the loop tells agent comments from yours. It also means an agent's reply, even one that quotes `/revise`, is never treated as feedback.
+
+**Limits**
+- It runs while the coordinator runs: loop mode polls every `INTERVAL` seconds, `--once` does a single pass.
+- A failed run is reported in the coordinator's output. Comment `/revise` again to retry.
+- You still resolve threads and merge. The reviewer agent and risk-based auto-merge in #4 will take that over.
