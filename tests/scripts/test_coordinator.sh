@@ -278,4 +278,14 @@ PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
 assert_count "$T/claude.calls" "called" 1 "a revision still runs when the Status field is not set up"
 assert_no_grep "$T/claude.args" 'PVT_abc' "without Board IDs in the prompt"
 
+\n
+echo "allowlist: gh api writes are allowed with the flag first, for this repo only, never DELETE"
+new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+for form in 'gh api -X PATCH' 'gh api -X POST' 'gh api --method PATCH' 'gh api --method POST'; do
+  assert_grep "$T/claude.args" "^Bash\\($form repos/cooper3330/weekly-meal-planner/\\*\\)\$" "allows: $form repos/<this repo>/*"
+done
+assert_no_grep "$T/claude.args" 'DELETE' "never allows DELETE"
+assert_no_grep "$T/claude.args" 'Bash\(gh api -X (PATCH|POST) \*\)' "no rule that is not scoped to this repo"
+
 finish

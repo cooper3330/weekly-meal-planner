@@ -35,6 +35,8 @@ ALLOWED_TOOLS=(
   "Bash(gh project view *)" "Bash(gh project list *)" "Bash(gh project item-add *)"
   "Bash(gh pr create *)" "Bash(gh pr view *)" "Bash(gh pr list *)"
   "Bash(gh api repos/$REPO/*)"
+  "Bash(gh api -X PATCH repos/$REPO/*)" "Bash(gh api -X POST repos/$REPO/*)"
+  "Bash(gh api --method PATCH repos/$REPO/*)" "Bash(gh api --method POST repos/$REPO/*)"
   "Bash(git checkout *)" "Bash(git add *)" "Bash(git commit *)" "Bash(git push *)"
   "Bash(git status *)" "Bash(git diff *)" "Bash(git fetch *)" "Bash(git pull *)" "Bash(git log *)"
   "Bash(gh pr comment *)"
