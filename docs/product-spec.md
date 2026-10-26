@@ -6,7 +6,7 @@ Choosing a week of lunches and dinners that fit your tastes and dietary restrict
 The app does not plan your whole day or manage your daily intake. It proposes meal options; you decide what fits your own targets. (ADR 0001)
 
 ## Who it is for
-One person to start (ADR 0002), used mostly from a phone. It is built to be simple for one user, with room to onboard others later. It runs on the user's machine and is reached from their devices over their private Tailscale network (see issue #5).
+One person to start (ADR 0002), used mostly from a phone. It is built to be simple for one user, with room to onboard others later. It runs on the user's machine and is reached from their devices over their private Tailscale network (ADR 0012).
 
 ## Weekly loop
 1. **Propose**: app generates a slate of N lunch and M dinner options (default 8 + 8) for the coming week, each with its calories and macros.
@@ -41,9 +41,10 @@ Planning the user's whole day or enforcing calorie or macro targets, multi-user 
 - A free or bundled nutrition dataset is acceptable.
 - The app is served locally and reached over Tailscale; this is a hard input to the network design.
 
-## Open questions (answered by the architecture baseline, issue #5)
-- UI: which web approach and framework?
-- Nutrition source: model-estimated macros validated against a local ingredient table vs a free public nutrition dataset?
-- Storage: SQLite vs flat files?
-- How is "learning" represented: structured preference profile updated after each week, vs retrieval over history?
-- Authentication for one user, and what would change to add users.
+## Answered questions (architecture baseline, issue #5)
+- UI: server-rendered, mobile-first HTML from FastAPI and Jinja2, no build step, minimum viewport 360 x 640. [ADR 0005](adr/0005-server-rendered-mobile-web-ui.md)
+- Nutrition source: a bundled ingredient catalog curated from USDA FoodData Central (SR Legacy). The model picks catalog ingredients; code computes calories and macros. Unknown ingredients are rejected. [ADR 0007](adr/0007-bundled-usda-ingredient-catalog.md)
+- Storage: SQLite (standard library), forward-only SQL migrations, user-owned rows keyed by `user_id`. [ADR 0006](adr/0006-sqlite-storage-and-migrations.md)
+- Learning: structured, user-editable learned-preference records derived in code from logged picks, skips, and ratings; no retrieval over history. [ADR 0009](adr/0009-structured-preference-profile.md)
+- Authentication: the app binds to loopback behind `tailscale serve`; the Tailscale login is checked against an allowlist in the users table. Adding a user means adding a row. [ADR 0012](adr/0012-tailscale-serve-and-identity-access-control.md)
+- Also decided: Python 3.12 and uv ([ADR 0004](adr/0004-python-uv-runtime.md)), the Claude client boundary ([ADR 0008](adr/0008-llm-client-boundary.md)), the toolchain and test strategy ([ADR 0010](adr/0010-toolchain-and-test-strategy.md)), and the repo skeleton ([ADR 0011](adr/0011-repo-skeleton-and-module-boundaries.md)).
