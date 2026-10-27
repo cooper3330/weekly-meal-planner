@@ -14,7 +14,7 @@
 #        AGENT_GH_TOKEN       token every agent (and this script's own gh calls) acts with: the
 #                             GitHub App installation token (docs/adr/0014). Required when
 #                             GITHUB_ACTIONS=true; locally, agents post as the local gh user without it.
-#        PROJECT_TOKEN        project-only token; used by scripts/board.sh for board calls and by
+#        PROJECT_TOKEN        board-scoped token (project + read:org); used by scripts/board.sh for board calls and by
 #                             this script to read the board. Never set as GH_TOKEN for an agent.
 #        AGENT_GIT_NAME, AGENT_GIT_EMAIL  when both are set, agents commit as this identity
 # Requires: gh (project scope), jq, claude CLI. Works with macOS (BSD) tools and bash 3.2.
