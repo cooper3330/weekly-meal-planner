@@ -299,4 +299,11 @@ new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields
 CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=7200000 PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
 assert_eq "$(head -1 "$T/claude.bgwait")" "7200000" "a value already in the environment wins, so a cap can be set"
 
+echo "allowlist: agents can run the shell tests and pin GitHub Actions to a commit SHA"
+new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_grep "$T/claude.args" '^Bash\(scripts/pin-action\.sh \*\)$' "allows scripts/pin-action.sh (a fixed read-only lookup)"
+assert_grep "$T/claude.args" '^Bash\(bash tests/scripts/\*\)$' "allows running the shell tests under tests/scripts"
+assert_no_grep "$T/claude.args" 'Bash\((bash|sh|curl|wget) \*\)' "no unrestricted shell, curl or wget"
+
 finish

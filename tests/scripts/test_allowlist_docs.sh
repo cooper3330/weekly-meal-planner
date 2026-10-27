@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Drift guard: every gh / git / make / uv command that an agent definition tells an agent to run
+# Drift guard: every gh / git / make / uv / bash / scripts/*.sh command that an agent definition tells an agent to run
 # must be covered by the coordinator's headless allowlist. `claude -p` cannot ask for approval, so
 # an uncovered command is silently denied (this is how editing the Technical plan comment broke:
 # the allowlist only matched `gh api` with the path first).
@@ -42,7 +42,7 @@ while IFS= read -r cmd; do
   cmd="${cmd//repos\/R\//repos/$REPO_NAME/}"
   checked=$((checked + 1))
   if allowed "$cmd"; then ok "allowed: $cmd"; else bad "NOT allowed: $cmd"; fi
-done < <(grep -ohE '`(gh|git|make|uv) [^`]*`' .claude/agents/*.md | tr -d '`' | sort -u)
+done < <(grep -ohE '`(gh|git|make|uv|bash|scripts/[a-z-]+\.sh) [^`]*`' .claude/agents/*.md | tr -d '`' | sort -u)
 [ "$checked" -gt 5 ] && ok "checked $checked documented commands" || bad "checked enough documented commands (got $checked)"
 
 finish
