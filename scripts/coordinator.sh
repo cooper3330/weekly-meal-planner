@@ -9,6 +9,8 @@
 #        INTERVAL             seconds between passes (default 300)
 #        MAX_PARALLEL         agents allowed to run at once (default 1)
 #        EXTRA_ALLOWED_TOOLS  comma-separated extra `claude --allowedTools` rules
+#        CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS  how long claude -p waits for background subagents
+#                             (default 0 = indefinitely; set e.g. 7200000 to cap at two hours)
 # Requires: gh (project scope), jq, claude CLI. Works with macOS (BSD) tools and bash 3.2.
 set -euo pipefail
 
@@ -22,6 +24,12 @@ REPO="${REPO:-$(gh repo view --json nameWithOwner -q .nameWithOwner)}"
 OWNER="${OWNER:-${REPO%%/*}}"
 INTERVAL="${INTERVAL:-300}"
 MAX_PARALLEL="${MAX_PARALLEL:-1}"
+
+# The coordinator hands work to subagents (the architect plans for longer than ten minutes).
+# `claude -p` stops waiting for background subagents after 10 idle minutes and kills them
+# mid-run; 0 waits indefinitely. A value already in the environment wins (a cap such as
+# 7200000 for two hours). Every claude launched below inherits it.
+export CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS="${CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS:-0}"
 
 # `date -I` is GNU-only; this format works on macOS and Linux.
 ts() { date '+%Y-%m-%dT%H:%M:%S%z'; }
