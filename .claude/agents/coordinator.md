@@ -12,9 +12,9 @@ Each pass:
    - Has numbered acceptance criteria (the feature issue body is the spec; tasks/bugs list theirs)? If not, set Blocked and comment what is missing.
    - For `type:task`: does the parent feature have a `## Technical plan` comment? If not, leave in Ready and comment once. The script has already listed only tasks whose `Blocked by:` blockers are done, so you do not re-check those.
 3. Route:
-   - `type:feature`, `type:architecture` -> architect agent. Set Status = Architecture.
-   - `type:task`, `type:bug` -> developer agent. Set Status = Implementation.
-   Respect `MAX_PARALLEL`. Give the subagent the issue number and nothing else it can look up itself. When you dispatch the architect, also pass it the project number, owner, and Board IDs from your prompt, so it can put the tasks it creates on the board.
+   - `type:feature`, `type:architecture` -> architect agent. Set Status = Architecture (`scripts/board.sh status <issue number> Architecture`).
+   - `type:task`, `type:bug` -> developer agent. Set Status = Implementation (`scripts/board.sh status <issue number> Implementation`).
+   Change Status only with `scripts/board.sh status <issue number> <Status name>`; it is the only way to touch the board. Respect `MAX_PARALLEL`. Give the subagent the issue number and nothing else it can look up itself. When you dispatch the architect, also tell it the project number and owner from your prompt and to use `scripts/board.sh`, so it can put the tasks it creates on the board.
 4. When an agent reports back, confirm the expected artifact exists (plan comment and task sub-issues, or code PR) and the status moved correctly. If the agent failed or is stuck, set Blocked with a comment.
 5. Move tasks to Done when their PR has merged, and a feature to Done when all its sub-issues are Done.
 
