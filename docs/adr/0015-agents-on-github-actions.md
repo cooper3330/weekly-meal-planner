@@ -24,9 +24,11 @@ Constraints:
 |---|---|---|
 | `coordinator.yml` | `schedule` (hourly, at minute 17) and `workflow_dispatch` | `scripts/coordinator.sh --once` |
 | `revise.yml` | `issue_comment`, `pull_request_review`, `pull_request_review_comment`; `workflow_dispatch` (inputs `kind`, `number`, `source`) | `scripts/coordinator.sh --revise <pr\|issue> <number>`: one revision run for one item |
-| `review.yml` | `pull_request` (`opened`, `synchronize`, `ready_for_review`, `reopened`) on `issue-*` and `arch-*` branches of this repository | the reviewer agent, then the deterministic auto-merge or revision-dispatch step (ADR 0013) |
-| `risk-label.yml` | `pull_request_target`, plus `labeled` | ADR 0013 |
-| `ci.yml` | `pull_request`, `push` to `main` | ADR 0013 |
+| `review.yml` | `pull_request` (`opened`, `synchronize`, `ready_for_review`, `reopened`) with `branches: [main]`, from `issue-*` and `arch-*` branches of this repository | the reviewer agent, then the deterministic auto-merge or revision-dispatch step (ADR 0013) |
+| `risk-label.yml` | `pull_request_target` with `branches: [main]`, plus `labeled` | ADR 0013 |
+| `ci.yml` | `pull_request` with `branches: [main]`, `push` to `main` | ADR 0013 |
+
+- **Only PRs into `main`.** The owner decided that the merge gate covers only PRs whose base branch is `main` ([comment](https://github.com/cooper3330/weekly-meal-planner/pull/31#discussion_r4385338589)). The `branches` filter of a `pull_request` trigger matches the base branch, so PRs into any other branch start none of these workflows. The revision loop (`revise.yml`) is driven by a human `/revise`, so it is not filtered.
 
 - Project item events are not available, so the coordinator is not event-driven. Moving a card to Ready is picked up on the next hourly run, or at once with "Run workflow".
 
@@ -38,7 +40,7 @@ Constraints:
   - the body contains `/revise` as a word, or the review state is `changes_requested`.
 
   The script re-checks this with the `pending-revisions.sh` logic (the source of truth), so a stale or duplicate event is a no-op.
-- **`review.yml`:** runs only when `github.event.pull_request.head.repo.full_name == github.repository`, so fork PRs never get secrets. No workflow checks out PR code under `pull_request_target`.
+- **`review.yml`:** runs only on PRs into `main`, and only when `github.event.pull_request.head.repo.full_name == github.repository`, so fork PRs never get secrets. No workflow checks out PR code under `pull_request_target`.
 - **Exactly one run per trigger:**
   - Each workflow has a `concurrency` group per issue or PR, with `cancel-in-progress: false`.
   - One review submission fires both `pull_request_review` and `pull_request_review_comment`. The second run then finds the acknowledgement the first one posted, and exits.
