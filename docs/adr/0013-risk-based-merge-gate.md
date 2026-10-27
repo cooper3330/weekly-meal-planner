@@ -25,13 +25,19 @@ Principle 7 says the suite is the definition of done; ADR 0010 makes `make check
 - Branch protection on `main` requires the `check` status. It also requires a pull request with 1 approving review and review from Code Owners. These are manual settings, listed in `docs/workflow.md`.
 
 **Risk rules: one list, two consumers**
-- `.github/risk-paths` lists one rule per line. A line ending in `/` is a directory prefix; any other line is an exact path. The initial list, and nothing else:
+- `.github/risk-paths` lists one rule per line, with three rule kinds:
+  - a line ending in `/` is a directory prefix, from the repository root;
+  - a line starting with `**/` is a file name that matches at any depth;
+  - any other line is an exact path from the repository root.
+- The initial list, and nothing else:
   - **Constitution and workflow doc:** `docs/constitution.md`, `docs/workflow.md`
   - **Architecture decisions:** `docs/adr/`
-  - **Agent process and Claude configuration:** `CLAUDE.md`, `.claude/`, `scripts/`
+  - **Agent process and Claude configuration:**
+    - `.claude/` and `scripts/`;
+    - `**/CLAUDE.md`, because Claude Code also loads `CLAUDE.md` files in subdirectories.
   - **GitHub and Git configuration:**
     - `.github/`, which holds the workflows, CODEOWNERS, `risk-paths` and the templates;
-    - `.gitignore`, which keeps `.env` out of commits.
+    - `**/.gitignore`, which keeps `.env` out of commits. A nested `.gitignore` can re-include it, so this rule matches at any depth.
   - **Environment variables and secrets:**
     - `.env.example`;
     - `src/mealplanner/config.py`, the one module that reads environment variables (ADR 0011).
@@ -41,7 +47,10 @@ Principle 7 says the suite is the definition of done; ADR 0010 makes `make check
   - `pyproject.toml`, `uv.lock` and `Makefile`;
   - `README.md` and `docs/product-spec.md`.
 - `scripts/classify-risk.sh` reads changed paths on stdin and prints `high` or `low`. It is pure: no network and no `gh`, so it is tested offline in `tests/scripts/`.
-- `.github/CODEOWNERS` assigns every rule in `.github/risk-paths` to `@cooper3330`. A drift test fails if the two lists differ.
+- `.github/CODEOWNERS` assigns every rule in `.github/risk-paths` to `@cooper3330`.
+  - CODEOWNERS uses gitignore semantics, where `scripts/` would also match `tests/scripts/`. So the root rules are written root-anchored, with a leading `/` (`/scripts/`, `/docs/adr/`). The `**/` rules are copied as they are.
+  - A drift test fails if the two lists differ, comparing them with the leading `/` removed.
+  - A second test fails if a CODEOWNERS pattern is neither root-anchored nor a `**/` rule.
 - The labeler workflow (`risk-label.yml`) runs on `pull_request_target` with `branches: [main]`. It checks out only the base branch, never the PR's code, so a PR cannot loosen the rules it is judged by. It lists the PR's files through the API and adds `risk:high` when the classifier says `high`. It never removes the label: a `risk:high` added by hand (by the owner, the architect or the reviewer) always sticks, and only a human removes it.
 
 **Reviewer agent (FR-3)**
@@ -68,6 +77,8 @@ Principle 7 says the suite is the definition of done; ADR 0010 makes `make check
 - GitHub then merges once the required `check` status and the approval are in place.
 - If any of these checks fails, the step requests the owner's review and does not enable auto-merge.
 - When `risk:high` is added at any time, a `labeled` handler runs `gh pr merge --disable-auto`. This covers a label added by hand after auto-merge was enabled.
+  - The handler is a safety step, so the kill switch does **not** gate it: while agents are paused, a PR whose auto-merge is already enabled must still be stoppable.
+  - It uses the App token, so the labeler's own `GITHUB_TOKEN` keeps no `contents: write`.
 - `risk:high` PRs are merged only by a human. On protected paths, branch protection also demands code-owner approval.
 
 ## Alternatives considered
