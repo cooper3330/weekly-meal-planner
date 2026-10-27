@@ -109,6 +109,14 @@ case " $* " in
   *" merge --abort "*) exit 0 ;;
   *" merge "*) [ -n "${STUB_MERGE_FAIL:-}" ] && { echo "CONFLICT (content): merge conflict" >&2; exit 1; } ;;
 esac
+# STUB_GIT_DIRTY / STUB_GIT_BRANCH / STUB_GIT_UNPUSHED describe the worktree's state;
+# STUB_PUSH_FAIL makes pushes fail.
+case " $* " in
+  *" status --porcelain"*)          [ -n "${STUB_GIT_DIRTY:-}" ] && echo " M tests/scripts/test_workflows.sh" ;;
+  *" rev-parse --abbrev-ref HEAD"*) echo "${STUB_GIT_BRANCH:-HEAD}" ;;
+  *" rev-list --count"*)            echo "${STUB_GIT_UNPUSHED:-0}" ;;
+  *" push "*)                       [ -n "${STUB_PUSH_FAIL:-}" ] && { echo "! [rejected]" >&2; exit 1; } ;;
+esac
 if [ "${1:-}" = "worktree" ] && [ "${2:-}" = "add" ]; then
   args=("$@"); n=${#args[@]}
   mkdir -p "${args[$((n - 2))]}"
@@ -124,6 +132,10 @@ echo "${CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS-UNSET}" >> "$STUB_DIR/claude.bgwait
 echo "GH_TOKEN=${GH_TOKEN-UNSET} PROJECT_TOKEN=${PROJECT_TOKEN-UNSET} GIT_AUTHOR_NAME=${GIT_AUTHOR_NAME-UNSET} GIT_COMMITTER_NAME=${GIT_COMMITTER_NAME-UNSET} GIT_AUTHOR_EMAIL=${GIT_AUTHOR_EMAIL-UNSET} GIT_COMMITTER_EMAIL=${GIT_COMMITTER_EMAIL-UNSET}" >> "$STUB_DIR/claude.env"
 printf '%s\n' "$@" > "$STUB_DIR/claude.args"
 { echo "---CALL---"; printf '%s\n' "$@"; } >> "$STUB_DIR/claude.all"
+# claude.out is what the run prints (for example --output-format json); STUB_CLAUDE_FAIL fails it.
+[ -f "$STUB_DIR/claude.out" ] && cat "$STUB_DIR/claude.out"
+[ -n "${STUB_CLAUDE_FAIL:-}" ] && exit 1
+exit 0
 STUB
 
   cat > "$T/bin/date" <<'STUB'

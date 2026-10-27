@@ -70,4 +70,13 @@ assert_grep ".claude/agents/developer.md" 'denied' "developer is told what to do
 assert_grep ".claude/agents/developer.md" 'exact command' "and to quote the exact denied command in the Blocked comment"
 assert_grep ".claude/agents/developer.md" 'bash tests/scripts/' "developer knows how to run the shell tests"
 
+echo "agents and docs: dispatch worktrees, wip branches and interactive tasks"
+assert_grep ".claude/agents/developer.md" 'fresh (detached )?(git )?worktree' "developer is told it runs in a fresh worktree"
+assert_grep ".claude/agents/developer.md" 'git checkout -b issue-<number>-<slug>' "and creates its branch with git checkout -b"
+assert_grep ".claude/agents/developer.md" 'never create (a )?worktree|do not create (a )?worktree' "and never creates worktrees itself"
+assert_grep ".claude/agents/developer.md" 'wip-' "and knows the coordinator saves unfinished work to a wip- branch"
+assert_grep "docs/workflow.md" 'interactive session' "workflow.md documents tasks that need an interactive session"
+assert_grep "docs/workflow.md" 'wip-' "workflow.md documents the wip- branches"
+assert_grep "docs/workflow.md" 'denied' "workflow.md documents the denied-command report"
+
 finish
