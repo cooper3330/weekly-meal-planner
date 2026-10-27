@@ -33,6 +33,7 @@ new_sandbox() {
   : > "$T/claude.calls"
   : > "$T/claude.all"
   : > "$T/claude.cwds"
+  : > "$T/claude.bgwait"
   echo '{"items":[]}' > "$T/items.json"
   echo '{"projects":[],"totalCount":0}' > "$T/projects.json"
   echo '{"fields":[{"id":"PVTF_title","name":"Title","type":"ProjectV2Field"},{"id":"PVTSSF_status","name":"Status","type":"ProjectV2SingleSelectField","options":[{"id":"o_todo","name":"Todo"},{"id":"o_prog","name":"In Progress"},{"id":"o_done","name":"Done"}]}],"totalCount":2}' > "$T/fields.json"
@@ -111,6 +112,7 @@ STUB
 #!/usr/bin/env bash
 echo "called" >> "$STUB_DIR/claude.calls"
 pwd >> "$STUB_DIR/claude.cwds"
+echo "${CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS-UNSET}" >> "$STUB_DIR/claude.bgwait"
 printf '%s\n' "$@" > "$STUB_DIR/claude.args"
 { echo "---CALL---"; printf '%s\n' "$@"; } >> "$STUB_DIR/claude.all"
 STUB
