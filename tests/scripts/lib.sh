@@ -23,6 +23,7 @@ assert_eq()      { if [ "$1" = "$2" ]; then ok "$3"; else bad "$3 (expected '$2'
 #   items.json projects.json fields.json project.json milestones.json   (project setup / board)
 #   prs.json issues.json                                                (gh pr list / gh issue list)
 #   issue_comments_<N>.json pr_comments_<N>.json pr_reviews_<N>.json    (REST comment endpoints)
+#   release_latest.json ref_<tag>.json gittag_<sha>.json                (scripts/pin-action.sh lookups)
 new_sandbox() {
   T="$(mktemp -d)"
   STUB_DIR="$T"
@@ -67,6 +68,9 @@ if [ "$1" = "api" ]; then
     repos/*/issues/*/comments) n="${path#repos/*/issues/}"; emit "$STUB_DIR/issue_comments_${n%%/*}.json" ;;
     repos/*/pulls/*/comments)  n="${path#repos/*/pulls/}";  emit "$STUB_DIR/pr_comments_${n%%/*}.json" ;;
     repos/*/pulls/*/reviews)   n="${path#repos/*/pulls/}";  emit "$STUB_DIR/pr_reviews_${n%%/*}.json" ;;
+    repos/*/releases/latest)   emit "$STUB_DIR/release_latest.json" ;;
+    repos/*/git/ref/tags/*)    t="${path#repos/*/git/ref/tags/}"; emit "$STUB_DIR/ref_${t//\//_}.json" ;;
+    repos/*/git/tags/*)        t="${path#repos/*/git/tags/}"; emit "$STUB_DIR/gittag_${t}.json" ;;
     repos/*/issues/*)          # a single issue or PR: state (and pull_request.merged_at for PRs); default open
       n="${path#repos/*/issues/}"; f="$STUB_DIR/issue_state_${n%%/*}.json"
       [ -f "$f" ] || echo '{"state":"open"}' > "$f"
