@@ -181,10 +181,83 @@ open_blockers() {
   done
 }
 
+# Claude Code never lets a headless run write to these paths (".claude" holds the agent
+# definitions and settings) and nobody can approve the prompt, so a task that edits them cannot be
+# done by a dispatched agent. Matched against the paths a task lists under "Files likely touched".
+PROTECTED_PATH_RE='^(\.claude|\.git|\.vscode|\.idea|\.husky|\.devcontainer)/|^(\.mcp\.json|\.claude\.json)$'
+
+# Echoes the protected paths that issue $1 lists in its "Files likely touched" section (written as
+# a "###" heading or a bold line), one per line. Paths mentioned elsewhere in the body do not count.
+protected_paths() {
+  local body
+  body=$(gh issue view "$1" --repo "$REPO" --json body -q .body) || return 0
+  awk 'tolower($0) ~ /files likely touched/ { on = 1; next } on && /^(###|\*\*)/ { exit } on { print }' <<<"$body" \
+    | { grep -oE '`[^`]+`' || true; } | tr -d '`' | sed 's|^\./||' | { grep -E "$PROTECTED_PATH_RE" || true; }
+}
+
+# Holds task $1 (protected paths in $2) for an interactive session: says so on the issue and moves
+# the card to Blocked, which also stops the same comment being posted on every pass.
+hold_for_interactive() {
+  local n="$1" paths list
+  list=$(paste -sd, - <<<"$2" | sed 's/,/, /g')
+  echo "$(ts) #$n edits protected paths ($list): needs an interactive session, not dispatching"
+  post_comment issue "$n" "Held for an interactive session: this task edits protected paths ($list). Claude Code does not let a headless run write there and nobody can approve it, so a dispatched agent would stop. Run it yourself: \`cd <your checkout> && claude --agent developer\`, ask it to implement #$n, and approve the protected edits when it asks. Or make those edits by hand. <!-- agent:coordinator -->"
+  bash ./scripts/board.sh status "$n" Blocked || echo "$(ts) could not move #$n to Blocked" >&2
+}
+
+# Saves whatever a run left behind in worktree $1: uncommitted changes and commits that exist on no
+# remote. They go to a NEW branch, wip-<branch>-<time>, never onto the agent's own branch (that may
+# have an open PR). Returns non-zero when they could not be saved, so the caller keeps the worktree.
+salvage_worktree() {
+  local wt="$1" dirty unpushed base wip n
+  dirty=$(git -C "$wt" status --porcelain 2>/dev/null || true)
+  unpushed=$(git -C "$wt" rev-list --count HEAD --not --remotes 2>/dev/null || echo 0)
+  if [ -z "$dirty" ] && [ "${unpushed:-0}" -eq 0 ]; then return 0; fi
+  base=$(git -C "$wt" rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)
+  case "$base" in HEAD|main|"") base="dispatch" ;; esac
+  wip="wip-$base-$(date +%Y%m%d%H%M%S)"
+  if [ -n "$dirty" ]; then
+    git -C "$wt" add -A && git -C "$wt" commit -q -m "WIP: unfinished agent work saved by the coordinator" \
+      || { echo "$(ts) could not commit the unfinished work in $wt" >&2; return 1; }
+  fi
+  if ! git -C "$wt" push -q origin "HEAD:refs/heads/$wip"; then
+    echo "$(ts) could not push the unfinished work from $wt" >&2
+    return 1
+  fi
+  echo "$(ts) unfinished agent work saved to branch $wip"
+  n=$(sed -nE 's/^issue-([0-9]+)-.*/\1/p' <<<"$base")
+  if [ -n "$n" ]; then
+    post_comment issue "$n" "A headless run stopped with unfinished work. It was saved to branch \`$wip\` (not the PR branch). Continue from it, or restart the task. <!-- agent:coordinator -->"
+  fi
+  return 0
+}
+
+# Prints a run's result and announces the commands and edits it was denied. \`claude -p\` cannot ask
+# for approval, so a denial silently stops the agent; listing them is how the owner knows exactly
+# what to allow. Output that is not JSON is passed through untouched.
+report_run() {
+  local out="$1" denied
+  if jq -e . >/dev/null 2>&1 <<<"$out"; then
+    jq -r '.result // empty' <<<"$out"
+    denied=$(jq -r '[.permission_denials[]? | "\(.tool_name): \(.tool_input.command // .tool_input.file_path // (.tool_input | tostring))"] | unique | .[]' <<<"$out" 2>/dev/null || true)
+    if [ -n "$denied" ]; then
+      echo "$(ts) denied during this run (allow them in scripts/coordinator.sh, or run the task interactively):" >&2
+      sed 's/^/  /' <<<"$denied" >&2
+    fi
+  else
+    printf '%s\n' "$out"
+  fi
+}
+
 # Dispatches Ready work. Tasks and bugs are Ready by default once planned, so the script (not the
-# model) holds back any whose blockers are not done; features and architecture issues are not gated.
+# model) holds back any whose blockers are not done, and any that edit protected paths; features
+# and architecture issues are not gated.
+#
+# The coordinator and the agents it starts run in their own detached worktree of origin/main, so
+# the owner's checkout (and whatever branch or uncommitted work it has) is never touched. Whatever
+# the run leaves unfinished is saved by salvage_worktree before the worktree is deleted.
 ready_pass() {
-  local all ready count i item n waiting
+  local all ready count i item n waiting prot wt out rc salvaged
   all=$(gh_project item-list "$PROJECT_NUMBER" --owner "$OWNER" --limit 200 --format json \
     | jq -c '[.items[] | select(.status=="Ready" and .content.number != null)
               | {item_id: .id, number: .content.number, title: .content.title, labels: (.labels // [])}]')
@@ -201,6 +274,11 @@ ready_pass() {
         echo "$(ts) #$n waits on $waiting"
         continue
       fi
+      prot=$(protected_paths "$n")
+      if [ -n "$prot" ]; then
+        hold_for_interactive "$n" "$prot"
+        continue
+      fi
     fi
     ready=$(jq -c --argjson it "$item" '. + [$it]' <<<"$ready")
   done
@@ -210,10 +288,28 @@ ready_pass() {
   fi
   board_check || return 1
   echo "$(ts) Ready items: $ready"
+  wt=$(mktemp -d "${TMPDIR:-/tmp}/dispatch-XXXXXX")
+  if ! { git fetch -q origin main && git worktree add -q --detach "$wt" origin/main; }; then
+    echo "$(ts) could not create a git worktree for this pass (is the network down?); not dispatching" >&2
+    rm -rf "$wt"
+    return 1
+  fi
+  rc=0
   # The prompt goes first: --allowedTools takes a list and would swallow a trailing prompt.
-  claude -p "Project $PROJECT_NUMBER (owner $OWNER), MAX_PARALLEL=$MAX_PARALLEL. Items in Ready (item_id is the board item ID): $ready. Only tasks whose Blocked by: blockers are done are listed. Run one coordination pass per docs/workflow.md and report what you dispatched. To change an item's Status, run: scripts/board.sh status <issue-number> <Status name>; it is the only way to touch the board. When you dispatch the architect, tell it the project number and owner and to use scripts/board.sh (add <issue-url>, status <issue-number> <Status name>) to put the task issues it creates on the board: in Ready, or in Plan Review if it has open questions for the owner." \
-    --agent coordinator --permission-mode acceptEdits \
-    --allowedTools "${ALLOWED_TOOLS[@]}"
+  out=$(cd "$wt" && claude -p "Project $PROJECT_NUMBER (owner $OWNER), MAX_PARALLEL=$MAX_PARALLEL. Items in Ready (item_id is the board item ID): $ready. Only tasks whose Blocked by: blockers are done are listed. Run one coordination pass per docs/workflow.md and report what you dispatched. You are in a fresh git worktree at origin/main; the agents you start work in it too. To change an item's Status, run: scripts/board.sh status <issue-number> <Status name>; it is the only way to touch the board. When you dispatch the architect, tell it the project number and owner and to use scripts/board.sh (add <issue-url>, status <issue-number> <Status name>) to put the task issues it creates on the board: in Ready, or in Plan Review if it has open questions for the owner." \
+    --agent coordinator --permission-mode acceptEdits --output-format json \
+    --allowedTools "${ALLOWED_TOOLS[@]}") || rc=$?
+  report_run "$out"
+  salvaged=0
+  salvage_worktree "$wt" || salvaged=1
+  if [ "$salvaged" -eq 0 ]; then
+    git worktree remove --force "$wt" >/dev/null 2>&1 || true
+    rm -rf "$wt"
+  else
+    echo "$(ts) worktree kept at $wt because its unfinished work could not be saved; look there before deleting it" >&2
+    rc=1
+  fi
+  return "$rc"
 }
 
 # Revisions first (finish work already in flight), then new Ready work.
