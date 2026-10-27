@@ -7,8 +7,9 @@
 # Feedback is a comment containing the word /revise, or a review submitted as "Request changes",
 # written by an OWNER, MEMBER, or COLLABORATOR. It is pending when it is newer than the latest
 # comment that carries an agent marker (<!-- agent:NAME -->), which every agent reply and the
-# coordinator's acknowledgement include. The agents post with the owner's own GitHub account,
-# so the marker, not the author, is what tells agent comments from human ones.
+# coordinator's acknowledgement include. Agents post as a GitHub App bot (docs/adr/0014), or as the
+# owner when run locally without one, so the marker, not the author, is what tells agent comments
+# from human ones. A bot's author_association is not trusted, so a bot can never trigger a revision.
 #
 # Scope: open PRs on branches named arch-* (architect) or issue-* (developer), and open
 # type:feature / type:architecture issues (plan feedback, architect). Other PRs are ignored.

@@ -42,7 +42,12 @@ while IFS= read -r cmd; do
   cmd="${cmd//repos\/R\//repos/$REPO_NAME/}"
   checked=$((checked + 1))
   if allowed "$cmd"; then ok "allowed: $cmd"; else bad "NOT allowed: $cmd"; fi
-done < <(grep -ohE '`(gh|git|make|uv|bash|scripts/[a-z-]+\.sh) [^`]*`' .claude/agents/*.md | tr -d '`' | sort -u)
+done < <(grep -ohE '`(gh|git|make|uv|scripts/board\.sh) [^`]*`' .claude/agents/*.md | tr -d '`' | sort -u)
+# The board is changed only through the wrapper: agents are told to use it, with a covered example.
+if grep -qF '`scripts/board.sh status 12 Ready`' .claude/agents/architect.md; then ok "architect.md shows scripts/board.sh status 12 Ready"; else bad "architect.md shows scripts/board.sh status 12 Ready"; fi
+if allowed "scripts/board.sh status 12 Ready"; then ok "scripts/board.sh status 12 Ready is allowed"; else bad "scripts/board.sh status 12 Ready is allowed"; fi
+if allowed "gh project item-edit --id X"; then bad "raw gh project item-edit is no longer allowed"; else ok "raw gh project item-edit is no longer allowed"; fi
+if grep -ohE '`gh project item-(edit|add)[^`]*`' .claude/agents/*.md | grep -q .; then bad "agent definitions do not tell agents to run raw gh project item-edit/item-add"; else ok "agent definitions do not tell agents to run raw gh project item-edit/item-add"; fi
 [ "$checked" -gt 5 ] && ok "checked $checked documented commands" || bad "checked enough documented commands (got $checked)"
 
 finish

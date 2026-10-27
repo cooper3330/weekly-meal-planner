@@ -11,6 +11,12 @@
 #        EXTRA_ALLOWED_TOOLS  comma-separated extra `claude --allowedTools` rules
 #        CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS  how long claude -p waits for background subagents
 #                             (default 0 = indefinitely; set e.g. 7200000 to cap at two hours)
+#        AGENT_GH_TOKEN       token every agent (and this script's own gh calls) acts with: the
+#                             GitHub App installation token (docs/adr/0014). Required when
+#                             GITHUB_ACTIONS=true; locally, agents post as the local gh user without it.
+#        PROJECT_TOKEN        project-only token; used by scripts/board.sh for board calls and by
+#                             this script to read the board. Never set as GH_TOKEN for an agent.
+#        AGENT_GIT_NAME, AGENT_GIT_EMAIL  when both are set, agents commit as this identity
 # Requires: gh (project scope), jq, claude CLI. Works with macOS (BSD) tools and bash 3.2.
 set -euo pipefail
 
@@ -20,10 +26,41 @@ for cmd in gh jq claude; do
 done
 cd "$(dirname "$0")/.."
 
+# `date -I` is GNU-only; this format works on macOS and Linux.
+ts() { date '+%Y-%m-%dT%H:%M:%S%z'; }
+
+# Agent identity. In Actions there is no fallback: acting as another token would post as the wrong
+# identity, so a missing AGENT_GH_TOKEN stops the run before anything launches.
+if [ "${GITHUB_ACTIONS:-}" = "true" ] && [ -z "${AGENT_GH_TOKEN:-}" ]; then
+  echo "$(ts) AGENT_GH_TOKEN is missing or empty: agents must run as the GitHub App in Actions (docs/adr/0014); not launching any agent" >&2
+  exit 1
+fi
+if [ -n "${AGENT_GH_TOKEN:-}" ]; then
+  # Every gh call below and every claude launch (which inherits the environment) acts as the App.
+  # Board calls switch to PROJECT_TOKEN themselves (gh_project here, scripts/board.sh for agents).
+  export GH_TOKEN="$AGENT_GH_TOKEN"
+else
+  echo "$(ts) AGENT_GH_TOKEN is not set: agents will post as the local gh user"
+fi
+if [ -n "${AGENT_GIT_NAME:-}" ] && [ -n "${AGENT_GIT_EMAIL:-}" ]; then
+  # Environment, not git config: it covers the worktrees created here (merge commits) and the ones
+  # agents create, and never touches the user's own git configuration.
+  export GIT_AUTHOR_NAME="$AGENT_GIT_NAME" GIT_COMMITTER_NAME="$AGENT_GIT_NAME"
+  export GIT_AUTHOR_EMAIL="$AGENT_GIT_EMAIL" GIT_COMMITTER_EMAIL="$AGENT_GIT_EMAIL"
+fi
+
 REPO="${REPO:-$(gh repo view --json nameWithOwner -q .nameWithOwner)}"
 OWNER="${OWNER:-${REPO%%/*}}"
 INTERVAL="${INTERVAL:-300}"
 MAX_PARALLEL="${MAX_PARALLEL:-1}"
+# scripts/board.sh (run by the agents) reads these from the environment.
+export PROJECT_NUMBER OWNER REPO
+
+# `gh project` calls need the project token when there is one (an App token cannot read a
+# user-owned board); otherwise the ambient login is used.
+gh_project() {
+  if [ -n "${PROJECT_TOKEN:-}" ]; then GH_TOKEN="$PROJECT_TOKEN" gh project "$@"; else gh project "$@"; fi
+}
 
 # The coordinator hands work to subagents (the architect plans for longer than ten minutes).
 # `claude -p` stops waiting for background subagents after 10 idle minutes and kills them
@@ -31,16 +68,14 @@ MAX_PARALLEL="${MAX_PARALLEL:-1}"
 # 7200000 for two hours). Every claude launched below inherits it.
 export CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS="${CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS:-0}"
 
-# `date -I` is GNU-only; this format works on macOS and Linux.
-ts() { date '+%Y-%m-%dT%H:%M:%S%z'; }
-
 # `claude -p` is headless: nobody can approve a prompt, so anything not listed here is
 # denied. These are the commands the coordinator and the agents it dispatches need.
 # Keep it narrow: add more with EXTRA_ALLOWED_TOOLS only when a run stalls on one.
 ALLOWED_TOOLS=(
   "Bash(gh issue view *)" "Bash(gh issue comment *)" "Bash(gh issue create *)" "Bash(gh issue edit *)"
-  "Bash(gh project item-list *)" "Bash(gh project item-edit *)" "Bash(gh project field-list *)"
-  "Bash(gh project view *)" "Bash(gh project list *)" "Bash(gh project item-add *)"
+  "Bash(gh project item-list *)" "Bash(gh project field-list *)"
+  "Bash(gh project view *)" "Bash(gh project list *)"
+  "Bash(scripts/board.sh *)"
   "Bash(gh pr create *)" "Bash(gh pr view *)" "Bash(gh pr list *)"
   "Bash(gh api repos/$REPO/*)"
   "Bash(gh api -X PATCH repos/$REPO/*)" "Bash(gh api -X POST repos/$REPO/*)"
@@ -56,34 +91,10 @@ if [ -n "${EXTRA_ALLOWED_TOOLS:-}" ]; then
   ALLOWED_TOOLS+=("${extra[@]}")
 fi
 
-# The board's built-in single-select Status field must have these options (see docs/workflow.md).
-STATUSES=("Backlog" "Spec Review" "Ready" "Architecture" "Plan Review" "Implementation" "In Review" "Done" "Blocked")
-
-# Resolve the board IDs `gh project item-edit` needs (project node ID, Status field ID, and
-# the ID of each Status option). Doing it here, not in the agent, keeps the headless run from
-# having to discover them and from guessing. Prints one compact JSON object.
-board_ids() {
-  local project_id fields status missing name
-  project_id=$(gh project view "$PROJECT_NUMBER" --owner "$OWNER" --format json -q .id)
-  fields=$(gh project field-list "$PROJECT_NUMBER" --owner "$OWNER" --format json)
-  status=$(jq -c '[.fields[] | select(.name=="Status")] | first // empty' <<<"$fields")
-  if [ -z "$status" ] || [ -z "$project_id" ]; then
-    echo "$(ts) project #$PROJECT_NUMBER has no 'Status' field (or could not be read); run scripts/setup-project.sh" >&2
-    return 1
-  fi
-  missing=""
-  for name in "${STATUSES[@]}"; do
-    if ! jq -e --arg n "$name" '[.options[].name] | index($n)' <<<"$status" >/dev/null; then
-      missing="$missing${missing:+, }$name"
-    fi
-  done
-  if [ -n "$missing" ]; then
-    echo "$(ts) the Status field is missing options: $missing; set them in the project UI (see docs/workflow.md)" >&2
-    return 1
-  fi
-  jq -c --arg project "$project_id" \
-    '{project_id: $project, status_field_id: .id, status_options: ([.options[] | {(.name): .id}] | add)}' <<<"$status"
-}
+# Agents change a card's Status only through scripts/board.sh, which resolves the project, field
+# and option IDs itself and needs PROJECT_TOKEN. This checks that the board is set up before any
+# agent is launched, so the failure is one clear message instead of a stalled run.
+board_check() { bash ./scripts/board.sh check; }
 
 # Posts a comment on a PR or an issue.
 post_comment() { # kind number body
@@ -105,7 +116,7 @@ post_comment() { # kind number body
 # as handled so a persistent failure is not retried every pass; the reviewer comments /revise
 # again after fixing it.
 revise_pass() {
-  local pending count i item kind number agent branch ack prompt wt fail ids
+  local pending count i item kind number agent branch ack prompt wt fail
   pending=$(REPO="$REPO" ./scripts/pending-revisions.sh) || return 1
   count=$(jq length <<<"$pending")
   i=0
@@ -118,10 +129,6 @@ revise_pass() {
     branch=$(jq -r '.branch // empty' <<<"$item")
     wt=$(mktemp -d "${TMPDIR:-/tmp}/revise-XXXXXX")
     fail=""
-    # The architect puts task issues on the board, so it needs the Board IDs; they are looked up
-    # only when an architect run is actually needed, and a revision still runs without them.
-    ids=""
-    if [ "$agent" = "architect" ]; then ids=$(board_ids 2>/dev/null) || ids=""; fi
     if [ "$kind" = "pr" ]; then
       echo "$(ts) revising PR #$number ($branch) with the $agent agent"
       if ! { git fetch -q origin main "+refs/heads/$branch:refs/remotes/origin/$branch" \
@@ -139,8 +146,8 @@ revise_pass() {
       fi
       prompt="Revise after review (revision mode). Repository $REPO, plan feedback on issue #$number; you are in a git worktree at origin/main. A trusted reviewer left feedback newer than your last reply. Follow the 'Revise after review' section of your agent definition: read the issue comments yourself, update the Technical plan comment, the ADR PR and the task sub-issues as needed, and reply. This prompt deliberately does not repeat the feedback."
     fi
-    if [ -n "$ids" ]; then
-      prompt="$prompt Project $PROJECT_NUMBER (owner $OWNER). Board IDs: $ids. When you have resolved the open questions, move the affected task issues from Plan Review to Ready and the feature to Implementation (see your agent definition)."
+    if [ "$agent" = "architect" ]; then
+      prompt="$prompt Project $PROJECT_NUMBER (owner $OWNER). Change the board only with scripts/board.sh (see your agent definition). When you have resolved the open questions, move the affected task issues from Plan Review to Ready and the feature to Implementation."
     fi
     if [ -n "$fail" ]; then
       echo "$(ts) revision of $kind #$number not started: $fail" >&2
@@ -177,8 +184,8 @@ open_blockers() {
 # Dispatches Ready work. Tasks and bugs are Ready by default once planned, so the script (not the
 # model) holds back any whose blockers are not done; features and architecture issues are not gated.
 ready_pass() {
-  local all ready count i item n waiting ids
-  all=$(gh project item-list "$PROJECT_NUMBER" --owner "$OWNER" --limit 200 --format json \
+  local all ready count i item n waiting
+  all=$(gh_project item-list "$PROJECT_NUMBER" --owner "$OWNER" --limit 200 --format json \
     | jq -c '[.items[] | select(.status=="Ready" and .content.number != null)
               | {item_id: .id, number: .content.number, title: .content.title, labels: (.labels // [])}]')
   count=$(jq length <<<"$all")
@@ -201,10 +208,10 @@ ready_pass() {
     echo "$(ts) nothing Ready"
     return 0
   fi
-  ids=$(board_ids) || return 1
+  board_check || return 1
   echo "$(ts) Ready items: $ready"
   # The prompt goes first: --allowedTools takes a list and would swallow a trailing prompt.
-  claude -p "Project $PROJECT_NUMBER (owner $OWNER), MAX_PARALLEL=$MAX_PARALLEL. Board IDs: $ids. Items in Ready (item_id is the board item ID): $ready. Only tasks whose Blocked by: blockers are done are listed. Run one coordination pass per docs/workflow.md and report what you dispatched. When you dispatch the architect, pass it the project number, owner, and these Board IDs so it can put the task issues it creates on the board: in Ready, or in Plan Review if it has open questions for the owner. To change an item's Status, run: gh project item-edit --id <item_id> --project-id <project_id> --field-id <status_field_id> --single-select-option-id <id from status_options>. Use only these IDs; never guess one." \
+  claude -p "Project $PROJECT_NUMBER (owner $OWNER), MAX_PARALLEL=$MAX_PARALLEL. Items in Ready (item_id is the board item ID): $ready. Only tasks whose Blocked by: blockers are done are listed. Run one coordination pass per docs/workflow.md and report what you dispatched. To change an item's Status, run: scripts/board.sh status <issue-number> <Status name>; it is the only way to touch the board. When you dispatch the architect, tell it the project number and owner and to use scripts/board.sh (add <issue-url>, status <issue-number> <Status name>) to put the task issues it creates on the board: in Ready, or in Plan Review if it has open questions for the owner." \
     --agent coordinator --permission-mode acceptEdits \
     --allowedTools "${ALLOWED_TOOLS[@]}"
 }

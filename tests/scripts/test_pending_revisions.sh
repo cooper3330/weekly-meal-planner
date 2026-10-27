@@ -104,6 +104,29 @@ assert_eq "$(field '.[0].kind')" "issue" "it is an issue"
 assert_eq "$(field '.[0].number')" "5" "issue number"
 assert_eq "$(field '.[0].agent')" "architect" "plan feedback goes to the architect"
 
+echo "pending: agents post as a GitHub App bot (docs/adr/0014)"
+BOT_PRS='[{"number":30,"headRefName":"issue-16-scaffold","author":{"login":"meal-planner-agents[bot]","is_bot":true}}]'
+bot_comment() { # created_at body association -> a comment written by the App bot
+  jq -nc --arg t "$1" --arg b "$2" --arg a "$3" '{id: 1, created_at: $t, body: $b, author_association: $a, user: {login: "meal-planner-agents[bot]", type: "Bot"}}'
+}
+new_sandbox; echo "$BOT_PRS" > "$T/prs.json"
+echo "[$(bot_comment 2026-10-26T10:00:00Z 'Please change X /revise' NONE)]" > "$T/issue_comments_30.json"
+run
+assert_eq "$(count)" "0" "a /revise comment from a bot (author_association NONE) is ignored"
+new_sandbox; echo "$BOT_PRS" > "$T/prs.json"
+echo "[$(comment 2026-10-26T10:00:00Z 'Please change X /revise' OWNER)]" > "$T/issue_comments_30.json"
+run
+assert_eq "$(count)" "1" "the same comment from the OWNER is pending"
+assert_eq "$(field '.[0].agent')" "developer" "on a bot-authored PR the developer revises it"
+new_sandbox; echo "$BOT_PRS" > "$T/prs.json"
+echo "[$(review 2026-10-26T10:00:00Z CHANGES_REQUESTED 'see inline' OWNER)]" > "$T/pr_reviews_30.json"
+run
+assert_eq "$(count)" "1" "an OWNER CHANGES_REQUESTED review on a bot-authored PR is a trigger"
+new_sandbox; echo "$BOT_PRS" > "$T/prs.json"
+echo "[$(bot_comment 2026-10-26T10:00:00Z "Done in abc123. <!-- agent:developer -->" NONE),$(comment 2026-10-26T09:00:00Z '/revise' OWNER)]" > "$T/issue_comments_30.json"
+run
+assert_eq "$(count)" "0" "the agent marker still marks feedback as handled when the reply comes from the bot"
+
 echo "pending: output is valid JSON even with several pending items"
 new_sandbox; echo "$PRS" > "$T/prs.json"
 echo '[{"number":5,"labels":[{"name":"type:architecture"}]}]' > "$T/issues.json"
