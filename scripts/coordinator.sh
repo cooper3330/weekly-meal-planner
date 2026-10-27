@@ -84,6 +84,7 @@ ALLOWED_TOOLS=(
   "Bash(git status *)" "Bash(git diff *)" "Bash(git fetch *)" "Bash(git pull *)" "Bash(git log *)"
   "Bash(gh pr comment *)"
   "Bash(make check)" "Bash(make fmt)" "Bash(make sync)" "Bash(uv sync)" "Bash(uv run *)"
+  "Bash(bash tests/scripts/*)" "Bash(scripts/pin-action.sh *)"
 )
 if [ -n "${EXTRA_ALLOWED_TOOLS:-}" ]; then
   IFS=, read -r -a extra <<<"$EXTRA_ALLOWED_TOOLS"

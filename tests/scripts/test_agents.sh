@@ -63,4 +63,11 @@ for a in architect developer; do
 done
 assert_grep ".claude/agents/developer.md" 'description (is|must be|stays) (accurate|current)|[Kk]eep the PR description' "developer keeps the PR description in step with the code"
 
+echo "agents: pinning GitHub Actions and reporting denied commands"
+assert_grep ".claude/agents/developer.md" 'scripts/pin-action\.sh' "developer pins actions with scripts/pin-action.sh"
+assert_grep ".claude/agents/architect.md" 'scripts/pin-action\.sh' "architect pins actions with scripts/pin-action.sh before writing a task that needs a SHA"
+assert_grep ".claude/agents/developer.md" 'denied' "developer is told what to do when a command is denied"
+assert_grep ".claude/agents/developer.md" 'exact command' "and to quote the exact denied command in the Blocked comment"
+assert_grep ".claude/agents/developer.md" 'bash tests/scripts/' "developer knows how to run the shell tests"
+
 finish

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Drift guard: every gh / git / make / uv command that an agent definition tells an agent to run
+# Drift guard: every gh / git / make / uv / bash / scripts/*.sh command that an agent definition tells an agent to run
 # must be covered by the coordinator's headless allowlist. `claude -p` cannot ask for approval, so
 # an uncovered command is silently denied (this is how editing the Technical plan comment broke:
 # the allowlist only matched `gh api` with the path first).
