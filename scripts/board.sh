@@ -2,7 +2,7 @@
 # The only path agents and the coordinator use to change the GitHub Project board.
 #
 # A GitHub App token cannot write to a user-owned Projects v2 board, so board calls use a
-# project-only classic PAT (PROJECT_TOKEN, see docs/adr/0014). Everything else the agents do
+# classic PAT with project + read:org scopes (PROJECT_TOKEN, see docs/adr/0014). Everything else the agents do
 # runs as the App. Keeping the board calls in this one script keeps that token out of every
 # other command. Locally, without PROJECT_TOKEN, it uses the normal `gh` login.
 #
