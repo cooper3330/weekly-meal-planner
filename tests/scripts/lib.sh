@@ -34,6 +34,8 @@ new_sandbox() {
   : > "$T/claude.all"
   : > "$T/claude.cwds"
   : > "$T/claude.bgwait"
+  : > "$T/gh.env"
+  : > "$T/claude.env"
   echo '{"items":[]}' > "$T/items.json"
   echo '{"projects":[],"totalCount":0}' > "$T/projects.json"
   echo '{"fields":[{"id":"PVTF_title","name":"Title","type":"ProjectV2Field"},{"id":"PVTSSF_status","name":"Status","type":"ProjectV2SingleSelectField","options":[{"id":"o_todo","name":"Todo"},{"id":"o_prog","name":"In Progress"},{"id":"o_done","name":"Done"}]}],"totalCount":2}' > "$T/fields.json"
@@ -45,6 +47,7 @@ new_sandbox() {
   cat > "$T/bin/gh" <<'STUB'
 #!/usr/bin/env bash
 echo "gh $*" >> "$STUB_DIR/gh.log"
+echo "$1 $2 GH_TOKEN=${GH_TOKEN-UNSET}" >> "$STUB_DIR/gh.env"   # which token each call ran with
 args=("$@"); jqexpr=""; has_f=""
 for ((i = 0; i < ${#args[@]}; i++)); do
   case "${args[$i]}" in
@@ -81,7 +84,8 @@ case "$1 $2" in
   "project list")        emit "$STUB_DIR/projects.json" ;;
   "project view")        emit "$STUB_DIR/project.json" ;;
   "project field-list")  emit "$STUB_DIR/fields.json" ;;
-  "project create")      echo '{"number":7}' > "$STUB_DIR/created.json"; emit "$STUB_DIR/created.json" ;;
+  "project item-add")    echo "${STUB_ITEM_ID:-PVTI_added}" ;;
+  "project create")     echo '{"number":7}' > "$STUB_DIR/created.json"; emit "$STUB_DIR/created.json" ;;
   "project link")        if [ -n "${STUB_LINK_FAIL:-}" ]; then echo "has different owner from '@me'" >&2; exit 1; fi ;;
   "pr list")             emit "$STUB_DIR/prs.json" ;;
   "issue list")          emit "$STUB_DIR/issues.json" ;;
@@ -113,6 +117,7 @@ STUB
 echo "called" >> "$STUB_DIR/claude.calls"
 pwd >> "$STUB_DIR/claude.cwds"
 echo "${CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS-UNSET}" >> "$STUB_DIR/claude.bgwait"
+echo "GH_TOKEN=${GH_TOKEN-UNSET} PROJECT_TOKEN=${PROJECT_TOKEN-UNSET} GIT_AUTHOR_NAME=${GIT_AUTHOR_NAME-UNSET} GIT_COMMITTER_NAME=${GIT_COMMITTER_NAME-UNSET} GIT_AUTHOR_EMAIL=${GIT_AUTHOR_EMAIL-UNSET} GIT_COMMITTER_EMAIL=${GIT_COMMITTER_EMAIL-UNSET}" >> "$STUB_DIR/claude.env"
 printf '%s\n' "$@" > "$STUB_DIR/claude.args"
 { echo "---CALL---"; printf '%s\n' "$@"; } >> "$STUB_DIR/claude.all"
 STUB
