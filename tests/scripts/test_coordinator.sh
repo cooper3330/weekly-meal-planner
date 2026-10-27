@@ -19,7 +19,8 @@ assert_grep "$T/claude.args" '^-p$' "runs headless with -p"
 assert_grep "$T/claude.args" '^coordinator$' "uses the coordinator agent"
 assert_grep "$T/claude.args" '^--allowedTools$' "passes --allowedTools"
 assert_grep "$T/claude.args" 'Bash\(gh issue view \*\)' "allows reading issues"
-assert_grep "$T/claude.args" 'Bash\(gh project item-edit \*\)' "allows setting the Status"
+assert_grep "$T/claude.args" 'Bash\(scripts/board.sh \*\)' "allows the board wrapper, the only way to set the Status"
+assert_no_grep "$T/claude.args" 'gh project item-(edit|add)' "no longer allows raw gh project item-edit or item-add"
 assert_grep "$T/claude.args" 'Bash\(gh api repos/cooper3330/weekly-meal-planner/\*\)' "scopes gh api to this repo"
 assert_no_grep "$T/claude.args" 'Bash\(gh api \*\)' "does not allow gh api for any repo"
 assert_grep "$T/claude.args" '"number":5' "prompt lists the Ready issue"
@@ -56,15 +57,13 @@ env -u PROJECT_NUMBER bash "$SCRIPT" --once > "$T/out" 2>&1; rc=$?
 if [ "$rc" -ne 0 ]; then ok "exits non-zero"; else bad "exits non-zero"; fi
 assert_grep "$T/out" 'PROJECT_NUMBER' "names the missing variable"
 
-echo "coordinator: resolves the board IDs itself and hands them to the agent"
+echo "coordinator: points agents at scripts/board.sh instead of passing Board IDs"
 new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
 PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
-assert_grep "$T/claude.args" 'PVT_abc' "prompt carries the project node ID"
-assert_grep "$T/claude.args" 'PVTSSF_status' "prompt carries the Status field ID"
-assert_grep "$T/claude.args" '"Implementation":"o_impl"' "prompt carries the Implementation option ID"
-assert_grep "$T/claude.args" '"Architecture":"o_arch"' "prompt carries the Architecture option ID"
+assert_no_grep "$T/claude.args" 'Board IDs' "the prompt no longer contains Board IDs"
+assert_no_grep "$T/claude.args" 'PVT_abc|PVTSSF_status|o_impl' "and carries no raw project, field or option IDs"
+assert_grep "$T/claude.args" 'scripts/board\.sh status <issue-number> <Status name>' "prompt shows the board.sh command shape"
 assert_grep "$T/claude.args" '"item_id":"I1"' "each Ready item carries its board item ID"
-assert_grep "$T/claude.args" 'item-edit --id .*--project-id .*--field-id .*--single-select-option-id' "prompt shows the exact item-edit command shape"
 assert_grep "$T/claude.args" 'Bash\(gh project view \*\)' "allows gh project view"
 assert_grep "$T/claude.args" 'Bash\(gh project list \*\)' "allows gh project list"
 
@@ -264,19 +263,65 @@ run_gate
 assert_count "$T/claude.calls" "called" 1 "dispatched regardless of any Blocked by line"
 
 echo "coordinator: tells the architect how to set task Status"
-assert_grep "$T/claude.args" 'dispatch the architect, pass it' "the dispatch prompt asks the coordinator to forward the Board IDs to the architect"
+assert_grep "$T/claude.args" 'dispatch the architect, tell it' "the dispatch prompt asks the coordinator to tell the architect to use scripts/board.sh"
+assert_grep "$T/claude.args" 'scripts/board\.sh \(add <issue-url>' "and shows add"
 assert_grep "$T/claude.args" 'Ready.*Plan Review|Plan Review.*Ready' "and explains Ready versus Plan Review"
-assert_grep "$T/claude.args" 'Bash\(gh project item-add \*\)' "item-add is allowed so the architect can put new tasks on the board"
 
-echo "revisions: the architect gets the Board IDs, other agents do not need them"
+echo "revisions: the architect is pointed at scripts/board.sh, other agents do not need it"
 new_sandbox; echo "$PRS15" > "$T/prs.json"; echo "$PR_REVISE" > "$T/issue_comments_15.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
 PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
-assert_grep "$T/claude.args" 'PVT_abc' "architect revision prompt carries the project node ID"
-assert_grep "$T/claude.args" 'Project 1 \(owner cooper3330\)' "and the project number and owner"
+assert_grep "$T/claude.args" 'Project 1 \(owner cooper3330\)' "architect revision prompt carries the project number and owner"
+assert_grep "$T/claude.args" 'scripts/board\.sh' "and names scripts/board.sh"
+assert_no_grep "$T/claude.args" 'Board IDs' "with no Board IDs"
 new_sandbox; echo "$PRS15" > "$T/prs.json"; echo "$PR_REVISE" > "$T/issue_comments_15.json"
 PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
 assert_count "$T/claude.calls" "called" 1 "a revision still runs when the Status field is not set up"
-assert_no_grep "$T/claude.args" 'PVT_abc' "without Board IDs in the prompt"
+
+# --- agent identity (docs/adr/0014) -----------------------------------------------------------
+echo "identity: in Actions every claude launch runs as the App token, never the project token"
+new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+echo "$PRS15" > "$T/prs.json"; echo "$PR_REVISE" > "$T/issue_comments_15.json"
+GITHUB_ACTIONS=true AGENT_GH_TOKEN=atok PROJECT_TOKEN=ptok GH_TOKEN=ambient PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1; rc=$?
+assert_eq "$rc" "0" "exits 0"
+assert_count "$T/claude.calls" "called" 2 "a revision and a dispatch were launched"
+assert_count "$T/claude.env" '^GH_TOKEN=atok ' 2 "every launch sees GH_TOKEN=atok"
+assert_no_grep "$T/claude.env" 'GH_TOKEN=ptok' "no launch sees the project token as GH_TOKEN"
+assert_count "$T/claude.env" 'PROJECT_TOKEN=ptok' 2 "PROJECT_TOKEN stays available to scripts/board.sh"
+assert_no_grep "$T/out" 'local gh user' "no local-fallback message in Actions"
+assert_no_grep "$T/gh.env" '^project item-list GH_TOKEN=(atok|ambient|UNSET)$' "the board is read with the project token"
+assert_grep "$T/gh.env" '^project item-list GH_TOKEN=ptok$' "(item-list ran with PROJECT_TOKEN)"
+assert_no_grep "$T/gh.env" '^pr (list|comment) GH_TOKEN=(ptok|ambient|UNSET)$' "the script's own PR calls act as the App"
+
+echo "identity: in Actions a missing or empty AGENT_GH_TOKEN stops everything before any launch"
+for mode in unset empty; do
+  new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+  echo "$PRS15" > "$T/prs.json"; echo "$PR_REVISE" > "$T/issue_comments_15.json"
+  if [ "$mode" = "empty" ]; then export AGENT_GH_TOKEN=""; else unset AGENT_GH_TOKEN; fi
+  GITHUB_ACTIONS=true PROJECT_TOKEN=ptok PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1; rc=$?
+  unset AGENT_GH_TOKEN
+  if [ "$rc" -ne 0 ]; then ok "$mode: exits non-zero"; else bad "$mode: exits non-zero"; fi
+  assert_count "$T/claude.calls" "called" 0 "$mode: no claude launch"
+  assert_grep "$T/out" 'AGENT_GH_TOKEN' "$mode: the message names AGENT_GH_TOKEN"
+  assert_no_grep "$T/gh.log" 'pr comment' "$mode: nothing was posted"
+done
+
+echo "identity: locally, without AGENT_GH_TOKEN, it launches as before and logs the fallback once"
+new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+echo "$PRS15" > "$T/prs.json"; echo "$PR_REVISE" > "$T/issue_comments_15.json"
+env -u AGENT_GH_TOKEN -u GITHUB_ACTIONS GH_TOKEN=mine PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1; rc=$?
+assert_eq "$rc" "0" "exits 0"
+assert_count "$T/claude.calls" "called" 2 "both launches happen"
+assert_count "$T/out" 'AGENT_GH_TOKEN is not set.*local gh user' 1 "the fallback is logged exactly once"
+assert_count "$T/claude.env" '^GH_TOKEN=mine ' 2 "the launches keep the ambient GH_TOKEN"
+
+echo "identity: AGENT_GIT_NAME and AGENT_GIT_EMAIL set the commit identity for launches"
+new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+AGENT_GIT_NAME='meal-planner-agents[bot]' AGENT_GIT_EMAIL='1+meal-planner-agents[bot]@users.noreply.github.com' PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_grep "$T/claude.env" 'GIT_AUTHOR_NAME=meal-planner-agents\[bot\] GIT_COMMITTER_NAME=meal-planner-agents\[bot\]' "author and committer name are set"
+assert_grep "$T/claude.env" 'GIT_AUTHOR_EMAIL=1\+meal-planner-agents\[bot\]@users.noreply.github.com GIT_COMMITTER_EMAIL=1\+meal-planner-agents\[bot\]@users.noreply.github.com' "author and committer email are set"
+new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+AGENT_GIT_NAME='only-a-name' PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_grep "$T/claude.env" 'GIT_AUTHOR_NAME=UNSET' "a name without an email changes nothing"
 
 
 echo "allowlist: gh api writes are allowed with the flag first, for this repo only, never DELETE"
