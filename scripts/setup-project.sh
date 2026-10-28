@@ -18,7 +18,7 @@ TITLE="Weekly Meal Planner"
 STATUSES=("Backlog" "Spec Review" "Ready" "Architecture" "Plan Review" "Implementation" "In Review" "Done" "Blocked")
 
 # Labels (--force updates the color of one that already exists)
-for l in "type:feature:1d76db" "type:task:0e8a16" "type:architecture:5319e7" "type:bug:d73a4a"; do
+for l in "type:feature:1d76db" "type:task:0e8a16" "type:architecture:5319e7" "type:bug:d73a4a" "risk:high:b60205" "needs-human:fbca04"; do
   IFS=: read -r a b c <<<"$l"
   gh label create "$a:$b" --color "$c" --repo "$REPO" --force
 done

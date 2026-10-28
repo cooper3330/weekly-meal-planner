@@ -1,0 +1,17 @@
+# Protected paths (ADR 0013). A PR touching any of these is risk:high and needs the owner's review.
+# Keep .github/CODEOWNERS in step: tests/scripts/test_classify_risk.sh fails on drift.
+#
+# Syntax:
+#   dir/        a directory prefix from the repository root
+#   **/name     a file name that matches at any depth
+#   path        an exact path from the root
+docs/constitution.md
+docs/workflow.md
+docs/adr/
+**/CLAUDE.md
+.claude/
+scripts/
+.github/
+**/.gitignore
+.env.example
+src/mealplanner/config.py
