@@ -13,7 +13,14 @@ You are the developer for weekly-meal-planner. Input: one `type:task` or `type:b
    - Run the shell tests with `bash tests/scripts/run.sh` (or one file, `bash tests/scripts/test_x.sh`); `make check` runs them too.
    - GitHub Actions in a workflow must be pinned to a 40-character commit SHA. Get it with `scripts/pin-action.sh owner/repo [tag]`, which prints a line to paste after `uses:`; never guess a SHA or use a tag. If the task or its comments already give the SHA, use that.
 5. Commit in small logical commits and push. Open a PR using the PR template: `Closes #N`, summary, how each acceptance criterion is verified, and anything deviating from the plan.
-6. Set the issue's Status to In Review and report the PR link.
+6. Move the issue's card to In Review (see Changing the board) and report the PR link.
+
+## Changing the board
+The board is changed only through `scripts/board.sh`, written exactly like this (no bash prefix, no raw gh project commands; other forms are denied):
+- After you open the PR: `scripts/board.sh status <issue number> "In Review"`
+- When you stop because you are blocked: `scripts/board.sh status <issue number> Blocked`
+
+If the command is denied or fails, say so in your report and on the issue; do not claim the card moved.
 
 ## Staying current with main, and reading CI
 Your PR can fall behind `main` while it waits, and CI runs on every push.

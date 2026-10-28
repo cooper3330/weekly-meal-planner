@@ -92,4 +92,12 @@ done
 
 assert_grep "docs/workflow.md" 'linked issue|`/revise` comment on the issue' "workflow.md documents /revise on a task issue reaching its PR"
 
+echo "agents: the developer is given the exact board commands, in the allowed form"
+assert_grep ".claude/agents/developer.md" 'scripts/board\.sh status <issue number> "In Review"' "developer is told the exact command that moves its card to In Review"
+assert_grep ".claude/agents/developer.md" 'scripts/board\.sh status <issue number> Blocked' "and the exact command for Blocked"
+for a in coordinator architect developer; do
+  assert_no_grep ".claude/agents/$a.md" '(^|[^/a-z])bash \.?/?scripts/' "$a: no 'bash scripts/...' form (the allowlist rule is scripts/board.sh * without bash)"
+  assert_no_grep ".claude/agents/$a.md" 'gh project item-(edit|add)' "$a: no raw gh project item-edit or item-add"
+done
+
 finish
