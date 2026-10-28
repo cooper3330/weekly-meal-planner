@@ -452,4 +452,13 @@ if [ "$rc" -ne 0 ]; then ok "exits non-zero"; else bad "exits non-zero"; fi
 assert_grep "$T/out" 'set PROJECT_NUMBER' "names PROJECT_NUMBER"
 assert_count "$T/gh.log" '.' 0 "no gh call was made"
 
+echo "allowlist: the repo scripts agents run are allowed with or without a bash prefix"
+new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+for rule in 'scripts/board.sh \*' 'bash scripts/board.sh \*' 'scripts/pin-action.sh \*' 'bash scripts/pin-action.sh \*'; do
+  assert_grep "$T/claude.args" "^Bash\\($rule\\)\$" "allows: $rule"
+done
+assert_no_grep "$T/claude.args" 'Bash\(bash scripts/\*\)' "but not every script under scripts/"
+assert_no_grep "$T/claude.args" 'Bash\(bash \*\)' "and no unrestricted bash"
+
 finish

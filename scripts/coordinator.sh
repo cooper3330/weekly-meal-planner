@@ -83,7 +83,7 @@ ALLOWED_TOOLS=(
   "Bash(gh issue view *)" "Bash(gh issue comment *)" "Bash(gh issue create *)" "Bash(gh issue edit *)"
   "Bash(gh project item-list *)" "Bash(gh project field-list *)"
   "Bash(gh project view *)" "Bash(gh project list *)"
-  "Bash(scripts/board.sh *)"
+  "Bash(scripts/board.sh *)" "Bash(bash scripts/board.sh *)"
   "Bash(gh pr create *)" "Bash(gh pr view *)" "Bash(gh pr list *)"
   "Bash(gh api repos/$REPO/*)"
   "Bash(gh api -X PATCH repos/$REPO/*)" "Bash(gh api -X POST repos/$REPO/*)"
@@ -95,7 +95,7 @@ ALLOWED_TOOLS=(
   "Bash(gh pr checks *)" "Bash(gh run view *)" "Bash(gh run list *)"
   "Bash(gh pr comment *)"
   "Bash(make check)" "Bash(make fmt)" "Bash(make sync)" "Bash(uv sync)" "Bash(uv run *)"
-  "Bash(bash tests/scripts/*)" "Bash(scripts/pin-action.sh *)"
+  "Bash(bash tests/scripts/*)" "Bash(scripts/pin-action.sh *)" "Bash(bash scripts/pin-action.sh *)"
 )
 if [ -n "${EXTRA_ALLOWED_TOOLS:-}" ]; then
   IFS=, read -r -a extra <<<"$EXTRA_ALLOWED_TOOLS"
