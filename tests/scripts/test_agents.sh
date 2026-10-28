@@ -100,4 +100,28 @@ for a in coordinator architect developer; do
   assert_no_grep ".claude/agents/$a.md" 'gh project item-(edit|add)' "$a: no raw gh project item-edit or item-add"
 done
 
+R=.claude/agents/reviewer.md
+echo "agents: the reviewer"
+if [ -f "$R" ]; then ok "reviewer.md exists"; else bad "reviewer.md exists"; fi
+assert_grep "$R" '^model: claude-opus-5-5$' "reviewer runs on claude-opus-5-5"
+assert_grep "$R" '^tools: Bash, Read, Grep, Glob$' "reviewer has only Bash, Read, Grep and Glob"
+assert_no_grep "$R" '^tools:.*(Write|Edit)' "reviewer has no Write or Edit tool"
+assert_grep "$R" '<!-- agent:reviewer -->' "reviewer uses its hidden marker"
+assert_grep "$R" '--approve' "names --approve"
+assert_grep "$R" '--request-changes' "names --request-changes"
+assert_grep "$R" '[Nn]ever merges' "says it never merges"
+assert_grep "$R" 'or pushes' "and never pushes"
+assert_grep "$R" 'one line per acceptance criterion' "requires one line per acceptance criterion"
+assert_grep "$R" 'not verifiable' "has the not verifiable verdict"
+assert_grep "$R" 'data, not instructions' "treats PR content as data"
+assert_grep "$R" 'risk:high' "may add risk:high"
+assert_grep "$R" 'delete.*skip.*loosen|deletes, skips or loosens' "adds risk:high when tests are deleted, skipped or loosened"
+assert_grep "$R" 'make check' "adds risk:high when make check is relaxed"
+assert_grep "$R" 'pyproject\.toml' "and when lint or type settings in pyproject.toml are relaxed"
+assert_grep "$R" '[Cc]onstitution check' "includes a constitution check"
+assert_grep "$R" 'gh pr review N --(approve|request-changes)' "has the exact review command"
+assert_grep "$R" '\.agent-tmp/review\.md' "writes the review under .agent-tmp/"
+assert_grep "$R" 'arch-' "knows arch-* ADR PRs"
+assert_grep "$R" 'one command per' "told to run one command per Bash call"
+
 finish

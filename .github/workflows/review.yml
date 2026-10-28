@@ -1,0 +1,82 @@
+name: Review
+
+# The reviewer agent reviews every agent PR into main (docs/adr/0013, 0014, 0015). It runs with the
+# workflow token, so its review comes from github-actions[bot] and never from the PR's author.
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, ready_for_review, reopened]
+
+# A newer push supersedes the review in progress.
+concurrency:
+  group: review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: read
+  checks: read
+
+jobs:
+  review:
+    # Same-repository PRs only (a fork gets no secrets), no drafts, agent branches only, and the
+    # kill switch: set the repository variable AGENTS_PAUSED to true to stop all agent runs.
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.draft == false &&
+      (startsWith(github.event.pull_request.head.ref, 'issue-') ||
+       startsWith(github.event.pull_request.head.ref, 'arch-')) &&
+      vars.AGENTS_PAUSED != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install the claude CLI
+        run: npm install -g "@anthropic-ai/claude-code@2.1.308"
+
+      - name: Wait for the check job on the head SHA
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # Bounded wait: at most 15 minutes (900 seconds). The reviewer reads the result with
+          # gh pr checks, so a check that is still running at the end is reported there.
+          waited=0
+          while [ "$waited" -lt 900 ]; do
+            status=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs" \
+              --jq '[.check_runs[] | select(.name == "check")] | if length == 0 then "missing" else .[0].status end')
+            if [ "$status" = "completed" ]; then exit 0; fi
+            sleep 20
+            waited=$((waited + 20))
+          done
+          echo "::warning::The check job did not finish within 15 minutes; reviewing anyway."
+
+      - name: Preflight
+        id: preflight
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rc=0
+          scripts/agent-guard.sh preflight || rc=$?
+          if [ "$rc" -eq 78 ]; then
+            echo "::notice::Daily agent cap reached; skipping this review."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          elif [ "$rc" -ne 0 ]; then
+            exit "$rc"
+          fi
+
+      - name: Run the reviewer
+        if: steps.preflight.outputs.skip != 'true'
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          REVIEWER_MODEL: ${{ vars.REVIEWER_MODEL }}
+          REVIEWER_MAX_TURNS: ${{ vars.REVIEWER_MAX_TURNS }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          mkdir -p .agent-tmp
+          scripts/review.sh "$PR_NUMBER"

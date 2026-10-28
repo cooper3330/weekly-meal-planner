@@ -164,4 +164,89 @@ assert_grep "$CO" 'AGENT_GIT_NAME' "sets AGENT_GIT_NAME"
 assert_grep "$CO" 'AGENT_GIT_EMAIL' "sets AGENT_GIT_EMAIL"
 assert_no_grep "$CO" 'ANTHROPIC_' "sets no ANTHROPIC_* variable"
 
+RV=.github/workflows/review.yml
+echo "workflows: review.yml"
+assert_eq "$(trigger_branches "$FIX/unpinned.yml" pull_request)" "" "a fixture without the branches filter is visible as a violation"
+if [ -f "$RV" ]; then ok "review.yml exists"; else bad "review.yml exists"; finish; exit; fi
+assert_grep "$RV" '^name:[[:space:]]*Review[[:space:]]*$' "is named Review (the daily cap counts that name)"
+assert_grep "$RV" '^  pull_request:' "uses pull_request"
+assert_no_grep "$RV" 'pull_request_target' "never uses pull_request_target"
+assert_eq "$(trigger_branches "$RV" pull_request)" "[main]" "pull_request restricted to main"
+assert_grep "$RV" 'types:[[:space:]]*\[opened, synchronize, ready_for_review, reopened\]' "opened, synchronize, ready_for_review, reopened"
+rv_if=$(awk '/^    if:/ { on = 1 } on && /^    [a-z-]+:/ && !/^    if:/ { exit } on { print }' "$RV")
+if grep -q 'github\.event\.pull_request\.head\.repo\.full_name == github\.repository' <<<"$rv_if"; then ok "job runs only for PRs from this repository"; else bad "job runs only for PRs from this repository"; fi
+if grep -q 'github\.event\.pull_request\.draft == false\|!github\.event\.pull_request\.draft' <<<"$rv_if"; then ok "drafts are excluded"; else bad "drafts are excluded"; fi
+if grep -q "startsWith(github.event.pull_request.head.ref, 'issue-')" <<<"$rv_if" && grep -q "startsWith(github.event.pull_request.head.ref, 'arch-')" <<<"$rv_if"; then ok "head branch must match issue-* or arch-*"; else bad "head branch must match issue-* or arch-*"; fi
+if grep -q "vars\.AGENTS_PAUSED != 'true'" <<<"$rv_if"; then ok "job is gated by the AGENTS_PAUSED kill switch"; else bad "job is gated by the AGENTS_PAUSED kill switch"; fi
+assert_grep "$RV" '^  group:[[:space:]]*review-\$\{\{[[:space:]]*github\.event\.pull_request\.number[[:space:]]*\}\}' "concurrency group is keyed by PR number"
+assert_grep "$RV" '^  cancel-in-progress:[[:space:]]*true' "a newer push supersedes the review"
+tm=$(sed -nE 's/^    timeout-minutes:[[:space:]]*([0-9]+).*/\1/p' "$RV" | head -1)
+if [ -n "$tm" ] && [ "$tm" -le 20 ]; then ok "timeout-minutes is $tm (at most 20)"; else bad "timeout-minutes is at most 20 (got '$tm')"; fi
+assert_grep "$RV" '^  contents:[[:space:]]+read' "contents: read"
+assert_grep "$RV" '^  pull-requests:[[:space:]]+write' "pull-requests: write"
+assert_grep "$RV" '^  issues:[[:space:]]+read' "issues: read"
+assert_grep "$RV" '^  checks:[[:space:]]+read' "checks: read"
+assert_no_grep "$RV" 'contents:[[:space:]]+write' "no contents: write"
+assert_grep "$RV" 'GH_TOKEN:[[:space:]]*\$\{\{[[:space:]]*github\.token[[:space:]]*\}\}' "GH_TOKEN is github.token"
+assert_no_grep "$RV" 'create-github-app-token|AGENT_APP|AGENT_GH_TOKEN|PROJECT_TOKEN' "does not use the App token (the reviewer is never the PR author)"
+assert_grep "$RV" 'CLAUDE_CODE_OAUTH_TOKEN:[[:space:]]*\$\{\{[[:space:]]*secrets\.CLAUDE_CODE_OAUTH_TOKEN' "CLAUDE_CODE_OAUTH_TOKEN comes from secrets"
+assert_no_grep "$RV" 'ANTHROPIC_' "sets no ANTHROPIC_* variable"
+assert_grep "$RV" 'check-runs|gh pr checks' "waits for the check status on the head SHA"
+assert_grep "$RV" 'github\.event\.pull_request\.head\.sha' "looks at the head SHA"
+assert_grep "$RV" '(900|15 \* 60|15)' "the wait is bounded to 15 minutes"
+w=$(grep -n 'check-runs\|gh pr checks' "$RV" | head -1 | cut -d: -f1)
+g=$(grep -n 'scripts/agent-guard.sh preflight' "$RV" | head -1 | cut -d: -f1)
+c=$(grep -n 'scripts/review.sh' "$RV" | head -1 | cut -d: -f1)
+if [ -n "$w" ] && [ -n "$g" ] && [ -n "$c" ] && [ "$w" -lt "$g" ] && [ "$g" -lt "$c" ]; then ok "wait for check, then preflight, then review.sh"; else bad "wait for check, then preflight, then review.sh"; fi
+assert_grep "$RV" '78' "handles preflight exit code 78"
+
+# A workflow step that runs a script directly (scripts/x.sh, not "bash scripts/x.sh") needs the git
+# executable bit, or the runner fails with "Permission denied" (this broke the coordinator and review
+# workflows). direct_script_calls FILE prints each repo script a workflow runs directly.
+direct_script_calls() {
+  grep -E '(^|[[:space:]])(\./)?(scripts|tests/scripts/fixtures)/[A-Za-z0-9_.-]+\.sh' "$1" \
+    | grep -vE '^[[:space:]]*#' \
+    | grep -vE '(bash|sh)[[:space:]]+(\./)?(scripts|tests/scripts/fixtures)/' \
+    | grep -oE '(scripts|tests/scripts/fixtures)/[A-Za-z0-9_.-]+\.sh' | sort -u
+}
+non_executable() { # path: succeeds when git records the file without the executable bit
+  local mode; mode=$(git ls-files -s -- "$1" | awk '{print $1}')
+  [ -n "$mode" ] && [ "$mode" != "100755" ]
+}
+
+echo "workflows: scripts that a workflow runs directly are executable in git"
+if [ -n "$(direct_script_calls "$FIX/direct-call.yml" | while read -r sc; do non_executable "$sc" && echo "$sc"; done)" ]; then
+  ok "a fixture that runs a non-executable script directly is reported"
+else
+  bad "a fixture that runs a non-executable script directly is reported"
+fi
+for f in .github/workflows/*.yml; do
+  [ -f "$f" ] || continue
+  for sc in $(direct_script_calls "$f"); do
+    if non_executable "$sc"; then bad "$f runs $sc directly but it is not executable (mode $(git ls-files -s -- "$sc" | awk '{print $1}'))"; else ok "$f runs $sc directly and it is executable"; fi
+  done
+done
+
+# The claude CLI that workflows install must be new enough for the API to accept it (the first review run
+# failed with "Claude Code 2.1.0 does not support this model; version 2.1.280 or newer is required"),
+# and every workflow must install the same version.
+MIN_CLAUDE=2.1.280
+claude_pins() { grep -ohE '@anthropic-ai/claude-code@[0-9][0-9.]*' "$1" | sed 's/.*@//' | sort -u; }
+too_old() { # version: succeeds when it is older than MIN_CLAUDE
+  [ "$(printf '%s\n%s\n' "$1" "$MIN_CLAUDE" | sort -V | head -1)" != "$MIN_CLAUDE" ]
+}
+
+echo "workflows: the pinned claude CLI is recent enough, and the same everywhere"
+if too_old "$(claude_pins "$FIX/old-claude.yml")"; then ok "a fixture pinned to 2.1.0 is reported as too old"; else bad "a fixture pinned to 2.1.0 is reported as too old"; fi
+all_pins=""
+for f in .github/workflows/*.yml; do
+  [ -f "$f" ] || continue
+  for v in $(claude_pins "$f"); do
+    all_pins="$all_pins $v"
+    if too_old "$v"; then bad "$f installs claude-code@$v, older than $MIN_CLAUDE"; else ok "$f installs claude-code@$v (at least $MIN_CLAUDE)"; fi
+  done
+done
+distinct=$(printf '%s\n' $all_pins | sort -u | grep -c . || true)
+if [ "$distinct" -le 1 ]; then ok "all workflows install the same claude-code version"; else bad "all workflows install the same claude-code version (found:$(printf ' %s' $all_pins | tr ' ' '\n' | sort -u | tr '\n' ' '))"; fi
+
 finish
