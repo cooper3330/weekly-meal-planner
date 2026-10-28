@@ -96,14 +96,14 @@ assert_grep "$T/out" 'plain text, not json' "output that is not JSON is passed t
 assert_eq "$(cat "$T/rc")" "0" "and is not an error"
 
 echo "preflight: a task that edits protected paths is held for an interactive session"
-PROT=$'### Files likely touched\n- `.claude/agents/architect.md`\n- `scripts/board.sh`\n\n### Dependencies\nBlocked by: none'
+PROT=$'### Files likely touched\n- `.claude/settings.json`\n- `scripts/board.sh`\n\n### Dependencies\nBlocked by: none'
 sandbox '{"items":[{"id":"I29","status":"Ready","content":{"number":29,"title":"Identity","url":"https://github.com/cooper3330/weekly-meal-planner/issues/29"},"labels":["type:task"]}]}'; issue_body 29 "$PROT"
 run
 assert_count "$T/claude.calls" "called" 0 "it is not dispatched"
 assert_grep "$T/gh.log" 'issue comment 29 ' "the issue gets a comment"
 assert_grep "$T/gh.log" 'interactive' "that says an interactive session is needed"
 assert_grep "$T/gh.log" 'claude --agent developer' "with the command to run"
-assert_grep "$T/gh.log" '\.claude/agents/architect\.md' "and the protected path that caused it"
+assert_grep "$T/gh.log" '\.claude/settings\.json' "and the protected path that caused it"
 assert_grep "$T/gh.log" 'project item-edit --id I29 .*o_blocked' "and its card moves to Blocked"
 assert_grep "$T/gh.log" 'agent:coordinator' "the comment carries the coordinator marker"
 
@@ -119,7 +119,7 @@ echo "preflight: only the Files likely touched section counts, in either heading
 sandbox "$ITEMS32"; issue_body 32 $'### Background\nThe old design edited `.claude/settings.json`.\n\n### Files likely touched\n- `scripts/x.sh`\n'
 run
 assert_count "$T/claude.calls" "called" 1 "a protected path mentioned elsewhere does not hold the task"
-sandbox "$ITEMS32"; issue_body 32 $'**Goal**\nx\n\n**Files likely touched**\n`.claude/agents/developer.md`, `README.md`\n\n**Tests to write first**\nnothing\n'
+sandbox "$ITEMS32"; issue_body 32 $'**Goal**\nx\n\n**Files likely touched**\n`.claude/settings.json`, `README.md`\n\n**Tests to write first**\nnothing\n'
 run
 assert_count "$T/claude.calls" "called" 0 "a bold-style section is read too"
 sandbox "$ITEMS32"; issue_body 32 $'### Files likely touched\n- `./.git/hooks/pre-commit`\n'
@@ -133,5 +133,30 @@ echo "preflight: features and architecture issues are never held"
 sandbox '{"items":[{"id":"I4","status":"Ready","content":{"number":4,"title":"Delivery loop"},"labels":["type:feature"]}]}'; issue_body 4 "$PROT"
 run
 assert_count "$T/claude.calls" "called" 1 "a feature is dispatched to the architect as usual"
+
+echo "preflight: agent definitions, commands and skills under .claude/ can be written headless (tested on Claude Code 2.1.312)"
+for path in '.claude/agents/reviewer.md' '.claude/commands/fix.md' '.claude/skills/s/SKILL.md'; do
+  sandbox "$ITEMS32"; issue_body 32 "$(printf '### Files likely touched\n- `%s`\n- `scripts/x.sh`\n' "$path")"
+  run
+  assert_count "$T/claude.calls" "called" 1 "not held: $path"
+done
+
+echo "preflight: other .claude/ paths and the editor and git directories are still held"
+for path in '.claude/settings.json' '.claude/settings.local.json' '.claude/notes.md' '.claude/hooks/pre.sh' '.git/hooks/pre-commit' '.vscode/settings.json' '.mcp.json'; do
+  sandbox "$ITEMS32"; issue_body 32 "$(printf '### Files likely touched\n- `%s`\n' "$path")"
+  run
+  assert_count "$T/claude.calls" "called" 0 "held: $path"
+done
+
+echo "preflight: a task listing an agent file and settings.json is held, and names only the protected one"
+sandbox "$ITEMS32"; issue_body 32 $'### Files likely touched\n- `.claude/agents/reviewer.md`\n- `.claude/settings.json`\n'
+run
+assert_count "$T/claude.calls" "called" 0 "held"
+assert_grep "$T/gh.log" 'protected paths \(\.claude/settings\.json\)' "the comment names only .claude/settings.json"
+
+echo "preflight: WRITABLE_PATH_RE can restore the strict behaviour for a machine that denies agent files"
+sandbox "$ITEMS32"; issue_body 32 $'### Files likely touched\n- `.claude/agents/reviewer.md`\n'
+WRITABLE_PATH_RE='^$' run
+assert_count "$T/claude.calls" "called" 0 "an agent file is held when WRITABLE_PATH_RE matches nothing"
 
 finish

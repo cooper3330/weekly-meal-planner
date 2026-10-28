@@ -11,6 +11,8 @@
 #        ARCHITECT_MAX_TURNS, DEVELOPER_MAX_TURNS  `--max-turns` for architect / developer launches
 #                             (defaults 60 / 80; empty means the default). The coordinator's own run gets 30.
 #        EXTRA_ALLOWED_TOOLS  comma-separated extra `claude --allowedTools` rules
+#        PROTECTED_PATH_RE / WRITABLE_PATH_RE  paths a headless agent cannot write (held for an
+#                             interactive session) and the exceptions to them; see below
 #        CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS  how long claude -p waits for background subagents
 #                             (default 0 = indefinitely; set e.g. 7200000 to cap at two hours)
 #        AGENT_GH_TOKEN       token every agent (and this script's own gh calls) acts with: the
@@ -199,10 +201,17 @@ open_blockers() {
   done
 }
 
-# Claude Code never lets a headless run write to these paths (".claude" holds the agent
-# definitions and settings) and nobody can approve the prompt, so a task that edits them cannot be
-# done by a dispatched agent. Matched against the paths a task lists under "Files likely touched".
-PROTECTED_PATH_RE='^(\.claude|\.git|\.vscode|\.idea|\.husky|\.devcontainer)/|^(\.mcp\.json|\.claude\.json)$'
+# Claude Code does not let a headless run write to its protected paths (.git, editor folders, and
+# most of .claude/, such as settings.json) and nobody can approve the prompt, so a task that edits
+# them cannot be done by a dispatched agent. Matched against the paths a task lists under "Files
+# likely touched".
+#
+# Exception, tested on Claude Code 2.1.312 with --permission-mode acceptEdits: files under
+# .claude/agents/, .claude/commands/ and .claude/skills/ ARE writable headless (a subagent can write
+# them too), so tasks that only edit agent definitions are dispatched. If a machine's CLI denies them,
+# the denial report names the command, and WRITABLE_PATH_RE='^$' holds them again.
+PROTECTED_PATH_RE="${PROTECTED_PATH_RE:-^(\.claude|\.git|\.vscode|\.idea|\.husky|\.devcontainer)/|^(\.mcp\.json|\.claude\.json)\$}"
+WRITABLE_PATH_RE="${WRITABLE_PATH_RE:-^\.claude/(agents|commands|skills)/}"
 
 # Echoes the protected paths that issue $1 lists in its "Files likely touched" section (written as
 # a "###" heading or a bold line), one per line. Paths mentioned elsewhere in the body do not count.
@@ -210,7 +219,8 @@ protected_paths() {
   local body
   body=$(gh issue view "$1" --repo "$REPO" --json body -q .body) || return 0
   awk 'tolower($0) ~ /files likely touched/ { on = 1; next } on && /^(###|\*\*)/ { exit } on { print }' <<<"$body" \
-    | { grep -oE '`[^`]+`' || true; } | tr -d '`' | sed 's|^\./||' | { grep -E "$PROTECTED_PATH_RE" || true; }
+    | { grep -oE '`[^`]+`' || true; } | tr -d '`' | sed 's|^\./||' \
+    | { grep -E "$PROTECTED_PATH_RE" || true; } | { grep -Ev "$WRITABLE_PATH_RE" || true; }
 }
 
 # Holds task $1 (protected paths in $2) for an interactive session: says so on the issue and moves
@@ -219,7 +229,7 @@ hold_for_interactive() {
   local n="$1" paths list
   list=$(paste -sd, - <<<"$2" | sed 's/,/, /g')
   echo "$(ts) #$n edits protected paths ($list): needs an interactive session, not dispatching"
-  post_comment issue "$n" "Held for an interactive session: this task edits protected paths ($list). Claude Code does not let a headless run write there and nobody can approve it, so a dispatched agent would stop. Run it yourself: \`cd <your checkout> && claude --agent developer\`, ask it to implement #$n, and approve the protected edits when it asks. Or make those edits by hand. <!-- agent:coordinator -->"
+  post_comment issue "$n" "Held for an interactive session: this task edits protected paths ($list). Claude Code does not let a headless run write there and nobody can approve it, so a dispatched agent would stop (agent definitions under .claude/agents, commands and skills are not affected). Run it yourself: \`cd <your checkout> && claude --agent developer\`, ask it to implement #$n, and approve the protected edits when it asks. Or make those edits by hand. <!-- agent:coordinator -->"
   bash ./scripts/board.sh status "$n" Blocked || echo "$(ts) could not move #$n to Blocked" >&2
 }
 
