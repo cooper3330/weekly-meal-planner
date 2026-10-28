@@ -25,6 +25,8 @@ for cmd in gh jq claude; do
   command -v "$cmd" >/dev/null 2>&1 || { echo "missing required command: $cmd" >&2; exit 1; }
 done
 cd "$(dirname "$0")/.."
+# Every claude launch goes through the guard (usage-limit reporting, no retry; docs/adr/0015).
+GUARD="$PWD/scripts/agent-guard.sh"
 
 # `date -I` is GNU-only; this format works on macOS and Linux.
 ts() { date '+%Y-%m-%dT%H:%M:%S%z'; }
@@ -163,7 +165,8 @@ revise_pass() {
       ack="Picked up: the $agent agent is revising in response to the latest feedback. If this run fails, comment /revise again. <!-- agent:ack -->"
       post_comment "$kind" "$number" "$ack"
       # The prompt goes first: --allowedTools takes a list and would swallow a trailing prompt.
-      if ! (cd "$wt" && claude -p "$prompt" --agent "$agent" --permission-mode acceptEdits \
+      if ! (cd "$wt" && bash "$GUARD" run --kind "$kind" --number "$number" -- \
+              claude -p "$prompt" --agent "$agent" --permission-mode acceptEdits \
               --allowedTools "${ALLOWED_TOOLS[@]}"); then
         echo "$(ts) revision of $kind #$number failed (comment /revise again to retry)" >&2
       fi
@@ -264,7 +267,7 @@ report_run() {
 # the owner's checkout (and whatever branch or uncommitted work it has) is never touched. Whatever
 # the run leaves unfinished is saved by salvage_worktree before the worktree is deleted.
 ready_pass() {
-  local all ready count i item n waiting prot wt out rc salvaged
+  local all ready count i item n waiting prot wt out rc salvaged guard_kind guard_number
   all=$(gh_project item-list "$PROJECT_NUMBER" --owner "$OWNER" --limit 200 --format json \
     | jq -c '[.items[] | select(.status=="Ready" and .content.number != null)
               | {item_id: .id, number: .content.number, title: .content.title, labels: (.labels // [])}]')
@@ -303,7 +306,12 @@ ready_pass() {
   fi
   rc=0
   # The prompt goes first: --allowedTools takes a list and would swallow a trailing prompt.
-  out=$(cd "$wt" && claude -p "Project $PROJECT_NUMBER (owner $OWNER), MAX_PARALLEL=$MAX_PARALLEL. Items in Ready (item_id is the board item ID): $ready. Only tasks whose Blocked by: blockers are done are listed. Run one coordination pass per docs/workflow.md and report what you dispatched. You are in a fresh git worktree at origin/main; the agents you start work in it too. To change an item's Status, run: scripts/board.sh status <issue-number> <Status name>; it is the only way to touch the board. When you dispatch the architect, tell it the project number and owner and to use scripts/board.sh (add <issue-url>, status <issue-number> <Status name>) to put the task issues it creates on the board: in Ready, or in Plan Review if it has open questions for the owner." \
+  # A usage-limit stop is reported on the item when exactly one was dispatched, else only logged.
+  guard_kind=none; guard_number=()
+  if [ "$(jq length <<<"$ready")" -eq 1 ]; then
+    guard_kind=issue; guard_number=(--number "$(jq -r '.[0].number' <<<"$ready")")
+  fi
+  out=$(cd "$wt" && bash "$GUARD" run --kind "$guard_kind" ${guard_number[@]+"${guard_number[@]}"} -- claude -p "Project $PROJECT_NUMBER (owner $OWNER), MAX_PARALLEL=$MAX_PARALLEL. Items in Ready (item_id is the board item ID): $ready. Only tasks whose Blocked by: blockers are done are listed. Run one coordination pass per docs/workflow.md and report what you dispatched. You are in a fresh git worktree at origin/main; the agents you start work in it too. To change an item's Status, run: scripts/board.sh status <issue-number> <Status name>; it is the only way to touch the board. When you dispatch the architect, tell it the project number and owner and to use scripts/board.sh (add <issue-url>, status <issue-number> <Status name>) to put the task issues it creates on the board: in Ready, or in Plan Review if it has open questions for the owner." \
     --agent coordinator --permission-mode acceptEdits --output-format json \
     --allowedTools "${ALLOWED_TOOLS[@]}") || rc=$?
   report_run "$out"

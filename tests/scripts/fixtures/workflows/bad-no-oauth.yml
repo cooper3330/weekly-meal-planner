@@ -1,0 +1,9 @@
+name: Bad no oauth
+on:
+  workflow_dispatch:
+jobs:
+  agent:
+    if: vars.AGENTS_PAUSED != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - run: claude -p "hello"
