@@ -137,4 +137,53 @@ run
 assert_eq "$(count)" "3" "PR 15, PR 30 and issue 5 are all pending"
 assert_eq "$(cat "$T/rc")" "0" "exits 0"
 
+echo "pending: a /revise on a task issue goes to the task's open PR"
+LINKED='[{"number":46,"headRefName":"issue-32-ci-workflow-v3"},{"number":15,"headRefName":"arch-5-architecture-baseline"}]'
+new_sandbox; echo "$LINKED" > "$T/prs.json"
+echo "[$(comment 2026-10-28T01:22:58Z 'main has the fix, pull it in /revise' OWNER)]" > "$T/issue_comments_32.json"
+run
+assert_eq "$(count)" "1" "one pending revision"
+assert_eq "$(field '.[0].kind')" "pr" "it is the PR"
+assert_eq "$(field '.[0].number')" "46" "PR 46, the one on branch issue-32-*"
+assert_eq "$(field '.[0].agent')" "developer" "for the developer"
+assert_eq "$(field '.[0].linked_issue')" "32" "and it names the linked issue"
+
+new_sandbox; echo "$LINKED" > "$T/prs.json"
+echo "[$(comment 2026-10-28T01:22:58Z '/revise' OWNER),$(comment 2026-10-28T01:30:00Z 'Blocked: x <!-- agent:coordinator -->' OWNER)]" > "$T/issue_comments_32.json"
+run
+assert_eq "$(count)" "0" "an agent-marked comment on the issue, newer than the /revise, handles it"
+
+new_sandbox; echo "$LINKED" > "$T/prs.json"
+echo "[$(comment 2026-10-28T01:22:58Z '/revise' OWNER)]" > "$T/issue_comments_32.json"
+echo "[$(comment 2026-10-28T01:40:00Z 'Pushed the merge. <!-- agent:developer -->' OWNER)]" > "$T/issue_comments_46.json"
+run
+assert_eq "$(count)" "0" "an agent reply on the PR, newer than the /revise on the issue, handles it"
+
+new_sandbox; echo "$LINKED" > "$T/prs.json"
+echo "[$(comment 2026-10-28T01:22:58Z '/revise' NONE),$(comment 2026-10-28T01:23:00Z '/revise' CONTRIBUTOR)]" > "$T/issue_comments_32.json"
+run
+assert_eq "$(count)" "0" "untrusted /revise on the issue does not trigger"
+
+new_sandbox; echo "$LINKED" > "$T/prs.json"
+echo "[$(comment 2026-10-28T01:22:58Z 'Looks fine, thanks' OWNER)]" > "$T/issue_comments_32.json"
+run
+assert_eq "$(count)" "0" "a plain comment on the issue does not trigger"
+
+new_sandbox; echo "$LINKED" > "$T/prs.json"
+echo "[$(comment 2026-10-28T01:22:58Z '/revise' OWNER)]" > "$T/issue_comments_5.json"
+run
+assert_eq "$(count)" "0" "architect PRs have no linked issue: a /revise on issue 5 does not pick up PR 15"
+
+new_sandbox; echo '[{"number":46,"headRefName":"issue-32-ci-workflow-v3"}]' > "$T/prs.json"
+echo "[$(comment 2026-10-28T01:22:58Z '/revise' OWNER)]" > "$T/issue_comments_32.json"
+echo "[$(comment 2026-10-28T01:23:00Z '/revise' OWNER)]" > "$T/issue_comments_46.json"
+run
+assert_eq "$(count)" "1" "feedback on both the PR and the issue is still one revision"
+
+new_sandbox; echo '[{"number":47,"headRefName":"issue-x-no-number"}]' > "$T/prs.json"
+echo "[$(comment 2026-10-28T01:22:58Z '/revise' OWNER)]" > "$T/issue_comments_47.json"
+run
+assert_eq "$(count)" "1" "an issue-* branch with no issue number still works from the PR's own comments"
+assert_eq "$(field '.[0].linked_issue')" "null" "and has no linked issue"
+
 finish

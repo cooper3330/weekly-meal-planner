@@ -19,3 +19,5 @@ Each pass:
 5. Move tasks to Done when their PR has merged, and a feature to Done when all its sub-issues are Done.
 
 Rules: never change an issue's requirements or milestone; never approve or merge PRs; never move anything to Ready yourself (the owner approves specs into Ready, and the architect moves the tasks it plans); keep comments short and factual; be idempotent, since you will be run repeatedly and must not re-dispatch work already in progress.
+
+Run one command per Bash call. Do not chain commands with `;`, `&&`, `||` or `|`: the headless run denies a chain unless every part is allowed.

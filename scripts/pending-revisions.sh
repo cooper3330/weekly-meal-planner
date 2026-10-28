@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Lists agent pull requests and plan issues that have unanswered feedback from a trusted human.
 # Prints a JSON array on stdout, for example:
-#   [{"kind":"pr","number":15,"agent":"architect","branch":"arch-5-x","trigger_time":"..."},
+#   [{"kind":"pr","number":15,"agent":"architect","branch":"arch-5-x","trigger_time":"...","linked_issue":null},
 #    {"kind":"issue","number":5,"agent":"architect","trigger_time":"..."}]
 #
 # Feedback is a comment containing the word /revise, or a review submitted as "Request changes",
@@ -13,6 +13,8 @@
 #
 # Scope: open PRs on branches named arch-* (architect) or issue-* (developer), and open
 # type:feature / type:architecture issues (plan feedback, architect). Other PRs are ignored.
+# A /revise on a task issue counts for the open PR on that task's issue-<N>-* branch
+# ("linked_issue" in the output names the issue).
 #
 # Env: REPO owner/name (default: the current repository)
 # Requires: gh, jq. Works with macOS (BSD) tools and bash 3.2.
@@ -55,14 +57,21 @@ while IFS=$'\t' read -r number branch; do
   ic=$(api_list "repos/$REPO/issues/$number/comments?per_page=100")
   rc=$(api_list "repos/$REPO/pulls/$number/comments?per_page=100")
   rv=$(api_list "repos/$REPO/pulls/$number/reviews?per_page=100")
-  verdict=$(jq -n --argjson ic "$ic" --argjson rc "$rc" --argjson rv "$rv" --argjson trusted "$TRUSTED" \
-    "[(\$ic + \$rc)[] | {t: .created_at, body: .body, assoc: .author_association, state: null}]
+  # A developer PR on issue-<N>-<slug> belongs to task issue N, and owners naturally comment
+  # /revise there. Its comments count as feedback on the PR (and an agent reply on either one
+  # answers it). Architect PRs (arch-*) have no linked issue.
+  linked=$(sed -nE 's/^issue-([0-9]+)-.*/\1/p' <<<"$branch")
+  li="[]"
+  if [ -n "$linked" ]; then li=$(api_list "repos/$REPO/issues/$linked/comments?per_page=100"); fi
+  verdict=$(jq -n --argjson ic "$ic" --argjson rc "$rc" --argjson rv "$rv" --argjson li "$li" --argjson trusted "$TRUSTED" \
+    "[(\$ic + \$rc + \$li)[] | {t: .created_at, body: .body, assoc: .author_association, state: null}]
      + [\$rv[] | {t: .submitted_at, body: .body, assoc: .author_association, state: .state}]
      | $PENDING_JQ")
   if [ "$(jq -r .pending <<<"$verdict")" = "true" ]; then
     obj=$(jq -nc --argjson n "$number" --arg agent "$agent" --arg branch "$branch" \
-            --arg t "$(jq -r .trigger_time <<<"$verdict")" \
-            '{kind: "pr", number: $n, agent: $agent, branch: $branch, trigger_time: $t}')
+            --arg t "$(jq -r .trigger_time <<<"$verdict")" --arg linked "$linked" \
+            '{kind: "pr", number: $n, agent: $agent, branch: $branch, trigger_time: $t,
+              linked_issue: (if $linked == "" then null else ($linked | tonumber) end)}')
     results="$results$obj"$'\n'
   fi
 done < <(jq -r '.[] | select(.headRefName | test("^(arch|issue)-[A-Za-z0-9._/-]*$")) | "\(.number)\t\(.headRefName)"' <<<"$prs")
