@@ -394,4 +394,13 @@ PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
 assert_no_grep "$T/gh.log" 'agent:limit' "no limit comment when the target is ambiguous"
 assert_grep "$T/out" 'usage limit' "the limit is logged"
 
+echo "allowlist: the repo scripts agents run are allowed with or without a bash prefix"
+new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+for rule in 'scripts/board.sh \*' 'bash scripts/board.sh \*' 'scripts/pin-action.sh \*' 'bash scripts/pin-action.sh \*'; do
+  assert_grep "$T/claude.args" "^Bash\\($rule\\)\$" "allows: $rule"
+done
+assert_no_grep "$T/claude.args" 'Bash\(bash scripts/\*\)' "but not every script under scripts/"
+assert_no_grep "$T/claude.args" 'Bash\(bash \*\)' "and no unrestricted bash"
+
 finish
