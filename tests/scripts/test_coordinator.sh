@@ -369,4 +369,29 @@ assert_no_grep "$T/claude.args" 'Bash\(git pull' "git pull is gone (it can rebas
 assert_no_grep "$T/claude.args" 'Bash\(git merge \*\)' "no open-ended git merge"
 assert_no_grep "$T/claude.args" 'git (rebase|reset|cherry-pick)' "no rebase, reset or cherry-pick"
 
+echo "coordinator: a usage-limit stop during a revision is reported once, without a retry"
+new_sandbox; echo "$PRS15" > "$T/prs.json"; echo "$PR_REVISE" > "$T/issue_comments_15.json"
+echo "Claude AI usage limit reached" > "$T/claude.out"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_count "$T/claude.calls" "called" 1 "claude ran once, no retry in the same pass"
+assert_count "$T/gh.log" '^gh pr comment 15 .*agent:limit' 1 "the PR gets one limit comment"
+
+echo "coordinator: a limit stop in the ready pass with one dispatched item comments on that item"
+new_sandbox
+echo '{"items":[{"id":"I1","status":"Ready","content":{"number":5,"title":"x"},"labels":["type:architecture"]}]}' > "$T/items.json"
+echo "$STATUS_FIELDS" > "$T/fields.json"
+echo "Claude AI usage limit reached" > "$T/claude.out"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_count "$T/claude.calls" "called" 1 "claude ran once"
+assert_count "$T/gh.log" '^gh issue comment 5 .*agent:limit' 1 "issue #5 gets one limit comment"
+
+echo "coordinator: a limit stop with several Ready items is only logged"
+new_sandbox
+echo '{"items":[{"id":"I1","status":"Ready","content":{"number":5,"title":"x"},"labels":["type:architecture"]},{"id":"I2","status":"Ready","content":{"number":6,"title":"y"},"labels":["type:architecture"]}]}' > "$T/items.json"
+echo "$STATUS_FIELDS" > "$T/fields.json"
+echo "Claude AI usage limit reached" > "$T/claude.out"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_no_grep "$T/gh.log" 'agent:limit' "no limit comment when the target is ambiguous"
+assert_grep "$T/out" 'usage limit' "the limit is logged"
+
 finish

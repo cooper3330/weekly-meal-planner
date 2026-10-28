@@ -99,6 +99,7 @@ case "$1 $2" in
   "project link")        if [ -n "${STUB_LINK_FAIL:-}" ]; then echo "has different owner from '@me'" >&2; exit 1; fi ;;
   "pr list")             emit "$STUB_DIR/prs.json" ;;
   "issue list")          emit "$STUB_DIR/issues.json" ;;
+  "run list")            emit "$STUB_DIR/run_list.json" ;;   # [{workflowName, conclusion, status, createdAt}]
   "issue view")          f="$STUB_DIR/issue_$3.json"; [ -f "$f" ] || echo '{"body":""}' > "$f"; emit "$f" ;;
   *) ;;                  # label create, pr comment, issue comment, ...: only logged
 esac

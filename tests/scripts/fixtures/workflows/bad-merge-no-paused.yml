@@ -1,0 +1,8 @@
+name: Bad merge without kill switch
+on:
+  workflow_dispatch:
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    steps:
+      - run: gh pr merge --auto --squash "$PR"

@@ -1,0 +1,12 @@
+name: Bad auth token
+on:
+  workflow_dispatch:
+jobs:
+  agent:
+    if: vars.AGENTS_PAUSED != 'true'
+    runs-on: ubuntu-latest
+    env:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      ANTHROPIC_AUTH_TOKEN: ${{ secrets.SOMETHING }}
+    steps:
+      - run: claude -p "hello"

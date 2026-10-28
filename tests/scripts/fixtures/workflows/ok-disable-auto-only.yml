@@ -1,0 +1,8 @@
+name: Disable auto-merge only
+on:
+  workflow_dispatch:
+jobs:
+  safety:
+    runs-on: ubuntu-latest
+    steps:
+      - run: gh pr merge --disable-auto "$PR"
