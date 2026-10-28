@@ -8,6 +8,8 @@
 #        REPO                 owner/name (default: the current repository)
 #        INTERVAL             seconds between passes (default 300)
 #        MAX_PARALLEL         agents allowed to run at once (default 1)
+#        ARCHITECT_MAX_TURNS, DEVELOPER_MAX_TURNS  `--max-turns` for architect / developer launches
+#                             (defaults 60 / 80; empty means the default). The coordinator's own run gets 30.
 #        EXTRA_ALLOWED_TOOLS  comma-separated extra `claude --allowedTools` rules
 #        CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS  how long claude -p waits for background subagents
 #                             (default 0 = indefinitely; set e.g. 7200000 to cap at two hours)
@@ -55,6 +57,10 @@ REPO="${REPO:-$(gh repo view --json nameWithOwner -q .nameWithOwner)}"
 OWNER="${OWNER:-${REPO%%/*}}"
 INTERVAL="${INTERVAL:-300}"
 MAX_PARALLEL="${MAX_PARALLEL:-1}"
+# Turn caps per launch (docs/adr/0015). An empty value (an unset repository variable) means the default.
+ARCHITECT_MAX_TURNS="${ARCHITECT_MAX_TURNS:-60}"
+DEVELOPER_MAX_TURNS="${DEVELOPER_MAX_TURNS:-80}"
+COORDINATOR_MAX_TURNS=30
 # scripts/board.sh (run by the agents) reads these from the environment.
 export PROJECT_NUMBER OWNER REPO
 
@@ -121,7 +127,7 @@ post_comment() { # kind number body
 # as handled so a persistent failure is not retried every pass; the reviewer comments /revise
 # again after fixing it.
 revise_pass() {
-  local pending count i item kind number agent branch linked ack prompt wt fail
+  local pending count i item kind number agent branch linked ack prompt wt fail turns
   pending=$(REPO="$REPO" ./scripts/pending-revisions.sh) || return 1
   count=$(jq length <<<"$pending")
   i=0
@@ -165,8 +171,10 @@ revise_pass() {
       ack="Picked up: the $agent agent is revising in response to the latest feedback. If this run fails, comment /revise again. <!-- agent:ack -->"
       post_comment "$kind" "$number" "$ack"
       # The prompt goes first: --allowedTools takes a list and would swallow a trailing prompt.
+      turns=$DEVELOPER_MAX_TURNS
+      if [ "$agent" = "architect" ]; then turns=$ARCHITECT_MAX_TURNS; fi
       if ! (cd "$wt" && bash "$GUARD" run --kind "$kind" --number "$number" -- \
-              claude -p "$prompt" --agent "$agent" --permission-mode acceptEdits \
+              claude -p "$prompt" --agent "$agent" --permission-mode acceptEdits --max-turns "$turns" \
               --allowedTools "${ALLOWED_TOOLS[@]}"); then
         echo "$(ts) revision of $kind #$number failed (comment /revise again to retry)" >&2
       fi
@@ -311,8 +319,8 @@ ready_pass() {
   if [ "$(jq length <<<"$ready")" -eq 1 ]; then
     guard_kind=issue; guard_number=(--number "$(jq -r '.[0].number' <<<"$ready")")
   fi
-  out=$(cd "$wt" && bash "$GUARD" run --kind "$guard_kind" ${guard_number[@]+"${guard_number[@]}"} -- claude -p "Project $PROJECT_NUMBER (owner $OWNER), MAX_PARALLEL=$MAX_PARALLEL. Items in Ready (item_id is the board item ID): $ready. Only tasks whose Blocked by: blockers are done are listed. Run one coordination pass per docs/workflow.md and report what you dispatched. You are in a fresh git worktree at origin/main; the agents you start work in it too. To change an item's Status, run: scripts/board.sh status <issue-number> <Status name>; it is the only way to touch the board. When you dispatch the architect, tell it the project number and owner and to use scripts/board.sh (add <issue-url>, status <issue-number> <Status name>) to put the task issues it creates on the board: in Ready, or in Plan Review if it has open questions for the owner." \
-    --agent coordinator --permission-mode acceptEdits --output-format json \
+  out=$(cd "$wt" && bash "$GUARD" run --kind "$guard_kind" ${guard_number[@]+"${guard_number[@]}"} -- claude -p "Project $PROJECT_NUMBER (owner $OWNER), MAX_PARALLEL=$MAX_PARALLEL. Items in Ready (item_id is the board item ID): $ready. Only tasks whose Blocked by: blockers are done are listed. Run one coordination pass per docs/workflow.md and report what you dispatched. You are in a fresh git worktree at origin/main; the agents you start work in it too. To change an item's Status, run: scripts/board.sh status <issue-number> <Status name>; it is the only way to touch the board. When you dispatch the architect, tell it the project number and owner and to use scripts/board.sh (add <issue-url>, status <issue-number> <Status name>) to put the task issues it creates on the board: in Ready, or in Plan Review if it has open questions for the owner. Turn caps: when you start the architect, pass --max-turns $ARCHITECT_MAX_TURNS; when you start the developer, pass --max-turns $DEVELOPER_MAX_TURNS." \
+    --agent coordinator --permission-mode acceptEdits --output-format json --max-turns "$COORDINATOR_MAX_TURNS" \
     --allowedTools "${ALLOWED_TOOLS[@]}") || rc=$?
   report_run "$out"
   salvaged=0
