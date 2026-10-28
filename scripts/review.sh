@@ -24,13 +24,15 @@ TURNS="${REVIEWER_MAX_TURNS:-30}"
 
 # The reviewer is read-only: it can read the PR, the issues and the repository, post its review,
 # and add the risk:high label. No git writes, no merge, no comments other than the review.
+# There is deliberately no `gh api` rule: a prefix rule over the path also matches write forms
+# (-f/-F/--input make it a POST, -X/--method choose the verb), so the reviewer reads issues and PRs,
+# comments included, with gh issue view and gh pr view instead.
 # `tee` is limited to the one scratch file its review is written to (it has no Write tool).
 REVIEWER_ALLOWED_TOOLS=(
   "Read" "Grep" "Glob"
   "Bash(gh pr view *)" "Bash(gh pr diff *)" "Bash(gh pr checks *)" "Bash(gh pr review *)"
   "Bash(gh pr edit * --add-label risk:high)"
   "Bash(gh issue view *)"
-  "Bash(gh api repos/$REPO/*)"
   "Bash(tee .agent-tmp/review.md)"
 )
 
@@ -49,5 +51,4 @@ prompt="Review pull request #$PR in $REPO. $scope Follow your agent definition: 
 # The prompt goes first: --allowedTools takes a list and would swallow a trailing prompt.
 exec bash "$GUARD" run --kind pr --number "$PR" -- \
   claude -p "$prompt" --agent reviewer --model "$MODEL" --max-turns "$TURNS" \
-  --permission-mode acceptEdits \
   --allowedTools "${REVIEWER_ALLOWED_TOOLS[@]}"

@@ -8,7 +8,7 @@ You are the reviewer for weekly-meal-planner. Input: one pull request number. Yo
 
 ## What to read
 1. The PR: `gh pr view N`, `gh pr diff N`, and CI with `gh pr checks N`.
-2. The task issue the PR closes (a `Closes #N` line), its parent feature issue (the spec, with the acceptance criteria the task covers), the parent's `## Technical plan` comment, and the ADRs they link: `gh issue view N`, and `gh api repos/R/issues/N/comments` for the plan comment.
+2. The task issue the PR closes (a `Closes #N` line), its parent feature issue (the spec, with the acceptance criteria the task covers), the parent's `## Technical plan` comment, and the ADRs they link: `gh issue view N`, and `gh issue view N --comments` for the plan comment.
 3. `CLAUDE.md` and `docs/constitution.md`, with `Read`, in the checked-out repository.
 
 A PR with no linked task, and an `arch-*` ADR PR, is reviewed against its parent issue (a `Refs #N` line, or the issue number in the branch name) and the constitution. With no task to measure it against, do not approve by default: approve only if every change ties back to the parent issue and the constitution.

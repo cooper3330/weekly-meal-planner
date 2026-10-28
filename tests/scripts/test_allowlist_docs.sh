@@ -71,6 +71,22 @@ rev_allowed() {
 if rev_allowed "gh pr view 5"; then ok "a covered reviewer command is allowed"; else bad "a covered reviewer command is allowed"; fi
 if rev_allowed "gh pr merge 5 --squash"; then bad "an uncovered reviewer command is rejected"; else ok "an uncovered reviewer command is rejected"; fi
 if rev_allowed "gh pr edit 5 --add-label risk:low"; then bad "a different label is rejected"; else ok "a different label is rejected"; fi
+# The reviewer may read and post its one review, nothing else. `gh api` takes -f/-F/--input (which make
+# it a POST) and -X/--method after the path, and a prefix glob over the path cannot tell reads from
+# writes, so the reviewer has no gh api rule: it reads issues and PRs with gh issue view and gh pr view.
+echo "allowlist: the reviewer cannot write through gh api"
+for w in "gh api repos/$REPO_NAME/issues/5/comments -f body=x" \
+         "gh api repos/$REPO_NAME/pulls/5/reviews -X POST" \
+         "gh api repos/$REPO_NAME/issues/5/comments --method DELETE" \
+         "gh api repos/$REPO_NAME/pulls/5/comments --input f.json" \
+         "gh api repos/$REPO_NAME/issues/5 -X POST -f body=/comments" \
+         "gh api repos/$REPO_NAME/issues/comments/9 -X PATCH -F body=@x.md"; do
+  if rev_allowed "$w"; then bad "rejected: $w"; else ok "rejected: $w"; fi
+done
+for r in "gh issue view 5 --comments" "gh pr view 5 --comments" "gh pr diff 5" "gh pr checks 5"; do
+  if rev_allowed "$r"; then ok "still allowed: $r"; else bad "still allowed: $r"; fi
+done
+
 rchecked=0
 while IFS= read -r cmd; do
   [ -n "$cmd" ] || continue

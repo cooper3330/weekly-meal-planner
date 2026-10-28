@@ -45,15 +45,15 @@ assert_eq "$(grep -A1 -x -- '--max-turns' "$args" | tail -1)" "30" "an empty REV
 echo "review.sh: its own read-only allowlist"
 bash scripts/review.sh 70 >/dev/null 2>&1
 rules=$(sed -n '/^--allowedTools$/,$p' "$args" | tail -n +2)
-for want in 'gh pr review' 'gh pr view' 'gh pr diff' 'gh pr checks' 'gh issue view' 'gh api repos/cooper3330/weekly-meal-planner/' 'gh pr edit'; do
+for want in 'gh pr review' 'gh pr view' 'gh pr diff' 'gh pr checks' 'gh issue view' 'gh pr edit'; do
   if grep -qF -- "$want" <<<"$rules"; then ok "allows $want"; else bad "allows $want"; fi
 done
 for banned in 'git push' 'gh pr merge' 'Write' 'Edit' 'gh pr comment' 'gh issue comment' 'gh issue edit' 'git commit' 'make '; do
   if grep -qF -- "$banned" <<<"$rules"; then bad "does not allow $banned"; else ok "does not allow $banned"; fi
 done
 if grep -F 'gh pr edit' <<<"$rules" | grep -qF -- '--add-label risk:high'; then ok "gh pr edit is limited to --add-label risk:high"; else bad "gh pr edit is limited to --add-label risk:high"; fi
-if grep -F 'gh api' <<<"$rules" | grep -vqF 'gh api repos/cooper3330/weekly-meal-planner/'; then bad "gh api is path-first for this repo only"; else ok "gh api is path-first for this repo only"; fi
-if grep -E 'gh api .*(-X|--method)' <<<"$rules" | grep -q .; then bad "no write methods for gh api"; else ok "no write methods for gh api"; fi
+if grep -qF 'gh api' <<<"$rules"; then bad "no gh api rule at all (a prefix rule cannot tell a read from a write)"; else ok "no gh api rule at all (a prefix rule cannot tell a read from a write)"; fi
+if grep -qF 'acceptEdits' "$args"; then bad "runs without --permission-mode acceptEdits (it needs no file edits)"; else ok "runs without --permission-mode acceptEdits (it needs no file edits)"; fi
 
 echo "review.sh: goes through the agent guard"
 assert_grep scripts/review.sh 'GUARD"? run --kind pr --number' "wraps claude in agent-guard.sh run --kind pr --number N"
