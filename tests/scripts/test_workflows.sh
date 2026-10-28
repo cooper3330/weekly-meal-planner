@@ -115,4 +115,21 @@ assert_grep "$CI" 'timeout-minutes:[[:space:]]+10' "sets timeout-minutes"
 assert_grep "$CI" 'uses:[[:space:]]+astral-sh/setup-uv@' "installs uv with setup-uv"
 assert_grep "$CI" 'python-version:[[:space:]]+"?3\.12"?' "uses Python 3.12"
 
+RL=.github/workflows/risk-label.yml
+echo "workflows: risk-label.yml"
+assert_eq "$(trigger_branches "$FIX/no-branch-filter.yml" pull_request_target)" "" "fixture without branch filter is visible"
+if [ -f "$RL" ]; then ok "risk-label.yml exists"; else bad "risk-label.yml exists"; finish; exit; fi
+assert_grep "$RL" '^  pull_request_target:' "uses pull_request_target"
+assert_eq "$(trigger_branches "$RL" pull_request_target)" "[main]" "restricted to main"
+assert_grep "$RL" 'types:[[:space:]]*\[opened, synchronize, reopened\]' "opened, synchronize, reopened"
+assert_no_grep "$RL" 'ref:' "checkout has no ref: (base only)"
+assert_no_grep "$RL" 'github\.event\.pull_request\.head' "never references the PR head"
+assert_no_grep "$RL" 'remove-label' "never removes the label"
+assert_no_grep "$RL" 'contents:[[:space:]]+write' "no contents: write"
+assert_grep "$RL" 'pull-requests:[[:space:]]+write' "pull-requests: write"
+assert_grep "$RL" 'pulls/.*/files.* --paginate' "lists PR files with pagination"
+assert_grep "$RL" 'previous_filename' "includes previous paths of renames"
+assert_grep "$RL" 'scripts/classify-risk\.sh' "runs the classifier"
+assert_grep "$RL" '--add-label risk:high' "adds risk:high"
+
 finish

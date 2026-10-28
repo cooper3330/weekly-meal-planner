@@ -1,0 +1,11 @@
+# Generated from .github/risk-paths. Root rules carry a leading / so they stay root-anchored
+# (a bare scripts/ would also match tests/scripts/). **/ rules are copied as they are.
+/docs/constitution.md @cooper3330
+/docs/workflow.md @cooper3330
+/docs/adr/ @cooper3330
+**/CLAUDE.md @cooper3330
+/.claude/ @cooper3330
+/scripts/ @cooper3330
+/.github/ @cooper3330
+**/.gitignore @cooper3330
+/src/mealplanner/config.py @cooper3330

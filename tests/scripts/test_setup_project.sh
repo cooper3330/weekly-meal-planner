@@ -8,7 +8,7 @@ echo "setup: fresh repository"
 new_sandbox
 bash "$SCRIPT" > "$T/out" 2>&1; rc=$?
 assert_eq "$rc" "0" "exits 0"
-assert_count "$T/gh.log" 'label create' 4 "creates the four type labels"
+assert_count "$T/gh.log" 'label create' 6 "creates the four type labels plus risk:high and needs-human"
 assert_count "$T/gh.log" 'milestones -f title=' 4 "creates four milestones"
 assert_count "$T/gh.log" 'project create' 1 "creates one project"
 assert_grep "$T/gh.log" 'project create --owner cooper3330' "creates the project as the repo owner"
@@ -18,6 +18,14 @@ assert_grep "$T/out" 'WARNING.*Status' "warns that the Status options still need
 assert_grep "$T/out" 'Spec Review' "lists the statuses to set"
 assert_no_grep "$T/gh.log" '@me' "never uses @me"
 assert_grep "$T/out" 'PROJECT_NUMBER=7' "prints the project number to export"
+
+echo "setup: risk labels"
+new_sandbox
+bash "$SCRIPT" > "$T/out" 2>&1
+assert_grep "$T/gh.log" 'label create risk:high' "creates risk:high"
+assert_grep "$T/gh.log" 'label create needs-human' "creates needs-human"
+bash "$SCRIPT" > "$T/out" 2>&1; rc=$?
+assert_eq "$rc" "0" "re-run does not fail"
 
 echo "setup: safe to re-run"
 new_sandbox
