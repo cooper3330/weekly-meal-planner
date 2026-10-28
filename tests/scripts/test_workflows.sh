@@ -200,4 +200,31 @@ c=$(grep -n 'scripts/review.sh' "$RV" | head -1 | cut -d: -f1)
 if [ -n "$w" ] && [ -n "$g" ] && [ -n "$c" ] && [ "$w" -lt "$g" ] && [ "$g" -lt "$c" ]; then ok "wait for check, then preflight, then review.sh"; else bad "wait for check, then preflight, then review.sh"; fi
 assert_grep "$RV" '78' "handles preflight exit code 78"
 
+# A workflow step that runs a script directly (scripts/x.sh, not "bash scripts/x.sh") needs the git
+# executable bit, or the runner fails with "Permission denied" (this broke the coordinator and review
+# workflows). direct_script_calls FILE prints each repo script a workflow runs directly.
+direct_script_calls() {
+  grep -E '(^|[[:space:]])(\./)?(scripts|tests/scripts/fixtures)/[A-Za-z0-9_.-]+\.sh' "$1" \
+    | grep -vE '^[[:space:]]*#' \
+    | grep -vE '(bash|sh)[[:space:]]+(\./)?(scripts|tests/scripts/fixtures)/' \
+    | grep -oE '(scripts|tests/scripts/fixtures)/[A-Za-z0-9_.-]+\.sh' | sort -u
+}
+non_executable() { # path: succeeds when git records the file without the executable bit
+  local mode; mode=$(git ls-files -s -- "$1" | awk '{print $1}')
+  [ -n "$mode" ] && [ "$mode" != "100755" ]
+}
+
+echo "workflows: scripts that a workflow runs directly are executable in git"
+if [ -n "$(direct_script_calls "$FIX/direct-call.yml" | while read -r sc; do non_executable "$sc" && echo "$sc"; done)" ]; then
+  ok "a fixture that runs a non-executable script directly is reported"
+else
+  bad "a fixture that runs a non-executable script directly is reported"
+fi
+for f in .github/workflows/*.yml; do
+  [ -f "$f" ] || continue
+  for sc in $(direct_script_calls "$f"); do
+    if non_executable "$sc"; then bad "$f runs $sc directly but it is not executable (mode $(git ls-files -s -- "$sc" | awk '{print $1}'))"; else ok "$f runs $sc directly and it is executable"; fi
+  done
+done
+
 finish
