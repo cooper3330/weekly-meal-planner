@@ -92,6 +92,7 @@ You review agent PRs and plan issues in GitHub as usual. The coordinator picks u
 **How to ask for changes**
 - On a PR (an `arch-*` ADR PR or an `issue-*` code PR): leave inline comments and submit the review as **Request changes**, or add any comment containing the word `/revise`.
 - On a feature or architecture issue (feedback on the plan): comment with `/revise`.
+- On a task issue whose PR is open: a `/revise` comment on the issue counts as feedback on its PR (the PR on the `issue-<N>-*` branch), so either place works. The agent is told the linked issue and reads both.
 - Only comments from the repo's OWNER, MEMBER, or COLLABORATOR count. Ordinary comments without `/revise` are ignored, so you can discuss freely.
 
 **What happens**

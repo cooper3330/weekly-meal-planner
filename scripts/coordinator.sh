@@ -81,7 +81,10 @@ ALLOWED_TOOLS=(
   "Bash(gh api -X PATCH repos/$REPO/*)" "Bash(gh api -X POST repos/$REPO/*)"
   "Bash(gh api --method PATCH repos/$REPO/*)" "Bash(gh api --method POST repos/$REPO/*)"
   "Bash(git checkout *)" "Bash(git add *)" "Bash(git commit *)" "Bash(git push *)"
-  "Bash(git status *)" "Bash(git diff *)" "Bash(git fetch *)" "Bash(git pull *)" "Bash(git log *)"
+  "Bash(git status *)" "Bash(git diff *)" "Bash(git fetch *)" "Bash(git log *)"
+  "Bash(git merge origin/main)" "Bash(git merge --no-edit origin/main)" "Bash(git merge --abort)"
+  "Bash(git merge-base *)"
+  "Bash(gh pr checks *)" "Bash(gh run view *)" "Bash(gh run list *)"
   "Bash(gh pr comment *)"
   "Bash(make check)" "Bash(make fmt)" "Bash(make sync)" "Bash(uv sync)" "Bash(uv run *)"
   "Bash(bash tests/scripts/*)" "Bash(scripts/pin-action.sh *)"
@@ -116,7 +119,7 @@ post_comment() { # kind number body
 # as handled so a persistent failure is not retried every pass; the reviewer comments /revise
 # again after fixing it.
 revise_pass() {
-  local pending count i item kind number agent branch ack prompt wt fail
+  local pending count i item kind number agent branch linked ack prompt wt fail
   pending=$(REPO="$REPO" ./scripts/pending-revisions.sh) || return 1
   count=$(jq length <<<"$pending")
   i=0
@@ -127,6 +130,7 @@ revise_pass() {
     number=$(jq -r .number <<<"$item")
     agent=$(jq -r .agent <<<"$item")
     branch=$(jq -r '.branch // empty' <<<"$item")
+    linked=$(jq -r '.linked_issue // empty' <<<"$item")
     wt=$(mktemp -d "${TMPDIR:-/tmp}/revise-XXXXXX")
     fail=""
     if [ "$kind" = "pr" ]; then
@@ -139,6 +143,9 @@ revise_pass() {
         fail="Could not bring $branch up to date with main (merge conflict). Resolve the conflict, then comment /revise again."
       fi
       prompt="Revise after review (revision mode). Repository $REPO, PR #$number, branch $branch; you are in a git worktree with that branch's code, up to date with main. A trusted reviewer left feedback newer than your last reply. Follow the 'Revise after review' section of your agent definition: read all comments, review comments and reviews on the PR yourself, address them with new commits, reply on each thread, and push to $branch (git push origin HEAD:$branch). This prompt deliberately does not repeat the feedback."
+      if [ -n "$linked" ]; then
+        prompt="$prompt The task's linked issue #$linked also counts: its comments from a trusted reviewer are feedback on this PR too (read them with gh api repos/$REPO/issues/$linked/comments)."
+      fi
     else
       echo "$(ts) revising the plan on issue #$number with the $agent agent"
       if ! { git fetch -q origin main && git worktree add -q --detach "$wt" origin/main; }; then

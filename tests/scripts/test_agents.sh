@@ -79,4 +79,17 @@ assert_grep "docs/workflow.md" 'interactive session' "workflow.md documents task
 assert_grep "docs/workflow.md" 'wip-' "workflow.md documents the wip- branches"
 assert_grep "docs/workflow.md" 'denied' "workflow.md documents the denied-command report"
 
+echo "agents: staying current with main, reading CI, one command per call"
+assert_grep ".claude/agents/developer.md" 'git merge origin/main' "developer knows how to bring main into its branch"
+assert_grep ".claude/agents/developer.md" 'git merge --abort' "and to abort on a conflict"
+assert_grep ".claude/agents/developer.md" 'git merge-base --is-ancestor origin/main HEAD' "and how to tell whether it is behind"
+assert_grep ".claude/agents/developer.md" 'gh pr checks' "developer can read CI status"
+assert_grep ".claude/agents/developer.md" 'gh run view' "and the failing log"
+assert_grep ".claude/agents/developer.md" 'linked issue' "developer reads the linked issue's comments in a revision"
+for a in coordinator architect developer; do
+  assert_grep ".claude/agents/$a.md" 'one command per' "$a: told to run one command per Bash call"
+done
+
+assert_grep "docs/workflow.md" 'linked issue|`/revise` comment on the issue' "workflow.md documents /revise on a task issue reaching its PR"
+
 finish

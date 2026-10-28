@@ -351,4 +351,22 @@ assert_grep "$T/claude.args" '^Bash\(scripts/pin-action\.sh \*\)$' "allows scrip
 assert_grep "$T/claude.args" '^Bash\(bash tests/scripts/\*\)$' "allows running the shell tests under tests/scripts"
 assert_no_grep "$T/claude.args" 'Bash\((bash|sh|curl|wget) \*\)' "no unrestricted shell, curl or wget"
 
+echo "revisions: a revision of a task's PR is told about the linked issue"
+new_sandbox; echo '[{"number":46,"headRefName":"issue-32-ci-workflow-v3"}]' > "$T/prs.json"
+echo '[{"id":1,"created_at":"2026-10-28T01:22:58Z","body":"pull main in /revise","author_association":"OWNER"}]' > "$T/issue_comments_32.json"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_grep "$T/claude.args" 'PR #46' "the PR is named"
+assert_grep "$T/claude.args" 'linked issue #32' "and so is the issue whose comments also count"
+assert_grep "$T/claude.args" '^developer$' "the developer handles it"
+
+echo "allowlist: agents can bring main into their branch, and read CI, but not rebase or pull"
+new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+for rule in 'git merge origin/main' 'git merge --no-edit origin/main' 'git merge --abort' 'git merge-base \*' 'gh pr checks \*' 'gh run view \*' 'gh run list \*'; do
+  assert_grep "$T/claude.args" "^Bash\\($rule\\)\$" "allows: $rule"
+done
+assert_no_grep "$T/claude.args" 'Bash\(git pull' "git pull is gone (it can rebase, or pull from any remote)"
+assert_no_grep "$T/claude.args" 'Bash\(git merge \*\)' "no open-ended git merge"
+assert_no_grep "$T/claude.args" 'git (rebase|reset|cherry-pick)' "no rebase, reset or cherry-pick"
+
 finish

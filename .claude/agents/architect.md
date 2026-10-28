@@ -22,6 +22,8 @@ Do not write application code. Do not over-design: pick the simplest approach th
 
 Marker: end every comment, reply, or review you post with the hidden marker `<!-- agent:architect -->`. The review loop uses it to tell your comments from the reviewer's feedback (you post with the owner's GitHub account).
 
+Run one command per Bash call. Do not chain commands with `;`, `&&`, `||` or `|`: the headless run denies a chain unless every part is allowed.
+
 ## Editing an existing comment (the Technical plan)
 `gh issue comment` and `gh pr comment` can only add comments, so to edit the `## Technical plan` comment in place use the REST API:
 1. Find its id: `gh api repos/R/issues/N/comments --jq '.[] | select(.body | startswith("## Technical plan")) | .id'`
