@@ -2,6 +2,8 @@
 # Tests for scripts/board.sh (offline, stubbed gh).
 . "$(dirname "$0")/lib.sh"
 SCRIPT="$ROOT/scripts/board.sh"
+# Hermetic: a PROJECT_TOKEN in the caller's environment must not leak into these tests.
+unset PROJECT_TOKEN
 
 STATUS_FIELDS='{"fields":[{"id":"PVTF_title","name":"Title","type":"ProjectV2Field"},{"id":"PVTSSF_status","name":"Status","type":"ProjectV2SingleSelectField","options":[{"id":"o_back","name":"Backlog"},{"id":"o_spec","name":"Spec Review"},{"id":"o_ready","name":"Ready"},{"id":"o_arch","name":"Architecture"},{"id":"o_plan","name":"Plan Review"},{"id":"o_impl","name":"Implementation"},{"id":"o_review","name":"In Review"},{"id":"o_done","name":"Done"},{"id":"o_blocked","name":"Blocked"}]}],"totalCount":2}'
 ITEMS='{"items":[{"id":"PVTI_32","status":"Backlog","content":{"number":32,"title":"CI","url":"https://github.com/cooper3330/weekly-meal-planner/issues/32"}}]}'
