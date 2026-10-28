@@ -1,0 +1,11 @@
+name: bad
+on:
+  pull_request:
+    branches: [develop]
+  push:
+    branches: [main]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: make check
