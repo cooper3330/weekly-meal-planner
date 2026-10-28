@@ -227,4 +227,26 @@ for f in .github/workflows/*.yml; do
   done
 done
 
+# The claude CLI that workflows install must be new enough for the API to accept it (the first review run
+# failed with "Claude Code 2.1.0 does not support this model; version 2.1.280 or newer is required"),
+# and every workflow must install the same version.
+MIN_CLAUDE=2.1.280
+claude_pins() { grep -ohE '@anthropic-ai/claude-code@[0-9][0-9.]*' "$1" | sed 's/.*@//' | sort -u; }
+too_old() { # version: succeeds when it is older than MIN_CLAUDE
+  [ "$(printf '%s\n%s\n' "$1" "$MIN_CLAUDE" | sort -V | head -1)" != "$MIN_CLAUDE" ]
+}
+
+echo "workflows: the pinned claude CLI is recent enough, and the same everywhere"
+if too_old "$(claude_pins "$FIX/old-claude.yml")"; then ok "a fixture pinned to 2.1.0 is reported as too old"; else bad "a fixture pinned to 2.1.0 is reported as too old"; fi
+all_pins=""
+for f in .github/workflows/*.yml; do
+  [ -f "$f" ] || continue
+  for v in $(claude_pins "$f"); do
+    all_pins="$all_pins $v"
+    if too_old "$v"; then bad "$f installs claude-code@$v, older than $MIN_CLAUDE"; else ok "$f installs claude-code@$v (at least $MIN_CLAUDE)"; fi
+  done
+done
+distinct=$(printf '%s\n' $all_pins | sort -u | grep -c . || true)
+if [ "$distinct" -le 1 ]; then ok "all workflows install the same claude-code version"; else bad "all workflows install the same claude-code version (found:$(printf ' %s' $all_pins | tr ' ' '\n' | sort -u | tr '\n' ' '))"; fi
+
 finish
