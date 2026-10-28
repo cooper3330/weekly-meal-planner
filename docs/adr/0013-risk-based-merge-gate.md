@@ -38,9 +38,7 @@ Principle 7 says the suite is the definition of done; ADR 0010 makes `make check
   - **GitHub and Git configuration:**
     - `.github/`, which holds the workflows, CODEOWNERS, `risk-paths` and the templates;
     - `**/.gitignore`, which keeps `.env` out of commits. A nested `.gitignore` can re-include it, so this rule matches at any depth.
-  - **Environment variables and secrets:**
-    - `.env.example`;
-    - `src/mealplanner/config.py`, the one module that reads environment variables (ADR 0011).
+  - **Environment variables and secrets:** `src/mealplanner/config.py`, the one module that reads environment variables (ADR 0011).
 - Everything else is not protected, so it auto-merges when low risk:
   - all other application code under `src/`, including auth;
   - `tests/`, including `tests/scripts/` and `tests/conftest.py`;
@@ -105,6 +103,6 @@ Principle 7 says the suite is the definition of done; ADR 0010 makes `make check
 ## Constitution check
 - P6/P7: CI re-runs the same `make check` the developer looped on. The reviewer judges against the issue's numbered ACs, and tests are the evidence.
 - P7 (tests are never weakened): `tests/` is no longer a protected path, so the reviewer enforces this and labels any weakening `risk:high`.
-- CLAUDE.md's "never commit secrets": `.env.example`, `.gitignore` and the one module that reads environment variables stay human-reviewed.
+- CLAUDE.md's "never commit secrets": `.gitignore` and the one module that reads environment variables stay human-reviewed.
 - P8 Simple over clever: one CI job, one list of rules, one bash classifier, and GitHub's native auto-merge. The workflows add no new runtime dependencies.
 - P1 Local first governs the app runtime and its data. The delivery tooling runs on GitHub, where the code already lives, and the app's behaviour does not change.

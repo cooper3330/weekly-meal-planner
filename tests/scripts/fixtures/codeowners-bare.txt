@@ -1,0 +1,3 @@
+# fixture: a bare root rule (would also match tests/scripts/)
+scripts/ @cooper3330
+/docs/adr/ @cooper3330
