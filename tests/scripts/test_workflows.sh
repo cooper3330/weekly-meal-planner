@@ -132,4 +132,36 @@ assert_grep "$RL" 'previous_filename' "includes previous paths of renames"
 assert_grep "$RL" 'scripts/classify-risk\.sh' "runs the classifier"
 assert_grep "$RL" '--add-label risk:high' "adds risk:high"
 
+CO=.github/workflows/coordinator.yml
+echo "workflows: coordinator.yml"
+if [ -f "$CO" ]; then ok "coordinator.yml exists"; else bad "coordinator.yml exists"; finish; exit; fi
+assert_grep "$CO" '^  schedule:' "has a schedule trigger"
+assert_grep "$CO" "cron:[[:space:]]*['\"]17 \* \* \* \*['\"]" "runs hourly at minute 17"
+assert_grep "$CO" '^  workflow_dispatch:' "has workflow_dispatch"
+assert_grep "$CO" "^    if:[[:space:]]*vars\.AGENTS_PAUSED != 'true'" "job is gated by the AGENTS_PAUSED kill switch"
+assert_grep "$CO" '^  group:[[:space:]]*coordinator[[:space:]]*$' "concurrency group is coordinator"
+assert_grep "$CO" '^  cancel-in-progress:[[:space:]]*false' "never cancels a run in progress"
+tm=$(sed -nE 's/^    timeout-minutes:[[:space:]]*([0-9]+).*/\1/p' "$CO" | head -1)
+if [ -n "$tm" ] && [ "$tm" -le 55 ]; then ok "timeout-minutes is $tm (at most 55)"; else bad "timeout-minutes is at most 55 (got '$tm')"; fi
+assert_grep "$CO" '^  contents:[[:space:]]+read' "contents: read"
+assert_no_grep "$CO" ':[[:space:]]+write' "no write permission (the App token carries the writes)"
+assert_grep "$CO" 'fetch-depth:[[:space:]]*0' "checks out full history"
+g=$(grep -n 'scripts/agent-guard.sh preflight' "$CO" | head -1 | cut -d: -f1)
+c=$(grep -n 'scripts/coordinator.sh --once' "$CO" | head -1 | cut -d: -f1)
+m=$(grep -n 'actions/create-github-app-token@' "$CO" | head -1 | cut -d: -f1)
+i=$(grep -n '@anthropic-ai/claude-code@[0-9]' "$CO" | head -1 | cut -d: -f1)
+if [ -n "$g" ] && [ -n "$c" ] && [ "$g" -lt "$c" ]; then ok "preflight runs before the coordinator"; else bad "preflight runs before the coordinator"; fi
+if [ -n "$m" ] && [ -n "$i" ] && [ -n "$g" ] && [ "$m" -lt "$i" ] && [ "$i" -lt "$g" ]; then ok "token minted, claude installed, then preflight"; else bad "token minted, claude installed, then preflight"; fi
+assert_grep "$CO" '78' "handles preflight exit code 78"
+assert_grep "$CO" '::notice' "78 ends the job with a notice"
+assert_grep "$CO" 'GH_TOKEN:[[:space:]]*\$\{\{[[:space:]]*steps\.[A-Za-z_-]+\.outputs\.token[[:space:]]*\}\}' "GH_TOKEN comes from the App-token step output"
+assert_grep "$CO" 'AGENT_GH_TOKEN:[[:space:]]*\$\{\{[[:space:]]*steps\.[A-Za-z_-]+\.outputs\.token' "AGENT_GH_TOKEN comes from the App-token step output"
+assert_no_grep "$CO" 'GH_TOKEN:[[:space:]]*\$\{\{[[:space:]]*secrets\.PROJECT_TOKEN' "GH_TOKEN is never the project token"
+assert_grep "$CO" '^[[:space:]]+PROJECT_TOKEN:[[:space:]]*\$\{\{[[:space:]]*secrets\.PROJECT_TOKEN' "PROJECT_TOKEN comes from secrets"
+assert_grep "$CO" 'PROJECT_NUMBER:[[:space:]]*\$\{\{[[:space:]]*vars\.PROJECT_NUMBER[[:space:]]*\|\|[[:space:]]*.1.[[:space:]]*\}\}' "PROJECT_NUMBER defaults to 1"
+assert_grep "$CO" 'MAX_PARALLEL:[[:space:]]*\$\{\{[[:space:]]*vars\.MAX_PARALLEL[[:space:]]*\|\|[[:space:]]*.1.[[:space:]]*\}\}' "MAX_PARALLEL defaults to 1"
+assert_grep "$CO" 'AGENT_GIT_NAME' "sets AGENT_GIT_NAME"
+assert_grep "$CO" 'AGENT_GIT_EMAIL' "sets AGENT_GIT_EMAIL"
+assert_no_grep "$CO" 'ANTHROPIC_' "sets no ANTHROPIC_* variable"
+
 finish

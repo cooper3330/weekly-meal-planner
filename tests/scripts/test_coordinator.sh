@@ -394,6 +394,64 @@ PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
 assert_no_grep "$T/gh.log" 'agent:limit' "no limit comment when the target is ambiguous"
 assert_grep "$T/out" 'usage limit' "the limit is logged"
 
+# --- turn caps (FR-11, ADR 0015) ---------------------------------------------------------------
+max_turns_of() { grep -A1 '^--max-turns$' "$1" | grep -vE '^(--max-turns|--)$' | head -1; }
+
+echo "turn caps: an architect revision gets ARCHITECT_MAX_TURNS, else 60"
+new_sandbox; echo "$PRS15" > "$T/prs.json"; echo "$PR_REVISE" > "$T/issue_comments_15.json"
+ARCHITECT_MAX_TURNS=7 PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_eq "$(max_turns_of "$T/claude.args")" "7" "--max-turns follows ARCHITECT_MAX_TURNS"
+new_sandbox; echo "$PRS15" > "$T/prs.json"; echo "$PR_REVISE" > "$T/issue_comments_15.json"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_eq "$(max_turns_of "$T/claude.args")" "60" "the architect default is 60"
+new_sandbox; echo "$PRS15" > "$T/prs.json"; echo "$PR_REVISE" > "$T/issue_comments_15.json"
+ARCHITECT_MAX_TURNS= PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_eq "$(max_turns_of "$T/claude.args")" "60" "an empty variable (unset repository variable) falls back to 60"
+
+echo "turn caps: a developer revision gets DEVELOPER_MAX_TURNS, else 80"
+new_sandbox; echo '[{"number":30,"headRefName":"issue-16-scaffold"}]' > "$T/prs.json"
+echo '[{"id":3,"submitted_at":"2026-10-26T10:00:00Z","state":"CHANGES_REQUESTED","body":"","author_association":"OWNER"}]' > "$T/pr_reviews_30.json"
+DEVELOPER_MAX_TURNS=9 PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_eq "$(max_turns_of "$T/claude.args")" "9" "--max-turns follows DEVELOPER_MAX_TURNS"
+new_sandbox; echo '[{"number":30,"headRefName":"issue-16-scaffold"}]' > "$T/prs.json"
+echo '[{"id":3,"submitted_at":"2026-10-26T10:00:00Z","state":"CHANGES_REQUESTED","body":"","author_association":"OWNER"}]' > "$T/pr_reviews_30.json"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_eq "$(max_turns_of "$T/claude.args")" "80" "the developer default is 80"
+
+echo "turn caps: the coordinator's own run gets 30, and its prompt carries the agent caps"
+new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+ARCHITECT_MAX_TURNS=7 PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_eq "$(max_turns_of "$T/claude.args")" "30" "the coordinator run has --max-turns 30"
+assert_grep "$T/claude.args" 'max-turns 7' "the prompt tells the coordinator the architect cap"
+assert_grep "$T/claude.args" 'max-turns 80' "and the developer cap"
+p=$(grep -n 'Items in Ready' "$T/claude.args" | head -1 | cut -d: -f1)
+a=$(grep -n '^--max-turns$' "$T/claude.args" | head -1 | cut -d: -f1)
+if [ -n "$p" ] && [ -n "$a" ] && [ "$p" -lt "$a" ]; then ok "--max-turns comes after the prompt"; else bad "--max-turns comes after the prompt"; fi
+
+# --- exactly once (AC-6 of #4) ------------------------------------------------------------------
+echo "once: a second pass, after the card moved to Architecture, does not launch claude for it"
+new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_count "$T/claude.calls" "called" 1 "the first pass dispatches"
+echo '{"items":[{"id":"I1","status":"Architecture","content":{"number":5,"title":"Architecture baseline"},"labels":["type:architecture"]}]}' > "$T/items.json"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_count "$T/claude.calls" "called" 1 "the second pass launched nothing more"
+assert_grep "$T/out" 'nothing Ready' "and says so"
+
+echo "once: with two Ready tasks and MAX_PARALLEL=1 the coordinator is told the limit"
+new_sandbox; task_items 16 17 > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+body 16 'Blocked by: none'; body 17 'Blocked by: none'
+MAX_PARALLEL=1 PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_count "$T/claude.calls" "called" 1 "one coordinator run, not one per task"
+assert_grep "$T/claude.args" 'MAX_PARALLEL=1' "the prompt carries MAX_PARALLEL=1"
+
+echo "once: an empty PROJECT_NUMBER fails fast with the existing message"
+new_sandbox
+PROJECT_NUMBER= bash "$SCRIPT" --once > "$T/out" 2>&1; rc=$?
+if [ "$rc" -ne 0 ]; then ok "exits non-zero"; else bad "exits non-zero"; fi
+assert_grep "$T/out" 'set PROJECT_NUMBER' "names PROJECT_NUMBER"
+assert_count "$T/gh.log" '.' 0 "no gh call was made"
+
 echo "allowlist: the repo scripts agents run are allowed with or without a bash prefix"
 new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
 PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
