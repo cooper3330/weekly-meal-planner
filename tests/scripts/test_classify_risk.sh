@@ -23,7 +23,7 @@ done
 echo "classify: high, one per rule"
 for p in docs/adr/0099-x.md .claude/agents/developer.md .github/workflows/ci.yml scripts/coordinator.sh \
          CLAUDE.md src/mealplanner/CLAUDE.md docs/constitution.md docs/workflow.md \
-         .gitignore src/.gitignore .env.example src/mealplanner/config.py; do
+         .gitignore src/.gitignore src/mealplanner/config.py; do
   expect high "$p"
 done
 
@@ -40,7 +40,7 @@ expect high "src/old.py" "scripts/new-name.sh"
 
 echo "classify: boundaries"
 expect low scripts-old/x docs/adr-notes.md .github-x
-expect low src/mealplanner/config.py.bak src/.env.example
+expect low src/mealplanner/config.py.bak .env.example src/.env.example
 expect high docs/adr/sub/dir/x.md
 expect low x.gitignore CLAUDE.md.bak src/NOTCLAUDE.md
 expect low tests/scripts/lib.sh src/scripts/x.py
@@ -71,7 +71,6 @@ echo "rules: exact initial list"
 want='**/.gitignore
 **/CLAUDE.md
 .claude/
-.env.example
 .github/
 docs/adr/
 docs/constitution.md

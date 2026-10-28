@@ -13,5 +13,4 @@ docs/adr/
 scripts/
 .github/
 **/.gitignore
-.env.example
 src/mealplanner/config.py

@@ -8,5 +8,4 @@
 /scripts/ @cooper3330
 /.github/ @cooper3330
 **/.gitignore @cooper3330
-/.env.example @cooper3330
 /src/mealplanner/config.py @cooper3330
