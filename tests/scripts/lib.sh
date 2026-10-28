@@ -25,6 +25,12 @@ assert_eq()      { if [ "$1" = "$2" ]; then ok "$3"; else bad "$3 (expected '$2'
 #   issue_comments_<N>.json pr_comments_<N>.json pr_reviews_<N>.json    (REST comment endpoints)
 #   release_latest.json ref_<tag>.json gittag_<sha>.json                (scripts/pin-action.sh lookups)
 new_sandbox() {
+  # Start from a clean environment: GitHub's runners set GITHUB_ACTIONS=true (the coordinator then
+  # demands AGENT_GH_TOKEN), and a developer's shell may export tokens or overrides. Tests that
+  # need one of these set it on the command they run.
+  unset GITHUB_ACTIONS AGENT_GH_TOKEN PROJECT_TOKEN GH_TOKEN GITHUB_TOKEN \
+        AGENT_GIT_NAME AGENT_GIT_EMAIL GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL GIT_COMMITTER_NAME GIT_COMMITTER_EMAIL \
+        EXTRA_ALLOWED_TOOLS CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS PROJECT_NUMBER OWNER REPO INTERVAL MAX_PARALLEL
   T="$(mktemp -d)"
   STUB_DIR="$T"
   export STUB_DIR
