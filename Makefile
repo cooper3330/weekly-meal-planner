@@ -1,4 +1,7 @@
-.PHONY: check fmt sync
+.PHONY: check fmt sync run
+
+run:
+	uv run python -m mealplanner
 
 check:
 	uv run ruff format --check .
