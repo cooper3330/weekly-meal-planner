@@ -189,7 +189,11 @@ review_budget_violations() {
   job=$(sed -nE 's/^    timeout-minutes:[[:space:]]*([0-9]+).*/\1/p' "$f" | head -1)
   wstep=$(awk '/^      - name:/ { n = $0 } /^        timeout-minutes:/ && n ~ /Wait for the check/ { print $2; exit }' "$f")
   rstep=$(awk '/^      - name:/ { n = $0 } /^        timeout-minutes:/ && n ~ /Run the reviewer/ { print $2; exit }' "$f")
-  if [ -z "$bound" ] || [ "$bound" -gt 720 ]; then echo "wait bound is '$bound' seconds, want at most 720"; fi
+  if [ ! -r "$f" ] || [ -z "$bound" ] || [ -z "$job" ]; then echo "could not read the time budget from $f"; return; fi
+  if [ "$bound" -gt 720 ]; then echo "wait bound is '$bound' seconds, want at most 720"; fi
+  # The loop is bounded by wall-clock time, and a timed-out wait step must not skip the reviewer.
+  { grep -q 'start=\$SECONDS' "$f" && grep -q 'waited=\$((SECONDS - start))' "$f"; } || echo "wait loop is not bounded by wall-clock time (SECONDS)"
+  awk '/^      - name:/ { n = $0 } /^        continue-on-error:[[:space:]]*true/ && n ~ /Wait for the check/ { f = 1 } END { exit !f }' "$f" || echo "wait step is not continue-on-error, so a timeout would skip the reviewer"
   grep -q 'did not finish within 12 minutes' "$f" || echo "warning text does not say 12 minutes"
   [ "$job" = "30" ] || echo "job timeout-minutes is '$job', want 30"
   [ "$wstep" = "13" ] || echo "wait step timeout-minutes is '$wstep', want 13"

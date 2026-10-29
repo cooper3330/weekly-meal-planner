@@ -40,19 +40,24 @@ jobs:
 
       - name: Wait for the check job on the head SHA
         timeout-minutes: 13
+        # If the backstop ever fires, preflight and the reviewer must still run (they see the check
+        # as pending), so a timed-out wait never means "no review".
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           # Bounded wait: at most 12 minutes (720 seconds). The reviewer reads the result with
           # gh pr checks, so a check that is still running at the end is reported there.
+          # The bound is wall-clock ($SECONDS), so the time the gh api calls take counts too.
+          start=$SECONDS
           waited=0
           while [ "$waited" -lt 720 ]; do
             status=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs" \
               --jq '[.check_runs[] | select(.name == "check")] | if length == 0 then "missing" else .[0].status end')
             if [ "$status" = "completed" ]; then exit 0; fi
             sleep 20
-            waited=$((waited + 20))
+            waited=$((SECONDS - start))
           done
           echo "::warning::The check job did not finish within 12 minutes; reviewing anyway."
 
