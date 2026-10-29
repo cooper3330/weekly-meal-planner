@@ -32,7 +32,9 @@ jobs:
   coordinate:
     # Kill switch: set the repository variable AGENTS_PAUSED to true to stop all agent runs.
     # Then, per trigger: the schedule and manual runs always; a label event only for `ready`; a closed
-    # issue only when it is a task or bug; a PR only when merged, from this repository (no secrets for
+    # issue only when it is a task or bug filed by the owner, a member or a collaborator (a stranger can
+    # open and close an issue from the template, and every run counts toward the daily cap; tasks the App
+    # files are covered by the merged-PR trigger); a PR only when merged, from this repository (no secrets for
     # forks), and from an issue-* branch.
     if: vars.AGENTS_PAUSED != 'true' && (
       github.event_name == 'schedule' ||
@@ -40,6 +42,9 @@ jobs:
       (github.event_name == 'issues' && github.event.action == 'labeled' &&
         github.event.label.name == 'ready') ||
       (github.event_name == 'issues' && github.event.action == 'closed' &&
+        (github.event.issue.author_association == 'OWNER' ||
+         github.event.issue.author_association == 'MEMBER' ||
+         github.event.issue.author_association == 'COLLABORATOR') &&
         (contains(github.event.issue.labels.*.name, 'type:task') ||
          contains(github.event.issue.labels.*.name, 'type:bug'))) ||
       (github.event_name == 'pull_request' &&

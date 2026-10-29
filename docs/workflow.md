@@ -76,7 +76,7 @@ Approving a spec or releasing a task is one action: add the `ready` label to the
 
 - The board stays the source of truth. The label only triggers a pass, so a repeated or stale label is harmless. A card already in Architecture, Implementation, In Review or Done is never moved backwards.
 - Moving the card to Ready by hand still works; the hourly pass picks it up. Every pass (hourly included) first releases any open issue still labelled `ready`, so an event skipped by `AGENTS_PAUSED`, the daily cap, a cancelled queued run or a failed read is recovered by the next scheduled pass.
-- Closing a task or bug issue, or merging an `issue-*` PR into `main`, also starts a pass, so a task whose `Blocked by:` line just cleared is released without waiting.
+- Closing a task or bug issue filed by the owner, a member or a collaborator (not a stranger: each run counts toward the daily cap), or merging an `issue-*` PR into `main`, also starts a pass, so a task whose `Blocked by:` line just cleared is released without waiting.
 - Re-run `scripts/setup-project.sh` once (it is safe to re-run) to create the `ready` label. `AGENTS_PAUSED`, the preflight and the daily cap apply to these triggers like any other.
 
 ## Human gates

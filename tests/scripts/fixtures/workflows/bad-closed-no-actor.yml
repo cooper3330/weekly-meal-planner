@@ -1,0 +1,17 @@
+name: Coordinator
+# Fixture: an `issues: closed` trigger whose job condition checks only the label, so any stranger who
+# opens an issue from the task template and closes it starts a counted agent run.
+on:
+  issues:
+    types: [closed]
+
+jobs:
+  coordinate:
+    if: >-
+      vars.AGENTS_PAUSED != 'true' &&
+      github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'type:task')
+    runs-on: ubuntu-latest
+    steps:
+      - run: scripts/coordinator.sh --once
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
