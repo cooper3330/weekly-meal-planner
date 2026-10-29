@@ -32,6 +32,8 @@ jobs:
     # 30 = the 12-minute wait step + the 18-minute review step (ADR 0015). The loop is bounded by
     # wall-clock time, and the wait step is continue-on-error, so the reviewer runs either way.
     timeout-minutes: 30
+    outputs:
+      skip: ${{ steps.preflight.outputs.skip }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -90,3 +92,40 @@ jobs:
         run: |
           mkdir -p .agent-tmp
           scripts/review.sh "$PR_NUMBER"
+
+  # The merge gate is a script, not the model. It is a separate job on a fresh runner, so no step of
+  # the review job (which runs the PR's own scripts) can alter its environment or PATH. It checks
+  # out only the base branch: the PR's code never runs with the App token. The App token (not
+  # github.token) is used so the merge's push to main triggers CI on main (ADR 0014). Until
+  # after-review.sh exists on main, the last step is skipped.
+  merge-gate:
+    needs: review
+    if: >-
+      needs.review.outputs.skip != 'true' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      vars.AGENTS_PAUSED != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the base branch for the merge gate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          path: trusted
+          persist-credentials: false
+
+      - name: Mint the GitHub App token
+        id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ secrets.AGENT_APP_ID }}
+          private-key: ${{ secrets.AGENT_APP_PRIVATE_KEY }}
+
+      - name: Enable auto-merge for low-risk approved PRs
+        if: hashFiles('trusted/scripts/after-review.sh') != ''
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          REPO: ${{ github.repository }}
+          AGENTS_PAUSED: ${{ vars.AGENTS_PAUSED }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: bash trusted/scripts/after-review.sh "$PR_NUMBER"
