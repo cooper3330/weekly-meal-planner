@@ -357,9 +357,12 @@ ready_pass() {
   return "$rc"
 }
 
-# Revisions first (finish work already in flight), then new Ready work.
+# Revisions first (finish work already in flight), then new Ready work. Labelled issues are swept
+# before the board is read, so a `ready` label whose event was skipped (AGENTS_PAUSED, the daily cap,
+# a cancelled queued run, a failed read) is still released by the next scheduled pass.
 pass() {
   revise_pass || echo "$(ts) revision pass failed" >&2
+  sweep_ready_labels || echo "$(ts) ready-label sweep failed" >&2
   ready_pass
 }
 
@@ -367,11 +370,11 @@ pass() {
 # The board stays the source of truth: the label only triggers a pass. A card that is not yet
 # approved is set to Ready; one that is already moving or finished is never moved backwards. The
 # label is removed after the card is set (never before), so a repeated or stale label is harmless and
-# a missed event is caught by the hourly pass.
+# a missed event is caught by the sweep at the start of every pass.
 handle_ready_label() {
   local n="$1" info state kind status rc
   info=$(gh api "repos/$REPO/issues/$n" --jq '[.state, (if .pull_request then "pr" else "issue" end)] | join(" ")') || {
-    echo "$(ts) could not read #$n; leaving the label for the hourly pass" >&2
+    echo "$(ts) could not read #$n; leaving the label for the next pass" >&2
     return 1
   }
   state=${info%% *}; kind=${info##* }
@@ -395,6 +398,15 @@ handle_ready_label() {
     *) echo "$(ts) #$n is in $status: not moving it, not dispatching it" ;;
   esac
   gh issue edit "$n" --repo "$REPO" --remove-label ready || true
+}
+
+# Releases every open issue that still carries the `ready` label (the doorbell's fallback).
+sweep_ready_labels() {
+  local n labelled
+  labelled=$(gh issue list --repo "$REPO" --label ready --state open --json number --jq '.[].number') || return 1
+  for n in $labelled; do
+    handle_ready_label "$n" || true
+  done
 }
 
 if [ -n "$READY_LABEL_ISSUE" ]; then

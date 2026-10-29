@@ -160,8 +160,12 @@ assert_grep "$CO" '^  schedule:' "has a schedule trigger"
 assert_grep "$CO" "cron:[[:space:]]*['\"]17 \* \* \* \*['\"]" "runs hourly at minute 17"
 assert_grep "$CO" '^  workflow_dispatch:' "has workflow_dispatch"
 assert_grep "$CO" "^    if:[[:space:]]*vars\.AGENTS_PAUSED != 'true'" "job is gated by the AGENTS_PAUSED kill switch"
-assert_grep "$CO" '^  group:[[:space:]]*coordinator[[:space:]]*$' "concurrency group is coordinator"
-assert_grep "$CO" '^  cancel-in-progress:[[:space:]]*false' "never cancels a run in progress"
+# At job level, so a run whose job if: is false (an unrelated label, a stranger's issue) never enters
+# the group and cannot cancel a pending run (#55). Workflow-level concurrency would apply first.
+assert_grep "$CO" '^    concurrency:' "concurrency is set on the job"
+assert_no_grep "$CO" '^concurrency:' "and not on the workflow"
+assert_grep "$CO" '^      group:[[:space:]]*coordinator[[:space:]]*$' "concurrency group is coordinator"
+assert_grep "$CO" '^      cancel-in-progress:[[:space:]]*false' "never cancels a run in progress"
 tm=$(sed -nE 's/^    timeout-minutes:[[:space:]]*([0-9]+).*/\1/p' "$CO" | head -1)
 if [ -n "$tm" ] && [ "$tm" -le 55 ]; then ok "timeout-minutes is $tm (at most 55)"; else bad "timeout-minutes is at most 55 (got '$tm')"; fi
 assert_grep "$CO" '^  contents:[[:space:]]+read' "contents: read"
@@ -206,10 +210,19 @@ trigger_violations() {
      && ! grep -Eq "github\.event\.label\.name[[:space:]]*==[[:space:]]*'ready'" <<<"$cond"; then
     echo "issues: labeled has no job condition on the label name"
   fi
+  # A closed issue can be opened and closed by any stranger (the issue template labels it type:task),
+  # and every run counts toward the daily cap: the closed branch must name a trusted author.
+  if grep -Eq '^  issues:' "$f" && trigger_types "$f" issues | grep -q closed \
+     && ! grep -Eq "github\.event\.issue\.author_association" <<<"$cond"; then
+    echo "issues: closed has no trusted-author condition (author_association)"
+  fi
 }
 
 echo "workflows: the label-trigger checker bites on a fixture with no label-name condition"
 if [ -n "$(trigger_violations "$FIX/workflows/bad-label-no-name.yml")" ]; then ok "reported as a violation"; else bad "reported as a violation"; fi
+
+echo "workflows: the closed-issue checker bites on a fixture with no trusted-author condition"
+if trigger_violations "$FIX/workflows/bad-closed-no-actor.yml" | grep -q 'trusted-author'; then ok "reported as a violation"; else bad "reported as a violation"; fi
 
 echo "workflows: coordinator.yml event triggers"
 assert_grep "$CO" '^  issues:' "has an issues trigger"
@@ -221,6 +234,10 @@ if grep -q labeled <<<"$types" && grep -q closed <<<"$types"; then ok "issues ty
 assert_no_grep "$CO" 'pull_request_target' "never uses pull_request_target"
 cond=$(job_if "$CO")
 if [ -z "$(trigger_violations "$CO")" ]; then ok "the labeled job condition names the label"; else bad "the labeled job condition names the label"; fi
+if [ -z "$(trigger_violations "$CO" | grep trusted-author)" ]; then ok "the closed job condition names a trusted author"; else bad "the closed job condition names a trusted author"; fi
+for role in OWNER MEMBER COLLABORATOR; do
+  if grep -qF -- "'$role'" <<<"$cond"; then ok "closed issues from a $role start a pass"; else bad "closed issues from a $role start a pass"; fi
+done
 for want in "github.event.label.name == 'ready'" "type:task" "type:bug" "github.event.pull_request.merged == true" \
             "startsWith(github.event.pull_request.head.ref, 'issue-')" \
             "github.event.pull_request.head.repo.full_name == github.repository" "vars.AGENTS_PAUSED != 'true'"; do

@@ -532,6 +532,43 @@ assert_count "$T/gh.log" '^gh issue edit 5 .*--remove-label ready' 1 "label remo
 assert_count "$T/gh.log" 'project ' 0 "no board call"
 assert_count "$T/claude.calls" "called" 0 "no claude launch"
 
+echo "ready-label sweep: every pass releases an open issue still labelled ready (a missed event is recovered)"
+new_sandbox; card I5 5 Backlog > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+echo '[{"number":5}]' > "$T/issues.json"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_count "$T/gh.log" 'project item-edit .*--single-select-option-id o_ready' 1 "one item-edit, to the Ready option"
+assert_count "$T/gh.log" '^gh issue edit 5 .*--remove-label ready' 1 "the ready label is removed"
+assert_count "$T/claude.calls" "called" 1 "the item is dispatched in the same pass"
+
+echo "ready-label sweep: a closed issue still labelled ready only loses the label"
+new_sandbox; card I5 5 Backlog > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+echo '[{"number":5}]' > "$T/issues.json"; echo '{"state":"closed"}' > "$T/issue_state_5.json"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_count "$T/gh.log" '^gh issue edit 5 .*--remove-label ready' 1 "label removed"
+assert_count "$T/gh.log" 'project item-edit' 0 "no item-edit"
+assert_count "$T/claude.calls" "called" 0 "no claude launch"
+
+echo "ready-label sweep: a card already moving keeps its Status; the label goes"
+new_sandbox; card I5 5 Implementation > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+echo '[{"number":5}]' > "$T/issues.json"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_count "$T/gh.log" 'project item-edit' 0 "no item-edit"
+assert_count "$T/gh.log" '^gh issue edit 5 .*--remove-label ready' 1 "label removed"
+assert_count "$T/claude.calls" "called" 0 "not dispatched"
+
+echo "ready-label sweep: a labelled issue with no card is added alongside other Ready work in one run"
+new_sandbox
+echo '{"items":[{"id":"I6","status":"Ready","content":{"number":6,"title":"y"},"labels":["type:architecture"]}]}' > "$T/items.json"
+echo "$STATUS_FIELDS" > "$T/fields.json"; echo '[{"number":5}]' > "$T/issues.json"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_count "$T/gh.log" 'project item-add 1 --owner cooper3330 --url .*/issues/5' 1 "the labelled issue gets a card"
+assert_count "$T/claude.calls" "called" 1 "one coordinator run covers both"
+
+echo "ready-label sweep: with no labelled issues nothing is edited"
+new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_count "$T/gh.log" 'remove-label ready' 0 "no label is touched"
+
 echo "ready-label: a bad number is a usage error that launches and writes nothing"
 for bad_arg in abc 0 "" "-3" "5x"; do
   new_sandbox; card I5 5 Backlog > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
@@ -555,12 +592,14 @@ rl 5
 assert_count "$T/claude.calls" "called" 1 "the second run launches nothing more"
 assert_count "$T/gh.log" 'project item-edit' 1 "and edits nothing"
 
-echo "ready-label: a failed lookup of the card changes nothing"
+echo "ready-label: a failed lookup of the card changes nothing (no edit, no launch)"
 new_sandbox; card I5 5 Backlog > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
 printf '#!/usr/bin/env bash\necho "gh $*" >> "$STUB_DIR/gh.log"\ncase "$1 $2" in "project item-list") exit 1;; "repo view") echo cooper3330/weekly-meal-planner;; "api"*) echo "open issue";; esac\nexit 0\n' > "$T/bin/gh"
 rl 5
-if [ "$(cat "$T/rc")" -ne 0 ]; then ok "exits non-zero"; else bad "exits non-zero"; fi
+# The exit code is deliberately not asserted: --ready-label carries on into the pass, which fails on the same stubbed item-list.
+assert_grep "$T/out" 'could not read the card for #5; changing nothing' "the failure is reported, naming the issue"
 assert_count "$T/gh.log" 'item-edit' 0 "no card edit"
+assert_count "$T/gh.log" '--remove-label ready' 0 "the label is kept, so the next pass's sweep retries it"
 assert_count "$T/claude.calls" "called" 0 "no launch"
 
 finish
