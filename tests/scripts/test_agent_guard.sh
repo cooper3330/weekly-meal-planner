@@ -87,30 +87,77 @@ assert_grep "$T/err" 'oops' "stderr is passed through"
 
 echo "run: a usage limit posts one comment and does not retry"
 new_sandbox
-echo "Claude AI usage limit reached" > "$T/claude.out"
-guard run --kind pr --number 5 -- claude -p hi >/dev/null 2>&1; rc=$?
+echo "Claude AI usage limit reached" > "$T/claude.err"
+STUB_CLAUDE_FAIL=1 guard run --kind pr --number 5 -- claude -p hi >/dev/null 2>&1; rc=$?
 if [ "$rc" -ne 0 ]; then ok "exits non-zero"; else bad "exits non-zero"; fi
 assert_count "$T/gh.log" '^gh pr comment 5 ' 1 "one gh pr comment on PR 5"
 assert_count "$T/gh.log" 'agent:limit' 1 "comment carries the marker"
 assert_grep "$T/gh.log" 'subscription usage limit' "comment says the subscription usage limit was hit"
 assert_count "$T/claude.calls" "called" 1 "the command ran exactly once"
 new_sandbox
-echo "5-hour limit reached ∙ resets 3pm (UTC)" > "$T/claude.out"
+echo "5-hour limit reached ∙ resets 3pm (UTC)" > "$T/claude.err"
 STUB_CLAUDE_FAIL=1 guard run --kind issue --number 9 -- claude -p hi >/dev/null 2>&1; rc=$?
 if [ "$rc" -ne 0 ]; then ok "exits non-zero when the command also failed"; else bad "exits non-zero when the command also failed"; fi
 assert_count "$T/gh.log" '^gh issue comment 9 ' 1 "one gh issue comment for --kind issue"
 assert_grep "$T/gh.log" 'resets 3pm' "reset time is included"
 assert_count "$T/claude.calls" "called" 1 "no retry after a failed limit run"
 new_sandbox
-echo "You've hit your limit" > "$T/claude.out"
-REPO=o/r guard run --kind pr --number 5 -- claude -p hi >/dev/null 2>&1
+echo "You've hit your limit" > "$T/claude.err"
+STUB_CLAUDE_FAIL=1 REPO=o/r guard run --kind pr --number 5 -- claude -p hi >/dev/null 2>&1
 assert_grep "$T/gh.log" '^gh pr comment 5 --repo o/r' "comment goes to REPO when set"
 assert_no_grep "$T/gh.log" 'resets' "no reset time when the output gives none"
 new_sandbox
-echo "Claude AI usage limit reached" > "$T/claude.out"
-guard run --kind none -- claude -p hi >/dev/null 2>"$T/err"; rc=$?
+echo "Claude AI usage limit reached" > "$T/claude.err"
+STUB_CLAUDE_FAIL=1 guard run --kind none -- claude -p hi >/dev/null 2>"$T/err"; rc=$?
 if [ "$rc" -ne 0 ]; then ok "--kind none exits non-zero on a limit"; else bad "--kind none exits non-zero on a limit"; fi
 assert_no_grep "$T/gh.log" 'comment' "--kind none posts nothing"
 assert_grep "$T/err" 'usage limit' "--kind none logs the limit"
+
+echo "run: the final is_error result of --output-format json counts as the CLI's own message"
+new_sandbox
+echo '{"type":"result","subtype":"success","is_error":true,"result":"Claude AI usage limit reached|1760000000. Your limit resets at 5pm"}' > "$T/claude.out"
+STUB_CLAUDE_FAIL=1 guard run --kind pr --number 5 -- claude -p hi >/dev/null 2>&1; rc=$?
+if [ "$rc" -ne 0 ]; then ok "json is_error limit exits non-zero"; else bad "json is_error limit exits non-zero"; fi
+assert_count "$T/gh.log" '^gh pr comment 5 .*agent:limit' 1 "json is_error limit posts one comment"
+assert_grep "$T/gh.log" 'resets at 5pm' "json is_error limit reports the reset time"
+new_sandbox
+echo '{"type":"result","subtype":"success","is_error":false,"result":"Usage limit reached. Your limit resets at 5pm"}' > "$T/claude.out"
+STUB_CLAUDE_FAIL=1 guard run --kind pr --number 5 -- claude -p hi >/dev/null 2>&1
+assert_no_grep "$T/gh.log" 'comment' "a non-error json result that mentions the limit posts nothing"
+
+echo "run: agent-written text that mentions a limit is not a limit stop"
+new_sandbox
+echo "Usage limit reached. Your limit resets at 5pm" > "$T/claude.out"
+guard run --kind pr --number 5 -- claude -p hi >/dev/null 2>&1; rc=$?
+assert_eq "$rc" "0" "a zero-exit run that mentions the limit exits zero"
+assert_no_grep "$T/gh.log" 'comment' "and posts nothing"
+new_sandbox
+echo "Usage limit reached. Your limit resets at 5pm" > "$T/claude.err"
+guard run --kind pr --number 5 -- claude -p hi >/dev/null 2>&1; rc=$?
+assert_eq "$rc" "0" "a zero-exit run with the message on stderr exits zero"
+assert_no_grep "$T/gh.log" 'comment' "and posts nothing (a non-zero exit is required)"
+new_sandbox
+{ for i in 1 2 3 4 5 6; do echo "Here is a long summary line $i of what I did."; done
+  echo 'echo "Usage limit reached. Your limit resets at 5pm" > "$T/claude.out"'
+  echo "More text after."; } > "$T/claude.out"
+STUB_CLAUDE_FAIL=1 guard run --kind pr --number 5 -- claude -p hi >/dev/null 2>&1; rc=$?
+assert_eq "$rc" "1" "a non-limit failure keeps its exit code"
+assert_no_grep "$T/gh.log" 'comment' "a limit mention in model text on stdout posts nothing"
+
+echo "run: the reset text is a strict time phrase"
+new_sandbox
+echo 'Usage limit reached. Your limit resets at 5pm" > "$T/claude.out"\nrc=0; bash scripts/review.sh 71 >/dev/null' > "$T/claude.err"
+STUB_CLAUDE_FAIL=1 guard run --kind pr --number 5 -- claude -p hi >/dev/null 2>&1
+assert_grep "$T/gh.log" 'Limit resets at 5pm\.' "reports at most the time phrase"
+assert_no_grep "$T/gh.log" 'claude\.out|review\.sh' "no output fragment leaks into the comment"
+new_sandbox
+echo "Usage limit reached. Your limit resets at 17:00 UTC" > "$T/claude.err"
+STUB_CLAUDE_FAIL=1 guard run --kind pr --number 5 -- claude -p hi >/dev/null 2>&1
+assert_grep "$T/gh.log" 'resets at 17:00 UTC' "a 24-hour time with UTC is reported"
+new_sandbox
+echo 'Usage limit reached. Your limit resets soon, see "$T/claude.out"' > "$T/claude.err"
+STUB_CLAUDE_FAIL=1 guard run --kind pr --number 5 -- claude -p hi >/dev/null 2>&1
+assert_count "$T/gh.log" 'agent:limit' 1 "still one comment when there is no time phrase"
+assert_no_grep "$T/gh.log" 'resets|claude\.out' "the reset sentence is omitted"
 
 finish
