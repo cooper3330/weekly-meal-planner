@@ -327,6 +327,19 @@ GITHUB_ACTIONS=true AGENT_GH_TOKEN=atok PROJECT_TOKEN=ptok PROJECT_NUMBER=1 bash
 assert_eq "$rc" "0" "exits 0"
 assert_count "$T/claude.calls" "called" 1 "the agent is launched"
 
+echo "identity: a failing permission call does not block the run"
+new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+GITHUB_ACTIONS=true STUB_REPO_API_FAIL=1 AGENT_GH_TOKEN=atok PROJECT_TOKEN=ptok PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1; rc=$?
+assert_eq "$rc" "0" "exits 0"
+assert_count "$T/claude.calls" "called" 1 "the agent is launched"
+
+echo "identity: a missing AGENT_GH_TOKEN is reported before the push permission"
+new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+echo '{"permissions":{"push":false}}' > "$T/repo.json"
+env -u AGENT_GH_TOKEN GITHUB_ACTIONS=true PROJECT_TOKEN=ptok PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_grep "$T/out" 'AGENT_GH_TOKEN is missing' "the missing-token message comes first"
+assert_no_grep "$T/out" 'Contents' "and the permission message is not reached"
+
 echo "identity: locally the push permission is not even checked"
 new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
 echo '{"permissions":{"push":false}}' > "$T/repo.json"

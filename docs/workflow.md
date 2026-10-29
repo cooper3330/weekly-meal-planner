@@ -71,6 +71,16 @@ Human reviews/merges. The PR's `Closes #N` closes the task, and the built-in pro
 ## Planned work flows to Ready
 Moving every planned task to Ready by hand was a chore, not a decision, so the architect does it. When it has no open questions it puts each task in Ready itself; open questions (conflicting requirements, a security concern, a trade-off the spec and constitution do not settle) are the only reason a plan waits in Plan Review. Dependencies are explicit: a task is dispatched only once everything on its `Blocked by:` line is done. Tasks that rely on the architect's ADRs list the ADR PR there, so development starts after you accept the decisions by merging that PR (until the reviewer agent and risk-based auto-merge in #4 take that over).
 
+## The agents' GitHub App
+Agents act as an owner-created GitHub App installed on this repository only (docs/adr/0014). Give it these repository permissions, and no others:
+
+- Contents: Read & write (agents push their `issue-*` branches; git authenticates with the App token through `gh auth setup-git`)
+- Issues: Read & write
+- Pull requests: Read & write
+- Actions: Write (to dispatch workflows)
+
+Store its ID and private key as the repository secrets `AGENT_APP_ID` and `AGENT_APP_PRIVATE_KEY`. If a push from a workflow fails with `403`, check that the App has Contents write and is installed on this repository; the coordinator also stops early with that message when GitHub reports the App cannot push.
+
 ## Human gates
 - Spec approval: moving a spec to Ready.
 - Answering the architect's open questions, when it has any (Plan Review).

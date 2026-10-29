@@ -117,6 +117,8 @@ for f in .github/workflows/coordinator.yml .github/workflows/review.yml; do
   assert_grep "$f" 'persist-credentials:[[:space:]]*false' "$f: checkout does not persist the workflow token"
 done
 CO_=.github/workflows/coordinator.yml
+assert_grep "docs/workflow.md" 'Contents: Read & write' "workflow.md lists the App's Contents permission"
+assert_grep "docs/workflow.md" 'Pull requests: Read & write' "workflow.md lists the App's pull request permission"
 assert_grep "$CO_" 'gh auth setup-git' "coordinator.yml: git authenticates through gh auth setup-git"
 mint=$(grep -n 'create-github-app-token' "$CO_" | head -1 | cut -d: -f1)
 setup=$(grep -n 'gh auth setup-git' "$CO_" | head -1 | cut -d: -f1)

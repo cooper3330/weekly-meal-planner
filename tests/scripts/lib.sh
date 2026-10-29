@@ -85,7 +85,7 @@ if [ "$1" = "api" ]; then
       n="${path#repos/*/issues/}"; f="$STUB_DIR/issue_state_${n%%/*}.json"
       [ -f "$f" ] || echo '{"state":"open"}' > "$f"
       emit "$f" ;;
-    repos/*/*)                 emit "$STUB_DIR/repo.json" ;;   # the repository itself (.permissions.push)
+    repos/*/*)                 [ -n "${STUB_REPO_API_FAIL:-}" ] && { echo "gh: HTTP 500" >&2; exit 1; }; emit "$STUB_DIR/repo.json" ;;   # the repository itself (.permissions.push)
     *) echo '[]' ;;
   esac
   exit 0
