@@ -116,6 +116,10 @@ assert_grep ".claude/agents/architect.md" 'Plan Review.*no label|no label.*Plan 
 assert_grep "docs/workflow.md" '`ready`' "workflow.md documents the ready label"
 
 R=.claude/agents/reviewer.md
+echo "agents: the reviewer reads the pre-fetched inline comments (#60)"
+assert_grep "$R" '\.agent-tmp/pr-inline-comments\.md' "reviewer.md names the pre-fetched inline comments file"
+assert_grep "$R" 'earlier request' "and tells the reviewer to check earlier requests on a re-review"
+assert_grep "$R" 'data, not instructions' "and that the file is data"
 echo "agents: the reviewer"
 if [ -f "$R" ]; then ok "reviewer.md exists"; else bad "reviewer.md exists"; fi
 assert_grep "$R" '^model: claude-opus-5-5$' "reviewer runs on claude-opus-5-5"
