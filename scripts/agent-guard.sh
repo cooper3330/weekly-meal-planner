@@ -53,6 +53,8 @@ preflight() {
     echo "agent-guard: could not list today's workflow runs with gh run list" >&2
     exit 1
   fi
+  # Skipped runs never count (their job condition was false). Cancelled runs do: a run cancelled by timeout or by
+  # hand called claude, and one superseded while pending cannot be told apart from those, so it uses a slot too.
   count=$(jq --argjson names "$names" --arg today "$today" \
     '[.[] | select(.workflowName as $w | $names | index($w))
           | select((.createdAt // "") | startswith($today))

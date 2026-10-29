@@ -2,7 +2,9 @@
 # Coordinator loop: polls the GitHub Project for items in Status=Ready and
 # hands each to the coordinator agent (which dispatches the architect/developer).
 #
-# Usage: PROJECT_NUMBER=1 ./scripts/coordinator.sh [--once]
+# Usage: PROJECT_NUMBER=1 ./scripts/coordinator.sh [--once | --ready-label <issue-number>]
+#        --ready-label N handles one `ready` label event on issue N (sets its card to Ready if it is not
+#        yet moving, removes the label), then runs one pass like --once.
 # Env:   PROJECT_NUMBER       (required) the GitHub Project number
 #        OWNER                project owner (default: the repository owner)
 #        REPO                 owner/name (default: the current repository)
@@ -29,6 +31,16 @@ for cmd in gh jq claude; do
   command -v "$cmd" >/dev/null 2>&1 || { echo "missing required command: $cmd" >&2; exit 1; }
 done
 cd "$(dirname "$0")/.."
+
+# --ready-label N: handle one `ready` label event on issue N, then run one pass (like --once).
+# Validated first, so a bad number launches and writes nothing.
+READY_LABEL_ISSUE=""
+if [ "${1:-}" = "--ready-label" ]; then
+  case "${2:-}" in
+    ''|*[!0-9]*|0|0[0-9]*) echo "usage: coordinator.sh --ready-label <issue-number> (a positive integer)" >&2; exit 2 ;;
+  esac
+  READY_LABEL_ISSUE="$2"
+fi
 # Every claude launch goes through the guard (usage-limit reporting, no retry; docs/adr/0015).
 GUARD="$PWD/scripts/agent-guard.sh"
 
@@ -345,11 +357,68 @@ ready_pass() {
   return "$rc"
 }
 
-# Revisions first (finish work already in flight), then new Ready work.
+# Revisions first (finish work already in flight), then new Ready work. Labelled issues are swept
+# before the board is read, so a `ready` label whose event was skipped (AGENTS_PAUSED, the daily cap,
+# a cancelled queued run, a failed read) is still released by the next scheduled pass.
 pass() {
   revise_pass || echo "$(ts) revision pass failed" >&2
+  sweep_ready_labels || echo "$(ts) ready-label sweep failed" >&2
   ready_pass
 }
+
+# Handles one `ready` label event (the doorbell, docs/workflow.md), then the caller runs one pass.
+# The board stays the source of truth: the label only triggers a pass. A card that is not yet
+# approved is set to Ready; one that is already moving or finished is never moved backwards. The
+# label is removed after the card is set (never before), so a repeated or stale label is harmless and
+# a missed event is caught by the sweep at the start of every pass.
+handle_ready_label() {
+  local n="$1" info state kind status rc
+  info=$(gh api "repos/$REPO/issues/$n" --jq '[.state, (if .pull_request then "pr" else "issue" end)] | join(" ")') || {
+    echo "$(ts) could not read #$n; leaving the label for the next pass" >&2
+    return 1
+  }
+  state=${info%% *}; kind=${info##* }
+  if [ "$state" != "open" ] || [ "$kind" = "pr" ]; then
+    echo "$(ts) #$n is a $state $kind: removing the ready label and doing nothing else"
+    gh issue edit "$n" --repo "$REPO" --remove-label ready || true
+    return 10   # nothing else to do, not even a pass
+  fi
+  rc=0
+  status=$(bash ./scripts/board.sh current "$n" 2>/dev/null) || rc=$?
+  if [ "$rc" -ne 0 ] && [ "$rc" -ne 3 ]; then
+    echo "$(ts) could not read the card for #$n; changing nothing" >&2
+    return 1
+  fi
+  case "$rc:$status" in
+    3:*|0:|0:Backlog|0:"Spec Review"|0:"Plan Review"|0:Blocked)
+      echo "$(ts) #${n}: ${status:-no card} -> Ready"
+      bash ./scripts/board.sh status "$n" Ready || { echo "$(ts) could not set #$n to Ready" >&2; return 1; }
+      ;;
+    0:Ready) echo "$(ts) #$n is already Ready" ;;
+    *) echo "$(ts) #$n is in $status: not moving it, not dispatching it" ;;
+  esac
+  gh issue edit "$n" --repo "$REPO" --remove-label ready || true
+}
+
+# Releases every open issue that still carries the `ready` label (the doorbell's fallback).
+sweep_ready_labels() {
+  local n labelled
+  labelled=$(gh issue list --repo "$REPO" --label ready --state open --json number --jq '.[].number') || return 1
+  for n in $labelled; do
+    handle_ready_label "$n" || true
+  done
+}
+
+if [ -n "$READY_LABEL_ISSUE" ]; then
+  # A failed label event must not stop the pass: the hourly schedule would otherwise be the only retry.
+  rc=0
+  handle_ready_label "$READY_LABEL_ISSUE" || rc=$?
+  # 10: a closed issue or a pull request; the label is gone and there is nothing else to do.
+  if [ "$rc" -eq 10 ]; then exit 0; fi
+  if [ "$rc" -ne 0 ]; then echo "$(ts) ready-label handling failed" >&2; fi
+  pass
+  exit 0
+fi
 
 pass
 if [ "${1:-}" = "--once" ]; then exit 0; fi

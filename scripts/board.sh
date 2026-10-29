@@ -9,6 +9,8 @@
 # Usage: scripts/board.sh add <issue-url>              print the board item ID (adds it if needed)
 #        scripts/board.sh status <issue-number> <Status name>
 #                                                       set the Status, adding the card if needed
+#        scripts/board.sh current <issue-number>        print the card's Status name; no output and
+#                                                       exit 3 when the issue has no card (1 on error)
 #        scripts/board.sh check                         verify the board has the Status options
 # Env:   PROJECT_NUMBER  (required) the GitHub Project number
 #        OWNER           project owner (default: the repository owner)
@@ -102,12 +104,26 @@ case "$cmd" in
       --field-id "$(jq -r .status_field_id <<<"$ids")" --single-select-option-id "$option_id" >/dev/null
     echo "$(ts) #$number -> $name"
     ;;
+  current)
+    [ $# -eq 2 ] || die "usage: board.sh current <issue-number>"
+    number="$2"
+    case "$number" in ''|*[!0-9]*) die "issue number must be numeric, got '$number'" ;; esac
+    resolve_repo
+    items=$(gp item-list "$PROJECT_NUMBER" --owner "$OWNER" --limit 200 --format json) \
+      || die "could not read project #$PROJECT_NUMBER"
+    # A card in the list prints its Status name (empty if it has none). Exit 3 means "no card", so a
+    # caller can tell that apart from a failed read (exit 1).
+    found=$(jq -r --argjson n "$number" --arg repo "$REPO" \
+      '[.items[] | select(.content.number == $n and ((.content.repository // $repo) == $repo))] | first // empty | "card\t\(.status // "")"' <<<"$items")
+    [ -n "$found" ] || exit 3
+    printf '%s\n' "${found#card	}"
+    ;;
   check)
     [ $# -eq 1 ] || die "usage: board.sh check"
     resolve_repo
     board_ids >/dev/null
     ;;
   *)
-    die "usage: board.sh add <issue-url> | status <issue-number> <Status name> | check"
+    die "usage: board.sh add <issue-url> | status <issue-number> <Status name> | current <issue-number> | check"
     ;;
 esac
