@@ -222,6 +222,15 @@ assert_grep "$RV" 'trusted/scripts/after-review\.sh' "runs after-review.sh from 
 r=$(grep -n 'scripts/review\.sh "' "$RV" | head -1 | cut -d: -f1)
 a=$(grep -n 'scripts/after-review\.sh "' "$RV" | head -1 | cut -d: -f1)
 if [ -n "$r" ] && [ -n "$a" ] && [ "$r" -lt "$a" ]; then ok "after-review.sh runs after review.sh"; else bad "after-review.sh runs after review.sh"; fi
+# The merge gate is its own job on a fresh runner, so no review-job step can alter its env or PATH.
+rv_mg=$(awk '/^  merge-gate:/ { on = 1; print; next } on && /^  [a-z-]+:/ { exit } on { print }' "$RV")
+rv_rj=$(awk '/^  review:/ { on = 1; print; next } on && /^  [a-z-]+:/ { exit } on { print }' "$RV")
+if [ -n "$rv_mg" ]; then ok "there is a separate merge-gate job"; else bad "there is a separate merge-gate job"; fi
+if grep -Eq '^    needs:[[:space:]]*review[[:space:]]*$' <<<"$rv_mg"; then ok "merge-gate needs the review job"; else bad "merge-gate needs the review job"; fi
+if grep -q "vars\.AGENTS_PAUSED != 'true'" <<<"$rv_mg" && grep -q 'head\.repo\.full_name == github\.repository' <<<"$rv_mg"; then ok "merge-gate keeps the AGENTS_PAUSED and same-repository conditions"; else bad "merge-gate keeps the AGENTS_PAUSED and same-repository conditions"; fi
+if [ "$(grep -c 'actions/checkout@' <<<"$rv_mg")" = 1 ] && grep -Eq 'ref:[[:space:]]*\$\{\{[[:space:]]*github\.event\.pull_request\.base\.ref' <<<"$rv_mg" && ! grep -q 'head\.sha\|head\.ref' <<<"$rv_mg"; then ok "merge-gate checks out only the base ref"; else bad "merge-gate checks out only the base ref"; fi
+if [ "$(grep -E '^[[:space:]]*run:' <<<"$rv_mg" | grep -vc 'trusted/scripts/')" = 0 ]; then ok "merge-gate runs no script from the PR checkout"; else bad "merge-gate runs no script from the PR checkout"; fi
+if grep -q 'create-github-app-token\|steps\.app' <<<"$rv_rj"; then bad "the review job never sees the App token"; else ok "the review job never sees the App token"; fi
 assert_grep "$RV" 'CLAUDE_CODE_OAUTH_TOKEN:[[:space:]]*\$\{\{[[:space:]]*secrets\.CLAUDE_CODE_OAUTH_TOKEN' "CLAUDE_CODE_OAUTH_TOKEN comes from secrets"
 assert_no_grep "$RV" 'ANTHROPIC_' "sets no ANTHROPIC_* variable"
 assert_grep "$RV" 'check-runs|gh pr checks' "waits for the check status on the head SHA"
