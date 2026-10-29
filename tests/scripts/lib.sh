@@ -23,6 +23,7 @@ assert_eq()      { if [ "$1" = "$2" ]; then ok "$3"; else bad "$3 (expected '$2'
 #   items.json projects.json fields.json project.json milestones.json   (project setup / board)
 #   prs.json issues.json                                                (gh pr list / gh issue list)
 #   issue_comments_<N>.json pr_comments_<N>.json pr_reviews_<N>.json    (REST comment endpoints)
+#   pr_view_<N>.json                                                    (gh pr view N --json ...; default: open, no branch)
 #   release_latest.json ref_<tag>.json gittag_<sha>.json                (scripts/pin-action.sh lookups)
 new_sandbox() {
   # Start from a clean environment: GitHub's runners set GITHUB_ACTIONS=true (the coordinator then
@@ -99,6 +100,7 @@ case "$1 $2" in
   "project create")     echo '{"number":7}' > "$STUB_DIR/created.json"; emit "$STUB_DIR/created.json" ;;
   "project link")        if [ -n "${STUB_LINK_FAIL:-}" ]; then echo "has different owner from '@me'" >&2; exit 1; fi ;;
   "pr list")             emit "$STUB_DIR/prs.json" ;;
+  "pr view")             f="$STUB_DIR/pr_view_$3.json"; [ -f "$f" ] || echo '{"state":"OPEN","headRefName":"","headRefOid":""}' > "$f"; emit "$f" ;;
   "issue list")          emit "$STUB_DIR/issues.json" ;;
   "run list")            emit "$STUB_DIR/run_list.json" ;;   # [{workflowName, conclusion, status, createdAt}]
   "issue view")          f="$STUB_DIR/issue_$3.json"; [ -f "$f" ] || echo '{"body":""}' > "$f"; emit "$f" ;;

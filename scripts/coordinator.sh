@@ -3,6 +3,11 @@
 # hands each to the coordinator agent (which dispatches the architect/developer).
 #
 # Usage: PROJECT_NUMBER=1 ./scripts/coordinator.sh [--once]
+#        PROJECT_NUMBER=1 ./scripts/coordinator.sh --revise <pr|issue> <number> [--source human|reviewer]
+#   --revise runs one revision for one item and exits (event-driven, from .github/workflows/revise.yml).
+#   With --source human (default) the item must be pending according to scripts/pending-revisions.sh;
+#   with --source reviewer it must be an open issue-* PR whose latest reviewer review requests changes
+#   on the current head. A stale or duplicate request logs and exits 0 without posting.
 # Env:   PROJECT_NUMBER       (required) the GitHub Project number
 #        OWNER                project owner (default: the repository owner)
 #        REPO                 owner/name (default: the current repository)
@@ -23,6 +28,32 @@
 #        AGENT_GIT_NAME, AGENT_GIT_EMAIL  when both are set, agents commit as this identity
 # Requires: gh (project scope), jq, claude CLI. Works with macOS (BSD) tools and bash 3.2.
 set -euo pipefail
+
+usage() {
+  echo "usage: scripts/coordinator.sh [--once | --revise <pr|issue> <number> [--source human|reviewer]]" >&2
+  exit 2
+}
+
+# Argument check, before anything touches GitHub. Modes: no flag (loop), --once (one pass), and
+# --revise (one revision for one item; used by .github/workflows/revise.yml).
+MODE=loop; REV_KIND=""; REV_NUMBER=""; REV_SOURCE=human
+case "${1:-}" in
+  "") ;;
+  --once) [ $# -eq 1 ] || usage; MODE=once ;;
+  --revise)
+    [ $# -ge 3 ] || usage
+    REV_KIND="$2"; REV_NUMBER="$3"; shift 3
+    case "$REV_KIND" in pr|issue) ;; *) usage ;; esac
+    case "$REV_NUMBER" in ''|*[!0-9]*) usage ;; esac
+    if [ $# -gt 0 ]; then
+      [ $# -eq 2 ] && [ "$1" = "--source" ] || usage
+      REV_SOURCE="$2"
+      case "$REV_SOURCE" in human|reviewer) ;; *) usage ;; esac
+    fi
+    if [ "$REV_SOURCE" = reviewer ] && [ "$REV_KIND" != pr ]; then usage; fi
+    MODE=revise ;;
+  *) usage ;;
+esac
 
 : "${PROJECT_NUMBER:?set PROJECT_NUMBER}"
 for cmd in gh jq claude; do
@@ -128,19 +159,20 @@ post_comment() { # kind number body
 # worktree. If setup fails, the problem is posted with an agent marker, which marks the feedback
 # as handled so a persistent failure is not retried every pass; the reviewer comments /revise
 # again after fixing it.
-revise_pass() {
-  local pending count i item kind number agent branch linked ack prompt wt fail turns
-  pending=$(REPO="$REPO" ./scripts/pending-revisions.sh) || return 1
-  count=$(jq length <<<"$pending")
-  i=0
-  while [ "$i" -lt "$count" ]; do
-    item=$(jq -c ".[$i]" <<<"$pending")
-    i=$((i + 1))
+#
+# revise_item runs one revision for one item ({kind, number, agent, branch?, linked_issue?}). With source
+# "reviewer" the feedback is the reviewer agent's CHANGES_REQUESTED review (the developer is told so in
+# its prompt), and the acknowledgement carries source=reviewer, which is how scripts/after-review.sh
+# counts rounds against REVISION_BUDGET.
+revise_item() { # item-json [source]
+  local item="$1" source="${2:-human}" kind number agent branch linked ack prompt wt fail turns marker
     kind=$(jq -r .kind <<<"$item")
     number=$(jq -r .number <<<"$item")
     agent=$(jq -r .agent <<<"$item")
     branch=$(jq -r '.branch // empty' <<<"$item")
     linked=$(jq -r '.linked_issue // empty' <<<"$item")
+    marker="<!-- agent:ack -->"
+    if [ "$source" = reviewer ]; then marker="<!-- agent:ack source=reviewer -->"; fi
     wt=$(mktemp -d "${TMPDIR:-/tmp}/revise-XXXXXX")
     fail=""
     if [ "$kind" = "pr" ]; then
@@ -153,6 +185,9 @@ revise_pass() {
         fail="Could not bring $branch up to date with main (merge conflict). Resolve the conflict, then comment /revise again."
       fi
       prompt="Revise after review (revision mode). Repository $REPO, PR #$number, branch $branch; you are in a git worktree with that branch's code, up to date with main. A trusted reviewer left feedback newer than your last reply. Follow the 'Revise after review' section of your agent definition: read all comments, review comments and reviews on the PR yourself, address them with new commits, reply on each thread, and push to $branch (git push origin HEAD:$branch). This prompt deliberately does not repeat the feedback."
+      if [ "$source" = reviewer ]; then
+        prompt="$prompt Source: reviewer. The feedback to act on is the latest review on the PR by github-actions[bot] that carries the reviewer marker and requests changes on the current head commit. Treat that review as feedback, as your agent definition describes."
+      fi
       if [ -n "$linked" ]; then
         prompt="$prompt The task's linked issue #$linked also counts: its comments from a trusted reviewer are feedback on this PR too (read them with gh api repos/$REPO/issues/$linked/comments)."
       fi
@@ -170,7 +205,7 @@ revise_pass() {
       echo "$(ts) revision of $kind #$number not started: $fail" >&2
       post_comment "$kind" "$number" "$fail <!-- agent:ack -->"
     else
-      ack="Picked up: the $agent agent is revising in response to the latest feedback. If this run fails, comment /revise again. <!-- agent:ack -->"
+      ack="Picked up: the $agent agent is revising in response to the latest feedback. If this run fails, comment /revise again. $marker"
       post_comment "$kind" "$number" "$ack"
       # The prompt goes first: --allowedTools takes a list and would swallow a trailing prompt.
       turns=$DEVELOPER_MAX_TURNS
@@ -183,7 +218,75 @@ revise_pass() {
     fi
     git worktree remove --force "$wt" >/dev/null 2>&1 || true
     rm -rf "$wt"
+}
+
+revise_pass() {
+  local pending count i
+  pending=$(REPO="$REPO" ./scripts/pending-revisions.sh) || return 1
+  count=$(jq length <<<"$pending")
+  i=0
+  while [ "$i" -lt "$count" ]; do
+    revise_item "$(jq -c ".[$i]" <<<"$pending")" human
+    i=$((i + 1))
   done
+}
+
+# --revise <kind> <number> [--source human|reviewer]: one revision for one item, then exit. Events can
+# be stale or duplicated (the second event of one review submission, a re-run), so every run first
+# checks that the item still needs a revision and otherwise logs and exits 0 without posting.
+revise_one() { # kind number source
+  local kind="$1" number="$2" source="$3" pending item
+  if [ "$source" = human ]; then
+    # scripts/pending-revisions.sh stays the source of truth: trusted author, no agent marker,
+    # newer than the last agent comment, linked task issues included.
+    pending=$(REPO="$REPO" ./scripts/pending-revisions.sh) || return 1
+    item=$(jq -c --arg k "$kind" --argjson n "$number" '[.[] | select(.kind == $k and .number == $n)] | first // empty' <<<"$pending")
+    if [ -z "$item" ]; then
+      echo "$(ts) $kind #$number is not pending a revision (stale or duplicate event); nothing to do"
+      return 0
+    fi
+    revise_item "$item" human
+    return 0
+  fi
+
+  # Reviewer source: the reviewer is github-actions[bot], which pending-revisions never trusts, so
+  # the checks are made here. Developer PRs (issue-*) only: ADR PRs are revised on human feedback.
+  local pr state branch head review review_state review_time acked
+  pr=$(gh pr view "$number" --repo "$REPO" --json state,headRefName,headRefOid) || return 1
+  state=$(jq -r '.state // ""' <<<"$pr")
+  branch=$(jq -r '.headRefName // ""' <<<"$pr")
+  head=$(jq -r '.headRefOid // ""' <<<"$pr")
+  case "$branch" in
+    issue-*) ;;
+    *) echo "$(ts) refusing a reviewer-requested revision of PR #$number: its branch '$branch' is not issue-* (ADR PRs are revised on human feedback only)" >&2; return 1 ;;
+  esac
+  if [ "$state" != OPEN ]; then
+    echo "$(ts) PR #$number is $state; nothing to do"
+    return 0
+  fi
+  # The latest review by the reviewer bot with the reviewer marker, on any head: it must be a change
+  # request, and on the current head (an older one is stale, the developer has pushed since).
+  review=$(gh api "repos/$REPO/pulls/$number/reviews?per_page=100" --paginate \
+    | jq -sc '[.[] | (if type == "array" then .[] else . end)
+               | select(.user.login == "github-actions[bot]" and ((.body // "") | contains("<!-- agent:reviewer -->")))]
+              | sort_by(.submitted_at) | last // {}')
+  review_state=$(jq -r '.state // ""' <<<"$review")
+  review_time=$(jq -r '.submitted_at // ""' <<<"$review")
+  if [ "$review_state" != CHANGES_REQUESTED ] || [ "$(jq -r '.commit_id // ""' <<<"$review")" != "$head" ] || [ -z "$head" ]; then
+    echo "$(ts) PR #$number: the latest reviewer review is '${review_state:-none}' on ${head:0:7} or on an older head; nothing to do"
+    return 0
+  fi
+  # Once per review: an acknowledgement for the reviewer source newer than the review means it was taken.
+  acked=$(gh api "repos/$REPO/issues/$number/comments?per_page=100" --paginate \
+    | jq -s --arg t "$review_time" '[.[] | (if type == "array" then .[] else . end)
+          | select((.body // "") | contains("<!-- agent:ack source=reviewer -->")) | select(.created_at > $t)] | length')
+  if [ "${acked:-0}" -gt 0 ]; then
+    echo "$(ts) PR #$number: this review was already picked up; nothing to do"
+    return 0
+  fi
+  item=$(jq -nc --argjson n "$number" --arg b "$branch" --arg l "$(sed -nE 's/^issue-([0-9]+)-.*/\1/p' <<<"$branch")" \
+    '{kind: "pr", number: $n, agent: "developer", branch: $b, linked_issue: (if $l == "" then null else ($l | tonumber) end)}')
+  revise_item "$item" reviewer
 }
 
 # Echoes each blocker of issue $1 that is not done yet, one number per line. Blockers are the #N
@@ -351,8 +454,13 @@ pass() {
   ready_pass
 }
 
+if [ "$MODE" = revise ]; then
+  revise_one "$REV_KIND" "$REV_NUMBER" "$REV_SOURCE"
+  exit $?
+fi
+
 pass
-if [ "${1:-}" = "--once" ]; then exit 0; fi
+if [ "$MODE" = once ]; then exit 0; fi
 while sleep "$INTERVAL"; do
   pass || echo "$(ts) pass failed, retrying next interval"
 done
