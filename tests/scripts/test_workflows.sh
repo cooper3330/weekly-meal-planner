@@ -50,6 +50,18 @@ workflow_violations() {
   grep -Eq 'ANTHROPIC_AUTH_TOKEN' <<<"$body" && echo "sets ANTHROPIC_AUTH_TOKEN"
   grep -Eq -- '--bare' <<<"$body" && echo "uses --bare"
   grep -Eq 'DISABLE_TELEMETRY' <<<"$body" && echo "sets DISABLE_TELEMETRY"
+  # A workflow that runs claude must not leave the read-only checkout token in git's config: git would
+  # push with it instead of the App token (#66).
+  if grep -Eq "$RUNS_CLAUDE_RE" <<<"$body"; then
+    awk '
+      function flush() { if (co && !ok) print "checkout leaves persist-credentials at its default (set persist-credentials: false)"; co = 0; ok = 0 }
+      /^[[:space:]]*#/ { next }
+      /^[[:space:]]*-[[:space:]]/ { flush() }
+      /uses:[[:space:]]*actions\/checkout@/ { co = 1 }
+      /persist-credentials:[[:space:]]*false/ { ok = 1 }
+      END { flush() }
+    ' "$f"
+  fi
   # The daily cap is a repository variable (ADR 0015); the guard reads it from its environment, so the step
   # that runs the preflight must pass it (#71). Without it the guard silently uses its default of 12.
   awk '
@@ -91,7 +103,8 @@ if [ -z "$v" ]; then ok "a job that only runs gh pr merge --disable-auto is exem
 echo "workflows: the auth and kill-switch checker bites on bad fixtures"
 for pair in "bad-api-key:ANTHROPIC_API_KEY" "bad-auth-token:ANTHROPIC_AUTH_TOKEN" "bad-bare:--bare" \
             "bad-telemetry:DISABLE_TELEMETRY" "bad-no-oauth:CLAUDE_CODE_OAUTH_TOKEN" \
-            "bad-no-paused:AGENTS_PAUSED" "bad-merge-no-paused:AGENTS_PAUSED" "bad-no-cap-var:AGENT_DAILY_RUNS" "bad-cap-var-other-step:AGENT_DAILY_RUNS"; do
+            "bad-no-paused:AGENTS_PAUSED" "bad-merge-no-paused:AGENTS_PAUSED" "bad-persist-credentials:persist-credentials" \
+            "bad-no-cap-var:AGENT_DAILY_RUNS" "bad-cap-var-other-step:AGENT_DAILY_RUNS"; do
   name="${pair%%:*}"; want="${pair#*:}"
   v=$(workflow_violations "$FIX/workflows/$name.yml")
   if grep -q -- "$want" <<<"$v"; then ok "$name is reported ($want)"; else bad "$name is reported ($want); got: $v"; fi
@@ -109,6 +122,21 @@ for f in .github/workflows/*.yml; do
 done
 echo "  checked $checked workflows, $claude_files of them run claude"
 if [ "$checked" -ge 1 ]; then ok "the checker saw $checked workflows"; else bad "the checker saw at least one workflow"; fi
+
+# --- git pushes as the GitHub App, not as the read-only checkout token (#66, ADR 0014) ---------
+for f in .github/workflows/coordinator.yml .github/workflows/review.yml; do
+  assert_grep "$f" 'persist-credentials:[[:space:]]*false' "$f: checkout does not persist the workflow token"
+done
+CO_=.github/workflows/coordinator.yml
+assert_grep "docs/workflow.md" 'Contents: Read & write' "workflow.md lists the App's Contents permission"
+assert_grep "docs/workflow.md" 'Pull requests: Read & write' "workflow.md lists the App's pull request permission"
+assert_grep "$CO_" 'gh auth setup-git' "coordinator.yml: git authenticates through gh auth setup-git"
+mint=$(grep -n 'create-github-app-token' "$CO_" | head -1 | cut -d: -f1)
+setup=$(grep -n 'gh auth setup-git' "$CO_" | head -1 | cut -d: -f1)
+run=$(grep -n 'run: scripts/coordinator.sh' "$CO_" | head -1 | cut -d: -f1)
+if [ -n "$mint" ] && [ -n "$setup" ] && [ -n "$run" ] && [ "$mint" -lt "$setup" ] && [ "$setup" -lt "$run" ]; then ok "setup-git runs after the App token is minted and before the coordinator"; else bad "setup-git runs after the App token is minted and before the coordinator (mint=$mint setup=$setup run=$run)"; fi
+step=$(awk '/- name:/ { name = $0 } /gh auth setup-git/ { print name; exit }' "$CO_")
+if sed -n "/$(printf '%s' "$step" | sed 's/[][\.*^$/]/\\&/g')/,/gh auth setup-git/p" "$CO_" | grep -Eq 'GH_TOKEN:[[:space:]]*\$\{\{[[:space:]]*steps\.app\.outputs\.token'; then ok "that step's GH_TOKEN is the App token"; else bad "that step's GH_TOKEN is the App token"; fi
 
 CI=.github/workflows/ci.yml
 echo "workflows: ci.yml"
