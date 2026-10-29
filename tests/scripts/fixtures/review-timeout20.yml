@@ -1,0 +1,23 @@
+name: Review
+on:
+  pull_request:
+    branches: [main]
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Wait for the check job on the head SHA
+        timeout-minutes: 13
+        run: |
+          # Bounded wait: at most 15 minutes (900 seconds).
+          waited=0
+          while [ "$waited" -lt 900 ]; do
+            sleep 20
+            waited=$((waited + 20))
+          done
+          echo "::warning::The check job did not finish within 15 minutes; reviewing anyway."
+
+      - name: Run the reviewer
+        timeout-minutes: 18
+        run: scripts/review.sh 1

@@ -125,6 +125,7 @@ assert_grep "$R" 'delete.*skip.*loosen|deletes, skips or loosens' "adds risk:hig
 assert_grep "$R" 'make check' "adds risk:high when make check is relaxed"
 assert_grep "$R" 'pyproject\.toml' "and when lint or type settings in pyproject.toml are relaxed"
 assert_grep "$R" '[Cc]onstitution check' "includes a constitution check"
+assert_grep "$R" 'A red or missing `check` is a reason to request changes' "a red, missing or pending check is a reason to request changes"
 assert_grep "$R" 'gh pr review N --(approve|request-changes)' "has the exact review command"
 assert_grep "$R" '\.agent-tmp/review\.md' "writes the review under .agent-tmp/"
 assert_grep "$R" 'arch-' "knows arch-* ADR PRs"

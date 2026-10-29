@@ -66,7 +66,7 @@ Constraints:
 | `ARCHITECT_MAX_TURNS` | 60 | `--max-turns` |
 | `DEVELOPER_MAX_TURNS` | 80 | `--max-turns` |
 | `REVIEWER_MAX_TURNS` | 30 | `--max-turns` |
-| Job timeout | 55 min agents, 20 min reviewer, 10 min CI | the App token lives 1 hour |
+| Job timeout | 55 min agents, 30 min reviewer, 10 min CI | the App token lives 1 hour; reviewer amended in #61, see the amendment note |
 | `REVIEWER_MODEL` | `claude-opus-5-5` | FR-3; set to `claude-sonnet-5-5` if Pro limits bite |
 | `REVISION_BUDGET` | 3 | automatic revision rounds per PR |
 
@@ -94,6 +94,9 @@ Constraints:
 - The usage on Pro is bounded by the caps above, but not measured. The owner tunes the variables after the first weeks.
 - Every agent workflow shares one preflight, one wrapper and one kill switch. A structural test over `.github/workflows/*.yml` keeps new workflows from skipping them.
 - New commands the agents run (`gh pr review`, `gh pr diff`, `gh pr merge`, `scripts/board.sh`, `scripts/agent-guard.sh`) are added to the coordinator allowlist, and `test_allowlist_docs.sh` keeps the two in step.
+
+## Amendment (#61): the reviewer's time budget
+The reviewer job timeout is 30 minutes, not 20, and the bounded wait for the `check` job on the head SHA is 12 minutes (720 seconds), not 15. The wait step has its own `timeout-minutes: 12` and the review step 18, so neither phase can use up the other's time. The first two real runs showed the reviewer needs about 3.5 to 8 minutes and CI's own timeout is 10, so a longer wait only covers a stuck runner queue. When the wait runs out, the reviewer still runs and sees `check` as pending; `reviewer.md` treats a missing or red `check` as a reason to request changes, so it never approves on an unfinished check. `REVIEWER_MAX_TURNS`, the daily cap and the reviewer's behaviour are unchanged. Wherever this ADR or #36 says 20 minutes or 15 minutes for the reviewer, read 30 and 12.
 
 ## Constitution check
 - P7: every script added here is tested offline with stubbed `gh` and `claude`. Workflow files get structural tests.

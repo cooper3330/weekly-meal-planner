@@ -292,8 +292,38 @@ if grep -q "startsWith(github.event.pull_request.head.ref, 'issue-')" <<<"$rv_if
 if grep -q "vars\.AGENTS_PAUSED != 'true'" <<<"$rv_if"; then ok "job is gated by the AGENTS_PAUSED kill switch"; else bad "job is gated by the AGENTS_PAUSED kill switch"; fi
 assert_grep "$RV" '^  group:[[:space:]]*review-\$\{\{[[:space:]]*github\.event\.pull_request\.number[[:space:]]*\}\}' "concurrency group is keyed by PR number"
 assert_grep "$RV" '^  cancel-in-progress:[[:space:]]*true' "a newer push supersedes the review"
-tm=$(sed -nE 's/^    timeout-minutes:[[:space:]]*([0-9]+).*/\1/p' "$RV" | head -1)
-if [ -n "$tm" ] && [ "$tm" -le 20 ]; then ok "timeout-minutes is $tm (at most 20)"; else bad "timeout-minutes is at most 20 (got '$tm')"; fi
+# review_budget_violations FILE: the reviewer's time budget (#61). The wait loop is bounded to at most
+# 720 seconds and its warning says 12 minutes; the job timeout is 30; the wait step has timeout 12 and
+# the review step 18; wait step + review step <= job timeout.
+review_budget_violations() {
+  local f="$1" bound job wstep rstep
+  bound=$(sed -nE 's/.*while \[ "\$waited" -lt ([0-9]+) \].*/\1/p' "$f" | head -1)
+  job=$(sed -nE 's/^    timeout-minutes:[[:space:]]*([0-9]+).*/\1/p' "$f" | head -1)
+  wstep=$(awk '/^      - name:/ { n = $0 } /^        timeout-minutes:/ && n ~ /Wait for the check/ { print $2; exit }' "$f")
+  rstep=$(awk '/^      - name:/ { n = $0 } /^        timeout-minutes:/ && n ~ /Run the reviewer/ { print $2; exit }' "$f")
+  if [ ! -r "$f" ] || [ -z "$bound" ] || [ -z "$job" ]; then echo "could not read the time budget from $f"; return; fi
+  if [ "$bound" -gt 720 ]; then echo "wait bound is '$bound' seconds, want at most 720"; fi
+  # The loop is bounded by wall-clock time, and a timed-out wait step must not skip the reviewer.
+  { grep -q 'start=\$SECONDS' "$f" && grep -q 'waited=\$((SECONDS - start))' "$f"; } || echo "wait loop is not bounded by wall-clock time (SECONDS)"
+  awk '/^      - name:/ { n = $0 } /^        continue-on-error:[[:space:]]*true/ && n ~ /Wait for the check/ { f = 1 } END { exit !f }' "$f" || echo "wait step is not continue-on-error, so a timeout would skip the reviewer"
+  grep -q 'did not finish within 12 minutes' "$f" || echo "warning text does not say 12 minutes"
+  [ "$job" = "30" ] || echo "job timeout-minutes is '$job', want 30"
+  [ "$wstep" = "12" ] || echo "wait step timeout-minutes is '$wstep', want 12"
+  [ "$rstep" = "18" ] || echo "review step timeout-minutes is '$rstep', want 18"
+  # The wait step plus the review step must fit in the job timeout (12 + 18 = 30).
+  if [ -n "$wstep" ] && [ -n "$job" ] && [ -n "$rstep" ] && [ $((wstep + rstep)) -gt "$job" ]; then
+    echo "wait step ($wstep) + review step ($rstep) exceeds the job timeout ($job)"
+  fi
+  if [ -n "$job" ] && { [ "${wstep:-0}" -gt "$job" ] || [ "${rstep:-0}" -gt "$job" ]; }; then
+    echo "a step timeout exceeds the job timeout ($job)"
+  fi
+}
+echo "workflows: the time-budget checker bites on fixtures"
+if review_budget_violations "$FIX/review-wait900.yml" | grep -q 'wait bound'; then ok "a 900-second wait is reported"; else bad "a 900-second wait is reported"; fi
+if review_budget_violations "$FIX/review-timeout20.yml" | grep -q 'job timeout-minutes'; then ok "a 20-minute job timeout is reported"; else bad "a 20-minute job timeout is reported"; fi
+if [ "$(review_budget_violations "$FIX/review-timeout20.yml" | grep -c 'wait bound\|job timeout-minutes')" = 2 ]; then ok "a 20-minute job with a 900-second wait is reported for both"; else bad "a 20-minute job with a 900-second wait is reported for both"; fi
+rbv=$(review_budget_violations "$RV")
+if [ -z "$rbv" ]; then ok "review.yml: wait <= 720 s (12 minutes), job 30, wait step 12, review step 18"; else bad "review.yml time budget: $rbv"; fi
 assert_grep "$RV" '^  contents:[[:space:]]+read' "contents: read"
 assert_grep "$RV" '^  pull-requests:[[:space:]]+write' "pull-requests: write"
 assert_grep "$RV" '^  issues:[[:space:]]+read' "issues: read"
@@ -326,7 +356,6 @@ assert_grep "$RV" 'CLAUDE_CODE_OAUTH_TOKEN:[[:space:]]*\$\{\{[[:space:]]*secrets
 assert_no_grep "$RV" 'ANTHROPIC_' "sets no ANTHROPIC_* variable"
 assert_grep "$RV" 'check-runs|gh pr checks' "waits for the check status on the head SHA"
 assert_grep "$RV" 'github\.event\.pull_request\.head\.sha' "looks at the head SHA"
-assert_grep "$RV" '(900|15 \* 60|15)' "the wait is bounded to 15 minutes"
 w=$(grep -n 'check-runs\|gh pr checks' "$RV" | head -1 | cut -d: -f1)
 g=$(grep -n 'scripts/agent-guard.sh preflight' "$RV" | head -1 | cut -d: -f1)
 c=$(grep -n 'scripts/review.sh' "$RV" | head -1 | cut -d: -f1)
