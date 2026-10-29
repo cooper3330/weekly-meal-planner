@@ -1,0 +1,21 @@
+name: CI fix
+# Negative fixture: the job's if: has no same-repository check on the head, so a fork PR's failed run could start the agent with secrets.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+permissions:
+  contents: read
+jobs:
+  fix:
+    if: >-
+      vars.AGENTS_PAUSED != 'true' &&
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      (startsWith(github.event.workflow_run.head_branch, 'issue-') || startsWith(github.event.workflow_run.head_branch, 'arch-'))
+    concurrency:
+      group: revise-pr-${{ github.event.workflow_run.pull_requests[0].number }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo hello

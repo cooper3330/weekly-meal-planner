@@ -1,0 +1,108 @@
+name: CI fix
+
+# Starts the developer when the `check` job of CI fails on an agent PR (docs/adr/0015; issue #56).
+# This workflow only triggers; the coordinator script in its CI-source revise mode decides
+# (the failure is the PR's, it is on the current head, main is green, the revision budget is not
+# spent) and posts the acknowledgement. The fixer is the developer agent, never the reviewer.
+#
+# workflow_run runs in the base repository with secrets, so the job-level `if:` (evaluated before any
+# step sees a secret) allows only: not paused, a failed pull_request run, a head branch in this same
+# repository (no fork), and an issue-* or arch-* branch. The checkout is always main, never the PR.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+# The workflow token only reads. Writes (branches, PRs, comments) use the GitHub App token.
+permissions:
+  contents: read
+
+jobs:
+  fix:
+    # Kill switch: set the repository variable AGENTS_PAUSED to true to stop all agent runs.
+    if: >-
+      vars.AGENTS_PAUSED != 'true' &&
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.pull_requests[0].number != '' &&
+      (startsWith(github.event.workflow_run.head_branch, 'issue-') ||
+       startsWith(github.event.workflow_run.head_branch, 'arch-'))
+    # The same group as revise.yml uses for a PR, so a human revision and a CI revision of one PR never
+    # run together; a run in progress is never cancelled, the next waits and then sees the first one's
+    # acknowledgement.
+    concurrency:
+      group: revise-pr-${{ github.event.workflow_run.pull_requests[0].number }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    # The App token lives one hour.
+    timeout-minutes: 55
+    permissions:
+      contents: read
+    steps:
+      # Always main (never the PR's code), with full history: worktrees are created from origin.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          # Do not keep the read-only workflow token in git's config: git would push with it (403).
+          persist-credentials: false
+
+      - name: Mint the GitHub App token
+        id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ secrets.AGENT_APP_ID }}
+          private-key: ${{ secrets.AGENT_APP_PRIVATE_KEY }}
+
+      - name: Let git act as the GitHub App
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: gh auth setup-git
+
+      - name: Install the claude CLI
+        run: npm install -g "@anthropic-ai/claude-code@2.1.308"
+
+      - name: Resolve the App bot identity
+        id: bot
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          APP_SLUG: ${{ steps.app.outputs.app-slug }}
+        run: |
+          set -euo pipefail
+          id=$(gh api "users/${APP_SLUG}%5Bbot%5D" --jq .id)
+          echo "name=${APP_SLUG}[bot]" >> "$GITHUB_OUTPUT"
+          echo "email=${id}+${APP_SLUG}[bot]@users.noreply.github.com" >> "$GITHUB_OUTPUT"
+
+      - name: Preflight
+        id: preflight
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          AGENT_DAILY_RUNS: ${{ vars.AGENT_DAILY_RUNS }}   # unset means the guard's default (12)
+        run: |
+          rc=0
+          scripts/agent-guard.sh preflight || rc=$?
+          if [ "$rc" -eq 78 ]; then
+            echo "::notice::Daily agent cap reached; skipping this CI fix."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          elif [ "$rc" -ne 0 ]; then
+            exit "$rc"
+          fi
+
+      - name: Fix the failed check
+        if: steps.preflight.outputs.skip != 'true'
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          AGENT_GH_TOKEN: ${{ steps.app.outputs.token }}
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          PROJECT_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+          PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER || '1' }}
+          ARCHITECT_MAX_TURNS: ${{ vars.ARCHITECT_MAX_TURNS || '60' }}
+          DEVELOPER_MAX_TURNS: ${{ vars.DEVELOPER_MAX_TURNS || '80' }}
+          REVISION_BUDGET: ${{ vars.REVISION_BUDGET }}
+          AGENT_GIT_NAME: ${{ steps.bot.outputs.name }}
+          AGENT_GIT_EMAIL: ${{ steps.bot.outputs.email }}
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: scripts/coordinator.sh --revise pr "$PR_NUMBER" --source ci --run "$RUN_ID"
