@@ -17,6 +17,9 @@ set -uo pipefail
 LIMIT_PATTERNS='usage limit reached|5-hour limit reached|you.ve hit your (usage )?limit|hit your usage limit|reached your usage limit'
 # Workflow names whose runs count toward the daily cap, kept in one place (ADR 0015).
 AGENT_WORKFLOWS='Coordinator Revise Review'
+# Workflows whose concurrency never cancels a run in progress: a cancelled run of these was superseded while
+# pending and never reached preflight, so it is not counted. Review cancels in progress, so its cancelled runs count.
+PENDING_CANCEL_WORKFLOWS='Coordinator'
 # The comment signature the review loop uses to recognise this guard's comments.
 LIMIT_MARKER='<!-- agent:limit -->'
 SKIP_EXIT=78
@@ -51,12 +54,14 @@ preflight() {
     echo "agent-guard: could not list today's workflow runs with gh run list" >&2
     exit 1
   fi
-  # Skipped and cancelled runs do not count: a cancelled run was superseded while pending and never reached
-  # preflight (cancel-in-progress is false). Trade-off: a run the owner cancels by hand mid-flight is not counted either.
-  count=$(jq --argjson names "$names" --arg today "$today" \
+  # Skipped runs never count. Cancelled runs of PENDING_CANCEL_WORKFLOWS do not count either (superseded while
+  # pending). Trade-off: a Coordinator run the owner cancels by hand mid-flight is not counted either.
+  exempt=$(printf '%s\n' $PENDING_CANCEL_WORKFLOWS | jq -R . | jq -s .)
+  count=$(jq --argjson names "$names" --argjson exempt "$exempt" --arg today "$today" \
     '[.[] | select(.workflowName as $w | $names | index($w))
           | select((.createdAt // "") | startswith($today))
-          | select(.conclusion != "skipped" and .conclusion != "cancelled")] | length' <<<"${runs:-[]}") || { echo "agent-guard: unreadable gh run list output" >&2; exit 1; }
+          | select(.conclusion != "skipped")
+          | select((.conclusion == "cancelled" and (.workflowName as $w | $exempt | index($w))) | not)] | length' <<<"${runs:-[]}") || { echo "agent-guard: unreadable gh run list output" >&2; exit 1; }
   if [ "$count" -ge "$cap" ]; then
     echo "agent-guard: daily cap reached ($count agent runs today (UTC), AGENT_DAILY_RUNS=$cap); skipping" >&2
     exit "$SKIP_EXIT"

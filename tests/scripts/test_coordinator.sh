@@ -592,7 +592,7 @@ rl 5
 assert_count "$T/claude.calls" "called" 1 "the second run launches nothing more"
 assert_count "$T/gh.log" 'project item-edit' 1 "and edits nothing"
 
-echo "ready-label: a failed lookup of the card changes nothing"
+echo "ready-label: a failed lookup of the card changes nothing (no edit, no launch)"
 new_sandbox; card I5 5 Backlog > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
 printf '#!/usr/bin/env bash\necho "gh $*" >> "$STUB_DIR/gh.log"\ncase "$1 $2" in "project item-list") exit 1;; "repo view") echo cooper3330/weekly-meal-planner;; "api"*) echo "open issue";; esac\nexit 0\n' > "$T/bin/gh"
 rl 5
