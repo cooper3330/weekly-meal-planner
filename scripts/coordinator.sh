@@ -130,7 +130,8 @@ if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
       echo "$(ts) git said: $probe" >&2
       # A revision has an item to tell: say so there, once, so the owner does not have to open the Actions log.
       if [ "$MODE" = revise ]; then
-        last=$(gh api "repos/$REPO/issues/$REV_NUMBER/comments" --paginate --jq '[.[] | select((.body // "") | contains("<!-- agent:"))] | last | (.body // "")' 2>/dev/null | tail -1 || true)
+        # --paginate with --jq would run the filter once per page; slurp every page, then take the newest agent comment.
+        last=$(gh api "repos/$REPO/issues/$REV_NUMBER/comments" --paginate 2>/dev/null | jq -rs '[.[][] | select((.body // "") | contains("<!-- agent:"))] | last | (.body // "")' 2>/dev/null || true)
         if ! grep -qF '<!-- agent:permission -->' <<<"$last"; then
           msg="This revision could not start: a test push from the GitHub App that runs the agents was refused. In the App's settings give it Contents: Read and write (and Pull requests: Read and write), accept the new permissions on the App's installation for this repository, then comment /revise again."$'\n\n'"git said:"$'\n\n'"${probe}"$'\n\n'"The token reported these repository permissions: ${reported:-unavailable}"$'\n\n'"<!-- agent:permission -->"
           if [ "$REV_KIND" = pr ]; then

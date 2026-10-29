@@ -58,17 +58,26 @@ new_sandbox() {
 #!/usr/bin/env bash
 echo "gh $*" >> "$STUB_DIR/gh.log"
 echo "$1 $2 GH_TOKEN=${GH_TOKEN-UNSET}" >> "$STUB_DIR/gh.env"   # which token each call ran with
-args=("$@"); jqexpr=""; has_f=""
+args=("$@"); jqexpr=""; has_f=""; paginate=""
 for ((i = 0; i < ${#args[@]}; i++)); do
   case "${args[$i]}" in
+    --paginate) paginate=1 ;;
     -q|--jq) jqexpr="${args[$((i + 1))]}" ;;
     -f|-F) has_f=1 ;;
     -X) [ "${args[$((i + 1))]}" != "GET" ] && has_f=1 ;;
   esac
 done
 # emit FILE: print the fixture (or [] if it does not exist), through --jq/-q if given.
+# With --paginate, a fixture FILE.pages.json (an array of pages) is served page by page, as the real gh does:
+# --jq runs once per page, and without --jq the pages are printed one after another.
 emit() {
-  local f="$1"
+  local f="$1" pg="${1%.json}.pages.json" page
+  if [ -n "$paginate" ] && [ -f "$pg" ]; then
+    jq -c '.[]' "$pg" | while IFS= read -r page; do
+      if [ -n "$jqexpr" ]; then jq -r "$jqexpr" <<<"$page"; else printf '%s\n' "$page"; fi
+    done
+    return
+  fi
   if [ ! -f "$f" ]; then f="$STUB_DIR/empty.json"; echo '[]' > "$f"; fi
   if [ -n "$jqexpr" ]; then jq -r "$jqexpr" < "$f"; else cat "$f"; fi
 }

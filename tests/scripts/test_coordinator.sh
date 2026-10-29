@@ -372,6 +372,15 @@ STUB_PUSH_DENIED=1 actions bash "$SCRIPT" --revise pr 12
 if [ "$(cat "$T/rc")" -ne 0 ]; then ok "still exits non-zero"; else bad "still exits non-zero"; fi
 assert_count "$T/gh.log" 'comment 12' 0 "nothing more is posted"
 
+echo "identity: the once-only check reads every page of comments, not the last page alone (#78)"
+new_sandbox
+# Page 1 holds the permission comment (an agent comment); page 2 holds only human comments. gh --paginate --jq
+# would run the filter once per page, so a check that reads the last page alone would not see the marker.
+echo '[[{"id":2,"created_at":"2026-10-29T10:01:00Z","body":"could not start\n\nmore text <!-- agent:permission -->","author_association":"NONE"}],[{"id":3,"created_at":"2026-10-29T11:00:00Z","body":"/revise again","author_association":"OWNER"}]]' > "$T/issue_comments_12.pages.json"
+STUB_PUSH_DENIED=1 actions bash "$SCRIPT" --revise pr 12
+if [ "$(cat "$T/rc")" -ne 0 ]; then ok "still exits non-zero"; else bad "still exits non-zero"; fi
+assert_count "$T/gh.log" 'comment 12' 0 "nothing more is posted when the marker is on an earlier page"
+
 echo "identity: other cases post nothing (#78)"
 new_sandbox
 actions bash "$SCRIPT" --revise pr 12
