@@ -124,12 +124,14 @@ echo "  checked $checked workflows, $claude_files of them run claude"
 if [ "$checked" -ge 1 ]; then ok "the checker saw $checked workflows"; else bad "the checker saw at least one workflow"; fi
 
 # --- git pushes as the GitHub App, not as the read-only checkout token (#66, ADR 0014) ---------
-for f in .github/workflows/coordinator.yml .github/workflows/review.yml; do
+for f in .github/workflows/coordinator.yml .github/workflows/review.yml .github/workflows/revise.yml; do
   assert_grep "$f" 'persist-credentials:[[:space:]]*false' "$f: checkout does not persist the workflow token"
 done
 CO_=.github/workflows/coordinator.yml
 assert_grep "docs/workflow.md" 'Contents: Read & write' "workflow.md lists the App's Contents permission"
 assert_grep "docs/workflow.md" 'Pull requests: Read & write' "workflow.md lists the App's pull request permission"
+# revise.yml pushes the PR branch, so it needs git to act as the App too (#39).
+assert_grep ".github/workflows/revise.yml" 'gh auth setup-git' "revise.yml: git authenticates through gh auth setup-git"
 assert_grep "$CO_" 'gh auth setup-git' "coordinator.yml: git authenticates through gh auth setup-git"
 mint=$(grep -n 'create-github-app-token' "$CO_" | head -1 | cut -d: -f1)
 setup=$(grep -n 'gh auth setup-git' "$CO_" | head -1 | cut -d: -f1)
@@ -361,6 +363,92 @@ g=$(grep -n 'scripts/agent-guard.sh preflight' "$RV" | head -1 | cut -d: -f1)
 c=$(grep -n 'scripts/review.sh' "$RV" | head -1 | cut -d: -f1)
 if [ -n "$w" ] && [ -n "$g" ] && [ -n "$c" ] && [ "$w" -lt "$g" ] && [ "$g" -lt "$c" ]; then ok "wait for check, then preflight, then review.sh"; else bad "wait for check, then preflight, then review.sh"; fi
 assert_grep "$RV" '78' "handles preflight exit code 78"
+
+# --- revise.yml (event-driven revisions, #39) ---------------------------------------------------
+# job_if FILE JOB: the job-level if: of one job, folded onto one line.
+job_if() {
+  awk -v j="  $2:" '
+    $0 == j { on = 1; next }
+    on && /^  [A-Za-z0-9_-]+:/ { exit }
+    on && /^    if:/ { inif = 1; sub(/^    if:[ ]*>?-?[ ]*/, ""); out = $0; next }
+    inif && /^    [^ ]/ { inif = 0 }
+    inif && /^      / { out = out " " $0 }
+    END { print out }
+  ' "$1"
+}
+# revise_violations FILE: one line per violation of the revise.yml contract.
+revise_violations() {
+  local f="$1" body rj
+  body=$(grep -Ev '^[[:space:]]*#' "$f")
+  for t in issue_comment pull_request_review pull_request_review_comment workflow_dispatch; do
+    grep -Eq "^  $t:" <<<"$body" || echo "missing the $t trigger"
+  done
+  grep -Eq 'pull_request_target' <<<"$body" && echo "uses pull_request_target"
+  rj=$(job_if "$f" resolve)
+  grep -q "vars\.AGENTS_PAUSED != 'true'" <<<"$rj" || echo "resolve: the if: lacks the AGENTS_PAUSED condition"
+  grep -q 'OWNER' <<<"$rj" && grep -q 'MEMBER' <<<"$rj" && grep -q 'COLLABORATOR' <<<"$rj" && grep -q 'author_association' <<<"$rj" \
+    || echo "resolve: the if: lacks the trusted author_association check"
+  grep -Eq "!contains\([^)]*'<!-- agent:'\)" <<<"$rj" || echo "resolve: the if: lacks the agent-marker exclusion"
+  grep -q "'/revise'" <<<"$rj" && grep -q "changes_requested" <<<"$rj" || echo "resolve: the if: lacks the /revise or changes_requested condition"
+  grep -Eq '^[[:space:]]+group:[[:space:]]*revise-\$\{\{[^}]*kind[^}]*\}\}-\$\{\{[^}]*number[^}]*\}\}' <<<"$body" || echo "concurrency group is not keyed by kind and number"
+  grep -Eq '^[[:space:]]+cancel-in-progress:[[:space:]]*false' <<<"$body" || echo "concurrency may cancel a run in progress"
+}
+
+RE=.github/workflows/revise.yml
+echo "workflows: revise.yml checker bites on a fixture without the association check"
+v=$(revise_violations "$FIX/workflows/revise-no-association.yml")
+if grep -q 'author_association' <<<"$v"; then ok "a missing association check is reported"; else bad "a missing association check is reported; got: $v"; fi
+echo "workflows: revise.yml"
+if [ -f "$RE" ]; then ok "revise.yml exists"; else bad "revise.yml exists"; finish; exit; fi
+v=$(revise_violations "$RE")
+if [ -z "$v" ]; then ok "revise.yml meets the contract (four triggers, trust, marker, trigger and pause conditions, concurrency)"; else bad "revise.yml violates: $v"; fi
+assert_grep "$RE" '^name:[[:space:]]*Revise[[:space:]]*$' "is named Revise (the daily cap counts that name)"
+assert_no_grep "$RE" 'pull_request_target' "never uses pull_request_target"
+assert_no_grep "$RE" 'ANTHROPIC_' "sets no ANTHROPIC_* variable"
+assert_grep "$RE" 'CLAUDE_CODE_OAUTH_TOKEN:[[:space:]]*\$\{\{[[:space:]]*secrets\.CLAUDE_CODE_OAUTH_TOKEN' "CLAUDE_CODE_OAUTH_TOKEN comes from secrets"
+assert_grep "$RE" '^  contents:[[:space:]]+read' "contents: read at workflow level"
+assert_no_grep "$RE" ':[[:space:]]+write' "no write permission (the App token carries the writes)"
+tm=$(sed -nE 's/^    timeout-minutes:[[:space:]]*([0-9]+).*/\1/p' "$RE" | tail -1)
+if [ -n "$tm" ] && [ "$tm" -le 55 ]; then ok "the revise job's timeout-minutes is $tm (at most 55)"; else bad "the revise job's timeout-minutes is at most 55 (got '$tm')"; fi
+assert_grep "$RE" 'ARCHITECT_MAX_TURNS:[[:space:]]*\$\{\{[[:space:]]*vars\.ARCHITECT_MAX_TURNS' "ARCHITECT_MAX_TURNS comes from the variable"
+assert_grep "$RE" 'DEVELOPER_MAX_TURNS:[[:space:]]*\$\{\{[[:space:]]*vars\.DEVELOPER_MAX_TURNS' "DEVELOPER_MAX_TURNS comes from the variable"
+assert_grep "$RE" 'GH_TOKEN:[[:space:]]*\$\{\{[[:space:]]*steps\.[A-Za-z_-]+\.outputs\.token[[:space:]]*\}\}' "GH_TOKEN comes from the App-token step output"
+assert_grep "$RE" 'AGENT_GH_TOKEN:[[:space:]]*\$\{\{[[:space:]]*steps\.[A-Za-z_-]+\.outputs\.token' "AGENT_GH_TOKEN comes from the App-token step output"
+assert_no_grep "$RE" 'GH_TOKEN:[[:space:]]*\$\{\{[[:space:]]*secrets\.PROJECT_TOKEN' "GH_TOKEN is never the project token"
+assert_grep "$RE" '^[[:space:]]+PROJECT_TOKEN:[[:space:]]*\$\{\{[[:space:]]*secrets\.PROJECT_TOKEN' "PROJECT_TOKEN comes from secrets"
+# Untrusted event text never reaches a shell: no ${{ github.event.* }} inside a run: block.
+if awk '/^[[:space:]]+run:/ { inrun = 1 } /^[[:space:]]+(env|with|name|if|uses|id):/ { inrun = 0 } inrun && /\$\{\{[^}]*github\.event\.(comment|review|issue|pull_request)/ { bad = 1 } END { exit !bad }' "$RE"; then
+  bad "no run: block interpolates comment, review or issue text"
+else
+  ok "no run: block interpolates comment, review or issue text"
+fi
+assert_grep "$RE" 'ref:[[:space:]]*\$\{\{[[:space:]]*github\.event\.repository\.default_branch' "checks out the default branch, not the PR merge ref"
+assert_eq "$(grep -c 'ref:[[:space:]]*\${{[[:space:]]*github\.event\.repository\.default_branch' "$RE")" "$(grep -c 'actions/checkout@' "$RE")" "every checkout names that ref"
+assert_grep "$RE" 'fetch-depth:[[:space:]]*0' "the revise job checks out full history"
+rev_job=$(job_block "$RE" revise)
+rj_if=$(job_if "$RE" revise)
+if grep -q "vars\.AGENTS_PAUSED != 'true'" <<<"$rj_if"; then ok "the revise job is gated by AGENTS_PAUSED too"; else bad "the revise job is gated by AGENTS_PAUSED too"; fi
+if grep -q 'needs: resolve' <<<"$rev_job"; then ok "the revise job needs the resolve job"; else bad "the revise job needs the resolve job"; fi
+if grep -q 'secrets\.' <<<"$(job_block "$RE" resolve)"; then bad "the resolve job sees no secret"; else ok "the resolve job sees no secret"; fi
+g=$(grep -n 'scripts/agent-guard.sh preflight' "$RE" | head -1 | cut -d: -f1)
+c=$(grep -n 'scripts/coordinator.sh --revise' "$RE" | head -1 | cut -d: -f1)
+m=$(grep -n 'actions/create-github-app-token@' "$RE" | head -1 | cut -d: -f1)
+i=$(grep -n '@anthropic-ai/claude-code@[0-9]' "$RE" | head -1 | cut -d: -f1)
+k=$(grep -n 'actions/checkout@' "$RE" | tail -1 | cut -d: -f1)
+if [ -n "$g" ] && [ -n "$c" ] && [ "$g" -lt "$c" ]; then ok "preflight runs before coordinator.sh --revise"; else bad "preflight runs before coordinator.sh --revise"; fi
+if [ -n "$k" ] && [ -n "$m" ] && [ -n "$i" ] && [ -n "$g" ] && [ "$k" -lt "$m" ] && [ "$m" -lt "$i" ] && [ "$i" -lt "$g" ]; then ok "checkout, token, claude install, then preflight"; else bad "checkout, token, claude install, then preflight"; fi
+assert_grep "$RE" '78' "handles preflight exit code 78"
+assert_grep "$RE" '::notice' "78 ends the job with a notice"
+assert_grep "$RE" 'scripts/revise-target\.sh' "the event is mapped by scripts/revise-target.sh"
+assert_grep "$RE" '--source "\$REVISE_SOURCE"' "the source is passed to coordinator.sh --revise"
+
+# review.yml dispatches revise.yml through after-review.sh, on the merge-gate job only.
+rv_mg=$(awk '/^  merge-gate:/ { on = 1; print; next } on && /^  [a-z-]+:/ { exit } on { print }' "$RV")
+rv_rj=$(awk '/^  review:/ { on = 1; print; next } on && /^  [a-z-]+:/ { exit } on { print }' "$RV")
+if grep -Eq '^      actions:[[:space:]]+write' <<<"$rv_mg"; then ok "review.yml: the merge-gate job has actions: write (to dispatch revise.yml)"; else bad "review.yml: the merge-gate job has actions: write (to dispatch revise.yml)"; fi
+if grep -q 'actions:' <<<"$rv_rj"; then bad "review.yml: the review job (which runs PR scripts) has no actions permission"; else ok "review.yml: the review job (which runs PR scripts) has no actions permission"; fi
+assert_no_grep <(sed -n '1,/^jobs:/p' "$RV") 'actions:' "review.yml: no workflow-level actions permission"
+assert_grep "$RV" 'REVISION_BUDGET:[[:space:]]*\$\{\{[[:space:]]*vars\.REVISION_BUDGET' "review.yml passes REVISION_BUDGET to the merge gate"
 
 # A workflow step that runs a script directly (scripts/x.sh, not "bash scripts/x.sh") needs the git
 # executable bit, or the runner fails with "Permission denied" (this broke the coordinator and review

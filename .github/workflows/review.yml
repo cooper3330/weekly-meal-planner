@@ -98,8 +98,9 @@ jobs:
   # The merge gate is a script, not the model. It is a separate job on a fresh runner, so no step of
   # the review job (which runs the PR's own scripts) can alter its environment or PATH. It checks
   # out only the base branch: the PR's code never runs with the App token. The App token (not
-  # github.token) is used so the merge's push to main triggers CI on main (ADR 0014). Until
-  # after-review.sh exists on main, the last step is skipped.
+  # github.token) is used so the merge's push to main triggers CI on main (ADR 0014). The same
+  # script dispatches revise.yml when the reviewer requests changes (within REVISION_BUDGET rounds).
+  # Until after-review.sh exists on main, the last step is skipped.
   merge-gate:
     needs: review
     if: >-
@@ -108,6 +109,11 @@ jobs:
       vars.AGENTS_PAUSED != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # actions: write lets this job dispatch revise.yml (gh workflow run) when the reviewer requests
+    # changes. It is on this job only: the review job above runs the PR's own scripts and must not have it.
+    permissions:
+      contents: read
+      actions: write
     steps:
       - name: Check out the base branch for the merge gate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -129,5 +135,6 @@ jobs:
           GH_TOKEN: ${{ steps.app.outputs.token }}
           REPO: ${{ github.repository }}
           AGENTS_PAUSED: ${{ vars.AGENTS_PAUSED }}
+          REVISION_BUDGET: ${{ vars.REVISION_BUDGET }}   # unset means the script's default (3)
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: bash trusted/scripts/after-review.sh "$PR_NUMBER"
