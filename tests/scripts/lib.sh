@@ -113,6 +113,7 @@ case "$1 $2" in
   "pr view")             f="$STUB_DIR/pr_view_$3.json"; [ -f "$f" ] || echo '{"state":"OPEN","headRefName":"","headRefOid":""}' > "$f"; emit "$f" ;;
   "issue list")          emit "$STUB_DIR/issues.json" ;;
   "run list")            emit "$STUB_DIR/run_list.json" ;;   # [{workflowName, conclusion, status, createdAt}]
+  "run view")            f="$STUB_DIR/run_view_$3.json"; [ -f "$f" ] && emit "$f" || exit 1 ;;   # {jobs:[{steps:[{name,conclusion}]}]}
   "issue view")          f="$STUB_DIR/issue_$3.json"; [ -f "$f" ] || echo '{"body":""}' > "$f"; emit "$f" ;;
   *) ;;                  # label create, pr comment, issue comment, ...: only logged
 esac

@@ -48,7 +48,8 @@ jobs:
     # Exactly one coordinator at a time; a run in progress is never cancelled. Set on the job, not the
     # workflow, so a run whose `if:` is false (an unrelated label, a stranger's issue) never enters the
     # group and cannot supersede a pending run. A burst of events queues one pass behind the running one
-    # (GitHub cancels the older pending runs, which the daily cap does not count); each pass sweeps every
+    # (GitHub cancels the older pending runs, which the daily cap does count: scripts/agent-guard.sh
+    # counts cancelled runs, as it cannot tell them from a timed-out one); each pass sweeps every
     # eligible item, so nothing is lost.
     concurrency:
       group: coordinator

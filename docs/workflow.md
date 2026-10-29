@@ -90,6 +90,11 @@ Approving a spec or releasing a task is one action: add the `ready` label to the
 - A burst of events queues one pass behind the running one; GitHub cancels the older pending runs, and skipped runs do not count toward `AGENT_DAILY_RUNS`, but cancelled runs do (a run cancelled by timeout or by hand called Claude, and a superseded pending run cannot be told apart from it), so a burst of label events can use several slots. Raise `AGENT_DAILY_RUNS` if the cap is reached too early. Each pass sweeps every eligible item, so nothing is lost. The concurrency group is on the job, so an unrelated event (another label, a stranger's issue) never joins the queue.
 - Re-run `scripts/setup-project.sh` once (it is safe to re-run) to create the `ready` label. `AGENTS_PAUSED`, the preflight and the daily cap apply to these triggers like any other.
 
+### The daily cap
+- `AGENT_DAILY_RUNS` is a repository variable (Settings > Secrets and variables > Actions > Variables). Each workflow passes it to `scripts/agent-guard.sh preflight` in the `env:` of its Preflight step (`${{ vars.AGENT_DAILY_RUNS }}`); unset or empty means 12. The guard counts today's (UTC) runs of Coordinator, Revise and Review.
+- A review skipped by the cap is visible: the Review job posts one comment on the PR, marked `<!-- agent:review-skipped sha=... -->`, giving the count and the cap. It says to raise `AGENT_DAILY_RUNS` or wait for 00:00 UTC, then re-run the Review job. A re-run on the same head SHA posts no second comment. Until then any earlier verdict on the PR (for example CHANGES_REQUESTED) is stale.
+- A cap-skipped review run does not count toward the cap: it concludes `success` with its "Run the reviewer" step skipped, and the guard leaves such Review runs out (one `gh run view` per successful Review run). Cancelled runs are still counted.
+
 ## Human gates
 - Spec approval: moving a spec to Ready.
 - Answering the architect's open questions, when it has any (Plan Review).
