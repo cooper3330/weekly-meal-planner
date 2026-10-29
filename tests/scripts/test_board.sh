@@ -34,6 +34,31 @@ assert_eq "$(cat "$T/rc")" "0" "exits 0"
 assert_grep "$T/gh.log" "project item-add 1 --owner cooper3330 --url $URL32" "adds the issue by URL for this repo"
 assert_grep "$T/gh.log" 'item-edit --id PVTI_new .*o_ready' "then edits the newly added card"
 
+echo "board: current prints the card's Status name"
+new_sandbox; echo "$ITEMS" > "$T/items.json"
+run current 32
+assert_eq "$(cat "$T/rc")" "0" "exits 0"
+assert_eq "$(cat "$T/out")" "Backlog" "prints Backlog for a card in Backlog"
+assert_no_grep "$T/gh.log" 'item-edit|item-add' "reads only"
+
+echo "board: current with no card prints nothing and exits non-zero"
+new_sandbox; echo "$ITEMS" > "$T/items.json"
+run current 99
+nonzero "exits non-zero"
+assert_eq "$(cat "$T/out")" "" "prints nothing"
+
+echo "board: current rejects a bad number"
+new_sandbox; echo "$ITEMS" > "$T/items.json"
+run current abc
+nonzero "exits non-zero for a non-number"
+run current
+nonzero "exits non-zero without an argument"
+
+echo "board: current uses PROJECT_TOKEN for the gh project call"
+new_sandbox; echo "$ITEMS" > "$T/items.json"
+PROJECT_TOKEN=ptok run current 32
+assert_grep "$T/gh.env" '^project item-list GH_TOKEN=ptok$' "item-list ran with PROJECT_TOKEN"
+
 echo "board: an unknown Status is rejected before any edit"
 new_sandbox; echo "$ITEMS" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
 run status 32 Redy

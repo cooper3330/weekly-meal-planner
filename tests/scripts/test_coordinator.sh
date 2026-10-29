@@ -502,4 +502,145 @@ done
 assert_no_grep "$T/claude.args" 'Bash\(bash scripts/\*\)' "but not every script under scripts/"
 assert_no_grep "$T/claude.args" 'Bash\(bash \*\)' "and no unrestricted bash"
 
+# --- the `ready` label doorbell (#55, ADR 0015) -------------------------------------------------
+card() { # id number status -> a one-card board, labelled so the coordinator dispatches it
+  echo "{\"items\":[{\"id\":\"$1\",\"status\":\"$3\",\"content\":{\"number\":$2,\"title\":\"x\",\"url\":\"https://github.com/cooper3330/weekly-meal-planner/issues/$2\"},\"labels\":[\"type:architecture\"]}]}"
+}
+rl() { PROJECT_NUMBER=1 bash "$SCRIPT" --ready-label "$@" > "$T/out" 2>&1; echo $? > "$T/rc"; }
+
+for st in "Backlog" "Spec Review" "Plan Review" "Blocked"; do
+  echo "ready-label: a card in $st is set to Ready, the label removed, then a normal pass runs"
+  new_sandbox; card I5 5 "$st" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+  rl 5
+  assert_eq "$(cat "$T/rc")" "0" "exits 0"
+  assert_count "$T/gh.log" 'project item-edit .*--single-select-option-id o_ready' 1 "one item-edit, to the Ready option"
+  assert_count "$T/gh.log" '^gh issue edit 5 .*--remove-label ready' 1 "the ready label is removed"
+  assert_count "$T/claude.calls" "called" 1 "the pass dispatches the now-Ready item"
+done
+
+echo "ready-label: the card is set to Ready before the label is removed"
+e=$(grep -n 'project item-edit' "$T/gh.log" | head -1 | cut -d: -f1)
+r=$(grep -n 'remove-label ready' "$T/gh.log" | head -1 | cut -d: -f1)
+if [ -n "$e" ] && [ -n "$r" ] && [ "$e" -lt "$r" ]; then ok "edit first, then remove the label"; else bad "edit first, then remove the label"; fi
+
+echo "ready-label: a card already Ready is not edited"
+new_sandbox; card I5 5 Ready > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+rl 5
+assert_count "$T/gh.log" 'project item-edit' 0 "no item-edit"
+assert_count "$T/gh.log" '^gh issue edit 5 .*--remove-label ready' 1 "label removed"
+assert_count "$T/claude.calls" "called" 1 "the pass runs and dispatches it"
+
+for st in "Architecture" "Implementation" "In Review" "Done"; do
+  echo "ready-label: a card in $st is not moved backwards or dispatched"
+  new_sandbox; card I5 5 "$st" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+  rl 5
+  assert_eq "$(cat "$T/rc")" "0" "exits 0"
+  assert_count "$T/gh.log" 'project item-edit' 0 "no item-edit"
+  assert_count "$T/gh.log" '^gh issue edit 5 .*--remove-label ready' 1 "label removed"
+  assert_count "$T/claude.calls" "called" 0 "that item is not dispatched"
+done
+
+echo "ready-label: the pass still runs for other Ready work when the labelled card is in progress"
+new_sandbox
+echo '{"items":[{"id":"I5","status":"Implementation","content":{"number":5,"title":"x"},"labels":["type:architecture"]},{"id":"I6","status":"Ready","content":{"number":6,"title":"y"},"labels":["type:architecture"]}]}' > "$T/items.json"
+echo "$STATUS_FIELDS" > "$T/fields.json"
+rl 5
+assert_count "$T/claude.calls" "called" 1 "one launch, for the other item"
+assert_grep "$T/claude.args" '"number":6' "#6 is in the prompt"
+assert_no_grep "$T/claude.args" '"number":5' "#5 is not"
+
+echo "ready-label: an issue with no card gets the card added and set to Ready"
+new_sandbox; echo '{"items":[]}' > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+rl 5
+assert_count "$T/gh.log" 'project item-add 1 --owner cooper3330 --url .*/issues/5' 1 "the card is added"
+assert_count "$T/gh.log" 'project item-edit .*o_ready' 1 "and set to Ready"
+assert_count "$T/gh.log" '^gh issue edit 5 .*--remove-label ready' 1 "label removed"
+
+echo "ready-label: a closed issue only loses the label"
+new_sandbox; card I5 5 Backlog > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+echo '{"state":"closed"}' > "$T/issue_state_5.json"
+rl 5
+assert_eq "$(cat "$T/rc")" "0" "exits 0"
+assert_count "$T/gh.log" '^gh issue edit 5 .*--remove-label ready' 1 "label removed"
+assert_count "$T/gh.log" 'project ' 0 "no board call"
+assert_count "$T/claude.calls" "called" 0 "no claude launch"
+
+echo "ready-label: a pull request only loses the label"
+new_sandbox; card I5 5 Backlog > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+echo '{"state":"open","pull_request":{"merged_at":null}}' > "$T/issue_state_5.json"
+rl 5
+assert_count "$T/gh.log" '^gh issue edit 5 .*--remove-label ready' 1 "label removed"
+assert_count "$T/gh.log" 'project ' 0 "no board call"
+assert_count "$T/claude.calls" "called" 0 "no claude launch"
+
+echo "ready-label sweep: every pass releases an open issue still labelled ready (a missed event is recovered)"
+new_sandbox; card I5 5 Backlog > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+echo '[{"number":5}]' > "$T/issues.json"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_count "$T/gh.log" 'project item-edit .*--single-select-option-id o_ready' 1 "one item-edit, to the Ready option"
+assert_count "$T/gh.log" '^gh issue edit 5 .*--remove-label ready' 1 "the ready label is removed"
+assert_count "$T/claude.calls" "called" 1 "the item is dispatched in the same pass"
+
+echo "ready-label sweep: a closed issue still labelled ready only loses the label"
+new_sandbox; card I5 5 Backlog > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+echo '[{"number":5}]' > "$T/issues.json"; echo '{"state":"closed"}' > "$T/issue_state_5.json"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_count "$T/gh.log" '^gh issue edit 5 .*--remove-label ready' 1 "label removed"
+assert_count "$T/gh.log" 'project item-edit' 0 "no item-edit"
+assert_count "$T/claude.calls" "called" 0 "no claude launch"
+
+echo "ready-label sweep: a card already moving keeps its Status; the label goes"
+new_sandbox; card I5 5 Implementation > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+echo '[{"number":5}]' > "$T/issues.json"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_count "$T/gh.log" 'project item-edit' 0 "no item-edit"
+assert_count "$T/gh.log" '^gh issue edit 5 .*--remove-label ready' 1 "label removed"
+assert_count "$T/claude.calls" "called" 0 "not dispatched"
+
+echo "ready-label sweep: a labelled issue with no card is added alongside other Ready work in one run"
+new_sandbox
+echo '{"items":[{"id":"I6","status":"Ready","content":{"number":6,"title":"y"},"labels":["type:architecture"]}]}' > "$T/items.json"
+echo "$STATUS_FIELDS" > "$T/fields.json"; echo '[{"number":5}]' > "$T/issues.json"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_count "$T/gh.log" 'project item-add 1 --owner cooper3330 --url .*/issues/5' 1 "the labelled issue gets a card"
+assert_count "$T/claude.calls" "called" 1 "one coordinator run covers both"
+
+echo "ready-label sweep: with no labelled issues nothing is edited"
+new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_count "$T/gh.log" 'remove-label ready' 0 "no label is touched"
+
+echo "ready-label: a bad number is a usage error that launches and writes nothing"
+for bad_arg in abc 0 "" "-3" "5x"; do
+  new_sandbox; card I5 5 Backlog > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+  rl "$bad_arg"
+  if [ "$(cat "$T/rc")" -ne 0 ]; then ok "'$bad_arg': exits non-zero"; else bad "'$bad_arg': exits non-zero"; fi
+  assert_grep "$T/out" 'usage' "'$bad_arg': prints usage"
+  assert_count "$T/gh.log" 'issue edit|item-edit|item-add|comment' 0 "'$bad_arg': no gh write call"
+  assert_count "$T/claude.calls" "called" 0 "'$bad_arg': no claude launch"
+done
+new_sandbox
+PROJECT_NUMBER=1 bash "$SCRIPT" --ready-label > "$T/out" 2>&1; rc=$?
+if [ "$rc" -ne 0 ]; then ok "no argument at all: exits non-zero"; else bad "no argument at all: exits non-zero"; fi
+assert_count "$T/claude.calls" "called" 0 "no argument: no claude launch"
+
+echo "ready-label: running it twice dispatches once"
+new_sandbox; card I5 5 Backlog > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+rl 5
+assert_count "$T/claude.calls" "called" 1 "the first run dispatches"
+card I5 5 Architecture > "$T/items.json"   # what the dispatched architect did to the card
+rl 5
+assert_count "$T/claude.calls" "called" 1 "the second run launches nothing more"
+assert_count "$T/gh.log" 'project item-edit' 1 "and edits nothing"
+
+echo "ready-label: a failed lookup of the card changes nothing (no edit, no launch)"
+new_sandbox; card I5 5 Backlog > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+printf '#!/usr/bin/env bash\necho "gh $*" >> "$STUB_DIR/gh.log"\ncase "$1 $2" in "project item-list") exit 1;; "repo view") echo cooper3330/weekly-meal-planner;; "api"*) echo "open issue";; esac\nexit 0\n' > "$T/bin/gh"
+rl 5
+# The exit code is deliberately not asserted: --ready-label carries on into the pass, which fails on the same stubbed item-list.
+assert_grep "$T/out" 'could not read the card for #5; changing nothing' "the failure is reported, naming the issue"
+assert_count "$T/gh.log" 'item-edit' 0 "no card edit"
+assert_count "$T/gh.log" '--remove-label ready' 0 "the label is kept, so the next pass's sweep retries it"
+assert_count "$T/claude.calls" "called" 0 "no launch"
+
 finish
