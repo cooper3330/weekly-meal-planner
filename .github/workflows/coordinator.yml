@@ -18,12 +18,6 @@ on:
     types: [closed]
     branches: [main]
 
-# Exactly one coordinator at a time; a run in progress is never cancelled. A burst of events queues one
-# pass behind the running one, and each pass sweeps every eligible item.
-concurrency:
-  group: coordinator
-  cancel-in-progress: false
-
 # The workflow token only reads. Writes (branches, PRs, comments) use the GitHub App token.
 permissions:
   contents: read
@@ -51,6 +45,14 @@ jobs:
         github.event.pull_request.merged == true &&
         github.event.pull_request.head.repo.full_name == github.repository &&
         startsWith(github.event.pull_request.head.ref, 'issue-')))
+    # Exactly one coordinator at a time; a run in progress is never cancelled. Set on the job, not the
+    # workflow, so a run whose `if:` is false (an unrelated label, a stranger's issue) never enters the
+    # group and cannot supersede a pending run. A burst of events queues one pass behind the running one
+    # (GitHub cancels the older pending runs, which the daily cap does not count); each pass sweeps every
+    # eligible item, so nothing is lost.
+    concurrency:
+      group: coordinator
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     # The App token lives one hour.
     timeout-minutes: 55

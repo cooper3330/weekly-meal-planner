@@ -139,8 +139,12 @@ assert_grep "$CO" '^  schedule:' "has a schedule trigger"
 assert_grep "$CO" "cron:[[:space:]]*['\"]17 \* \* \* \*['\"]" "runs hourly at minute 17"
 assert_grep "$CO" '^  workflow_dispatch:' "has workflow_dispatch"
 assert_grep "$CO" "^    if:[[:space:]]*vars\.AGENTS_PAUSED != 'true'" "job is gated by the AGENTS_PAUSED kill switch"
-assert_grep "$CO" '^  group:[[:space:]]*coordinator[[:space:]]*$' "concurrency group is coordinator"
-assert_grep "$CO" '^  cancel-in-progress:[[:space:]]*false' "never cancels a run in progress"
+# At job level, so a run whose job if: is false (an unrelated label, a stranger's issue) never enters
+# the group and cannot cancel a pending run (#55). Workflow-level concurrency would apply first.
+assert_grep "$CO" '^    concurrency:' "concurrency is set on the job"
+assert_no_grep "$CO" '^concurrency:' "and not on the workflow"
+assert_grep "$CO" '^      group:[[:space:]]*coordinator[[:space:]]*$' "concurrency group is coordinator"
+assert_grep "$CO" '^      cancel-in-progress:[[:space:]]*false' "never cancels a run in progress"
 tm=$(sed -nE 's/^    timeout-minutes:[[:space:]]*([0-9]+).*/\1/p' "$CO" | head -1)
 if [ -n "$tm" ] && [ "$tm" -le 55 ]; then ok "timeout-minutes is $tm (at most 55)"; else bad "timeout-minutes is at most 55 (got '$tm')"; fi
 assert_grep "$CO" '^  contents:[[:space:]]+read' "contents: read"

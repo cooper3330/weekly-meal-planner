@@ -54,6 +54,8 @@ out=$(AGENT_DAILY_RUNS=12 pf); rc=$?; assert_eq "$rc" "78" "over the cap exits 7
 out=$(AGENT_DAILY_RUNS=12 pf); rc=$?; assert_eq "$rc" "0" "yesterday's runs are not counted"
 { mkruns 11 "$today" success; mkruns 5 "$today" skipped; } | jq -s add > "$T/run_list.json"
 out=$(AGENT_DAILY_RUNS=12 pf); rc=$?; assert_eq "$rc" "0" "skipped runs are not counted"
+{ mkruns 11 "$today" success; mkruns 5 "$today" cancelled; } | jq -s add > "$T/run_list.json"
+out=$(AGENT_DAILY_RUNS=12 pf); rc=$?; assert_eq "$rc" "0" "cancelled runs (superseded while pending) are not counted"
 { mkruns 11 "$today" success; mkruns 5 "$today" success Other; } | jq -s add > "$T/run_list.json"
 out=$(AGENT_DAILY_RUNS=12 pf); rc=$?; assert_eq "$rc" "0" "workflows outside the list are not counted"
 mkruns 12 "$today" success > "$T/run_list.json"
