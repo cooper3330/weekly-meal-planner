@@ -596,8 +596,10 @@ echo "ready-label: a failed lookup of the card changes nothing (no edit, no laun
 new_sandbox; card I5 5 Backlog > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
 printf '#!/usr/bin/env bash\necho "gh $*" >> "$STUB_DIR/gh.log"\ncase "$1 $2" in "project item-list") exit 1;; "repo view") echo cooper3330/weekly-meal-planner;; "api"*) echo "open issue";; esac\nexit 0\n' > "$T/bin/gh"
 rl 5
-if [ "$(cat "$T/rc")" -ne 0 ]; then ok "exits non-zero"; else bad "exits non-zero"; fi
+# The exit code is deliberately not asserted: --ready-label carries on into the pass, which fails on the same stubbed item-list.
+assert_grep "$T/out" 'could not read the card for #5; changing nothing' "the failure is reported, naming the issue"
 assert_count "$T/gh.log" 'item-edit' 0 "no card edit"
+assert_count "$T/gh.log" '--remove-label ready' 0 "the label is kept, so the next pass's sweep retries it"
 assert_count "$T/claude.calls" "called" 0 "no launch"
 
 finish
