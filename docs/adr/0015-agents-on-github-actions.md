@@ -22,7 +22,7 @@ Constraints:
 
 | Workflow | Trigger | Does |
 |---|---|---|
-| `coordinator.yml` | `schedule` (hourly, at minute 17) and `workflow_dispatch` | `scripts/coordinator.sh --once` |
+| `coordinator.yml` | `schedule` (hourly, at minute 17), `workflow_dispatch`, and the events in "Event-driven triggers" below | `scripts/coordinator.sh --once`, or `--ready-label <issue>` for a `ready` label event |
 | `revise.yml` | `issue_comment`, `pull_request_review`, `pull_request_review_comment`; `workflow_dispatch` (inputs `kind`, `number`, `source`) | `scripts/coordinator.sh --revise <pr\|issue> <number>`: one revision run for one item |
 | `review.yml` | `pull_request` (`opened`, `synchronize`, `ready_for_review`, `reopened`) with `branches: [main]`, from `issue-*` and `arch-*` branches of this repository | the reviewer agent, then the deterministic auto-merge or revision-dispatch step (ADR 0013) |
 | `risk-label.yml` | `pull_request_target` with `branches: [main]`, plus `labeled` | ADR 0013 |
@@ -30,7 +30,7 @@ Constraints:
 
 - **Only PRs into `main`.** The owner decided that the merge gate covers only PRs whose base branch is `main` ([comment](https://github.com/cooper3330/weekly-meal-planner/pull/31#discussion_r4385338589)). The `branches` filter of a `pull_request` trigger matches the base branch, so PRs into any other branch start none of these workflows. The revision loop (`revise.yml`) is driven by a human `/revise`, so it is not filtered.
 
-- Project item events are not available, so the coordinator is not event-driven. Moving a card to Ready is picked up on the next hourly run, or at once with "Run workflow".
+- Project item events are not available for a user-owned project, so a card move cannot start the coordinator. The coordinator is nevertheless event-driven through a `ready` label and a few issue and PR events; see "Event-driven triggers" below (amendment, task #55). The hourly run remains the fallback for anything missed.
 
 **Safety on a public repository.** Each check is a job-level `if:`, so it runs before any step can see a secret:
 - **Kill switch:** the repository variable `AGENTS_PAUSED`. Every workflow that runs `claude` or enables auto-merge has `if: vars.AGENTS_PAUSED != 'true'`; when it is `true` the job is skipped and nothing acts.
@@ -85,11 +85,11 @@ Constraints:
 ## Alternatives considered
 - **`claude-code-action` everywhere.** See Runner above. It remains an option for the reviewer later, if its inline-comment UX is wanted.
 - **Rewriting the coordinator as a deterministic workflow without a model.** This would save usage, but it means rewriting tested routing. The coordinator only calls `claude` when an item is Ready, so idle hourly runs cost nothing.
-- **A `ready` label as the coordinator's trigger.** It would add a second source of truth next to Status. The schedule plus manual dispatch is enough.
+- **A `ready` label as the coordinator's trigger.** Rejected at first, because it adds a second source of truth next to Status. Superseded by the amendment below: the label is only a doorbell and the board stays the source of truth.
 - **Polling for revisions only.** The owner asked for event-driven revisions.
 
 ## Consequences
-- The owner's machine is no longer needed. Work is picked up within an hour, or at once on manual dispatch.
+- The owner's machine is no longer needed. Work is picked up at once when the `ready` label is applied, and otherwise within an hour or on manual dispatch.
 - The usage on Pro is bounded by the caps above, but not measured. The owner tunes the variables after the first weeks.
 - Every agent workflow shares one preflight, one wrapper and one kill switch. A structural test over `.github/workflows/*.yml` keeps new workflows from skipping them.
 - New commands the agents run (`gh pr review`, `gh pr diff`, `gh pr merge`, `scripts/board.sh`, `scripts/agent-guard.sh`) are added to the coordinator allowlist, and `test_allowlist_docs.sh` keeps the two in step.
@@ -98,3 +98,19 @@ Constraints:
 - P7: every script added here is tested offline with stubbed `gh` and `claude`. Workflow files get structural tests.
 - P8 Simple over clever: one runner and the existing scripts. Caps and the kill switch are repository variables, not code.
 - P1 and CLAUDE.md's "no hosted backends" govern the app. GitHub Actions runs the delivery process, not the app, and holds no user data.
+
+## Amendment (task #55): event-driven coordinator triggers
+The owner decided that approving a spec or releasing a task should start the coordinator at once, not on the next hourly run. This reverses the first Decision bullet and the "`ready` label" alternative above.
+
+**The doorbell.** Applying the `ready` label to an issue starts `coordinator.yml` (`issues: labeled`, only for the label `ready`). The label is a trigger, not state: `scripts/coordinator.sh --ready-label <issue>` sets the issue's card to Ready if it is not yet moving (no card, Backlog, Spec Review, Plan Review or Blocked), never moves a card that is already in Architecture, Implementation, In Review or Done, removes the label, and runs a normal pass. The architect applies the label to the tasks it plans (`.claude/agents/architect.md`); tasks parked in Plan Review get none. A closed issue or a pull request only loses the label.
+
+**Other events.** A pass also starts when:
+- a task or bug issue is closed, only if its author is OWNER, MEMBER or COLLABORATOR (a stranger can open and close an issue from the template, and each run counts toward the cap), so a `Blocked by:` line that just cleared is released;
+- an `issue-*` PR from this repository is merged into `main`.
+
+**Safety and loop control**
+- The same kill switch, preflight, daily cap and pinned actions apply as for the schedule. The job `if:` runs before any step sees a secret, and no event uses `pull_request_target`.
+- The pass never applies `ready`, and `unlabeled` is not subscribed, so the coordinator cannot start itself.
+- Every pass, scheduled or not, first releases any open issue still labelled `ready` (`sweep_ready_labels`), so an event skipped by the kill switch or the cap, or lost in a burst, is recovered by the next scheduled pass.
+- `concurrency: coordinator` (`cancel-in-progress: false`) is set on the job, not the workflow, so an event whose job condition is false never joins the queue or cancels a pending run. A burst of events keeps one pending pass; each pass sweeps every eligible item.
+- The daily cap does not count `skipped` runs. It does count `cancelled` runs, because a run cancelled by its timeout or by hand called `claude` and a run superseded while pending cannot be told apart from it. A burst of label events can therefore use several slots; the owner raises `AGENT_DAILY_RUNS` if that bites.
