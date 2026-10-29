@@ -85,6 +85,7 @@ if [ "$1" = "api" ]; then
       n="${path#repos/*/issues/}"; f="$STUB_DIR/issue_state_${n%%/*}.json"
       [ -f "$f" ] || echo '{"state":"open"}' > "$f"
       emit "$f" ;;
+    repos/*/*)                 emit "$STUB_DIR/repo.json" ;;   # the repository itself (.permissions.push)
     *) echo '[]' ;;
   esac
   exit 0

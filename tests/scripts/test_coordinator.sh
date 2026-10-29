@@ -305,6 +305,34 @@ for mode in unset empty; do
   assert_no_grep "$T/gh.log" 'pr comment' "$mode: nothing was posted"
 done
 
+echo "identity: in Actions an App token that cannot push stops the run before any launch (#66)"
+new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+echo '{"permissions":{"push":false}}' > "$T/repo.json"
+GITHUB_ACTIONS=true AGENT_GH_TOKEN=atok PROJECT_TOKEN=ptok PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1; rc=$?
+if [ "$rc" -ne 0 ]; then ok "exits non-zero"; else bad "exits non-zero"; fi
+assert_count "$T/claude.calls" "called" 0 "no agent is launched"
+assert_grep "$T/out" 'Contents' "the message names the Contents permission"
+
+echo "identity: in Actions an App token that can push proceeds"
+new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+echo '{"permissions":{"push":true}}' > "$T/repo.json"
+GITHUB_ACTIONS=true AGENT_GH_TOKEN=atok PROJECT_TOKEN=ptok PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1; rc=$?
+assert_eq "$rc" "0" "exits 0"
+assert_count "$T/claude.calls" "called" 1 "the agent is launched"
+
+echo "identity: an unreadable permission (no permissions field) does not block the run"
+new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+echo '{}' > "$T/repo.json"
+GITHUB_ACTIONS=true AGENT_GH_TOKEN=atok PROJECT_TOKEN=ptok PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1; rc=$?
+assert_eq "$rc" "0" "exits 0"
+assert_count "$T/claude.calls" "called" 1 "the agent is launched"
+
+echo "identity: locally the push permission is not even checked"
+new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+echo '{"permissions":{"push":false}}' > "$T/repo.json"
+env -u GITHUB_ACTIONS -u AGENT_GH_TOKEN PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_count "$T/claude.calls" "called" 1 "the agent is launched"
+
 echo "identity: locally, without AGENT_GH_TOKEN, it launches as before and logs the fallback once"
 new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
 echo "$PRS15" > "$T/prs.json"; echo "$PR_REVISE" > "$T/issue_comments_15.json"
