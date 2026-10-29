@@ -48,8 +48,9 @@ set_pr() { # BASE LABEL [BRANCH]
 }
 # set_acks REVIEWER HUMAN: the PR's acknowledgement comments (reviewer ones carry source=reviewer)
 set_acks() {
-  jq -n --argjson r "$1" --argjson h "$2" \
+  jq -n --argjson r "$1" --argjson h "$2" --argjson c "${3:-0}" \
     '[range($r) | {body: "Picked up. <!-- agent:ack source=reviewer -->"}]
+     + [range($c) | {body: "Picked up. [run 1] <!-- agent:ack source=ci -->"}]
      + [range($h) | {body: "Picked up. <!-- agent:ack -->"}]
      + [{body: "an unrelated comment"}]' > "$T/comments.json"
 }
@@ -180,6 +181,15 @@ cr_setup; set_acks 2 7; run
 assert_eq "$(dispatches)" "1" "2 reviewer + 7 human acknowledgements: still dispatches"
 cr_setup; set_acks 0 9; run
 assert_eq "$(dispatches)" "1" "only human acknowledgements: dispatches"
+
+echo "after-review.sh: CI acknowledgements share the budget with the reviewer's"
+cr_setup; set_acks 1 0 1; run
+assert_eq "$(dispatches)" "1" "1 reviewer + 1 CI round: dispatches"
+cr_setup; set_acks 2 0 1; run
+assert_eq "$(dispatches)" "0" "2 reviewer + 1 CI round: the budget is spent, no dispatch"
+assert_grep "$T/gh.log" 'needs-human' "2 reviewer + 1 CI round: handed to a human"
+cr_setup; set_acks 0 0 3; run
+assert_eq "$(dispatches)" "0" "3 CI rounds: no dispatch"
 
 echo "after-review.sh: changes requested never dispatches on an ADR PR, a stale review or while paused"
 cr_setup; set_pr main "" arch-4-plan; set_acks 0 0; run
