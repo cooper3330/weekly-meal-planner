@@ -502,6 +502,163 @@ done
 assert_no_grep "$T/claude.args" 'Bash\(bash scripts/\*\)' "but not every script under scripts/"
 assert_no_grep "$T/claude.args" 'Bash\(bash \*\)' "and no unrestricted bash"
 
+# --- coordinator.sh --revise: one revision for one item (event-driven, #39) ------------------------
+PRS12='[{"number":12,"headRefName":"issue-9-feature-x"}]'
+ARCH12='[{"number":12,"headRefName":"arch-4-plan"}]'
+HUMAN_REVISE='[{"id":1,"created_at":"2026-10-28T10:00:00Z","body":"please fix /revise","author_association":"OWNER"}]'
+revise() { PROJECT_NUMBER=1 bash "$SCRIPT" --revise "$@" > "$T/out" 2>&1; }
+
+echo "revise: usage errors launch nothing"
+new_sandbox; echo "$PRS12" > "$T/prs.json"; echo "$HUMAN_REVISE" > "$T/issue_comments_12.json"
+for args in "" "pr" "pr abc" "pr 12x" "pr -3" "repo 12" "pr 12 --source nobody" "pr 12 --source" "pr 12 extra"; do
+  rc=0; revise $args || rc=$?
+  assert_eq "$rc" "2" "usage error (exit 2) for: --revise $args"
+done
+assert_count "$T/claude.calls" "called" 0 "claude is never launched on a usage error"
+assert_count "$T/gh.log" 'pr comment' 0 "and nothing is posted"
+
+echo "revise: a trusted /revise on a developer PR starts exactly one developer run"
+new_sandbox; echo "$PRS12" > "$T/prs.json"; echo "$HUMAN_REVISE" > "$T/issue_comments_12.json"
+rc=0; revise pr 12 || rc=$?
+assert_eq "$rc" "0" "exits 0"
+assert_count "$T/claude.calls" "called" 1 "one claude launch"
+assert_grep "$T/claude.args" '^developer$' "the developer agent"
+assert_grep "$T/claude.args" 'Revise after review' "in revision mode"
+assert_grep "$T/claude.args" 'PR #12' "naming the PR"
+assert_no_grep "$T/claude.args" 'please fix' "comment text is not pasted into the prompt"
+assert_no_grep "$T/claude.args" 'source=reviewer|Source: reviewer' "the human source does not claim the reviewer as the source"
+assert_count "$T/gh.log" 'pr comment 12 .*agent:ack' 1 "one acknowledgement"
+assert_no_grep "$T/gh.log" 'source=reviewer' "which does not carry source=reviewer"
+assert_no_grep "$T/gh.log" 'project item-list' "the board is not polled"
+assert_grep "$T/git.log" 'worktree add .*origin/issue-9-feature-x' "works on the PR branch in a worktree"
+assert_grep "$T/git.log" 'merge -q --no-edit origin/main' "with main merged in"
+assert_eq "$(max_turns_of "$T/claude.args")" "80" "and the developer turn cap"
+
+echo "revise: running it twice for the same feedback launches once"
+echo '[{"id":1,"created_at":"2026-10-28T10:00:00Z","body":"please fix /revise","author_association":"OWNER"},{"id":2,"created_at":"2026-10-28T10:00:05Z","body":"Picked up. <!-- agent:ack -->","author_association":"OWNER"}]' > "$T/issue_comments_12.json"
+rc=0; revise pr 12 || rc=$?
+assert_eq "$rc" "0" "the duplicate exits 0"
+assert_count "$T/claude.calls" "called" 1 "no second launch"
+assert_count "$T/gh.log" 'pr comment' 1 "and no second acknowledgement"
+assert_grep "$T/out" 'not pending' "the log says it is not pending"
+
+echo "revise: an architect PR goes to the architect"
+new_sandbox; echo "$ARCH12" > "$T/prs.json"; echo "$HUMAN_REVISE" > "$T/issue_comments_12.json"
+revise pr 12
+assert_count "$T/claude.calls" "called" 1 "one launch"
+assert_grep "$T/claude.args" '^architect$' "the architect agent"
+assert_eq "$(max_turns_of "$T/claude.args")" "60" "and the architect turn cap"
+
+echo "revise: a plan on a feature issue is revised by the architect"
+new_sandbox; echo '[{"number":5,"labels":[{"name":"type:feature"}]}]' > "$T/issues.json"
+echo "$HUMAN_REVISE" > "$T/issue_comments_5.json"
+revise issue 5 --source human
+assert_count "$T/claude.calls" "called" 1 "one launch"
+assert_grep "$T/claude.args" '^architect$' "the architect agent"
+assert_grep "$T/claude.args" 'issue #5' "naming the issue"
+assert_grep "$T/gh.log" 'issue comment 5 .*agent:ack' "acknowledged on the issue"
+
+echo "revise: untrusted or agent feedback launches nothing"
+new_sandbox; echo "$PRS12" > "$T/prs.json"
+echo '[{"id":1,"created_at":"2026-10-28T10:00:00Z","body":"/revise","author_association":"NONE"}]' > "$T/issue_comments_12.json"
+rc=0; revise pr 12 || rc=$?
+assert_eq "$rc" "0" "association NONE: exits 0"
+assert_count "$T/claude.calls" "called" 0 "association NONE: no launch"
+assert_count "$T/gh.log" 'pr comment' 0 "association NONE: nothing posted"
+new_sandbox; echo "$PRS12" > "$T/prs.json"
+echo '[{"id":1,"created_at":"2026-10-28T10:00:00Z","body":"/revise <!-- agent:architect -->","author_association":"OWNER"}]' > "$T/issue_comments_12.json"
+revise pr 12
+assert_count "$T/claude.calls" "called" 0 "a /revise with an agent marker: no launch"
+new_sandbox; echo "$PRS12" > "$T/prs.json"
+revise pr 12
+assert_count "$T/claude.calls" "called" 0 "no feedback at all: no launch"
+
+echo "revise: a task-issue /revise counts for the linked PR"
+new_sandbox; echo "$PRS12" > "$T/prs.json"; echo "$HUMAN_REVISE" > "$T/issue_comments_9.json"
+revise pr 12
+assert_count "$T/claude.calls" "called" 1 "one launch"
+assert_grep "$T/claude.args" 'linked issue #9' "and the prompt names the linked issue"
+
+echo "revise: a worktree failure is reported, with no launch"
+new_sandbox; echo "$PRS12" > "$T/prs.json"; echo "$HUMAN_REVISE" > "$T/issue_comments_12.json"
+STUB_WORKTREE_FAIL=1 revise pr 12
+assert_count "$T/claude.calls" "called" 0 "not launched"
+assert_grep "$T/gh.log" 'pr comment 12 .*Could not (create|start).*agent:ack' "reported on the PR"
+
+echo "revise: needs the Actions identity like the rest of the coordinator"
+new_sandbox; echo "$PRS12" > "$T/prs.json"; echo "$HUMAN_REVISE" > "$T/issue_comments_12.json"
+GITHUB_ACTIONS=true PROJECT_TOKEN=ptok AGENT_GH_TOKEN=atok revise pr 12
+assert_count "$T/claude.env" '^GH_TOKEN=atok ' 1 "the launch acts as the App"
+
+# reviewer source
+HEAD_SHA=sha-current
+set_review() { # state sha [body] [login]
+  jq -n --arg st "$1" --arg sha "$2" --arg body "${3-Please fix X. <!-- agent:reviewer -->}" --arg login "${4:-github-actions[bot]}" \
+    '[{user:{login:$login},state:$st,commit_id:$sha,submitted_at:"2026-10-28T10:00:00Z",body:$body,author_association:"NONE"}]' > "$T/pr_reviews_12.json"
+}
+reviewer_pr() { # branch [state]
+  new_sandbox
+  jq -n --arg b "$1" --arg s "${2:-OPEN}" --arg sha "$HEAD_SHA" '{state:$s, headRefName:$b, headRefOid:$sha}' > "$T/pr_view_12.json"
+  set_review CHANGES_REQUESTED "$HEAD_SHA"
+}
+
+echo "revise: --source reviewer runs the developer and counts the round"
+reviewer_pr issue-9-feature-x
+rc=0; revise pr 12 --source reviewer || rc=$?
+assert_eq "$rc" "0" "exits 0"
+assert_count "$T/claude.calls" "called" 1 "one launch"
+assert_grep "$T/claude.args" '^developer$' "the developer agent"
+assert_grep "$T/claude.args" 'Source: reviewer' "the prompt says the source is the reviewer"
+assert_no_grep "$T/claude.args" 'Please fix X' "the review text is not pasted into the prompt"
+assert_count "$T/gh.log" 'pr comment 12 .*<!-- agent:ack source=reviewer -->' 1 "the acknowledgement carries source=reviewer"
+assert_grep "$T/git.log" 'worktree add .*origin/issue-9-feature-x' "works on the PR branch"
+assert_no_grep "$T/gh.log" 'project item-list' "the board is not polled"
+
+echo "revise: --source reviewer ignores what is not a current reviewer request"
+reviewer_pr issue-9-feature-x; set_review CHANGES_REQUESTED sha-older
+revise pr 12 --source reviewer; rc=$?
+assert_eq "$rc" "0" "older head SHA: exits 0"
+assert_count "$T/claude.calls" "called" 0 "older head SHA: no launch"
+assert_count "$T/gh.log" 'pr comment' 0 "older head SHA: nothing posted"
+reviewer_pr issue-9-feature-x; set_review APPROVED "$HEAD_SHA"
+revise pr 12 --source reviewer
+assert_count "$T/claude.calls" "called" 0 "an approval: no launch"
+reviewer_pr issue-9-feature-x; set_review CHANGES_REQUESTED "$HEAD_SHA" "Fix it, no marker"
+revise pr 12 --source reviewer
+assert_count "$T/claude.calls" "called" 0 "a review without the reviewer marker: no launch"
+reviewer_pr issue-9-feature-x; set_review CHANGES_REQUESTED "$HEAD_SHA" "Fix it. <!-- agent:reviewer -->" "someone-else"
+revise pr 12 --source reviewer
+assert_count "$T/claude.calls" "called" 0 "a marked review by anyone but github-actions[bot]: no launch"
+reviewer_pr issue-9-feature-x CLOSED
+revise pr 12 --source reviewer
+assert_count "$T/claude.calls" "called" 0 "a closed PR: no launch"
+reviewer_pr issue-9-feature-x
+jq -n --arg sha "$HEAD_SHA" '[{user:{login:"github-actions[bot]"},state:"CHANGES_REQUESTED",commit_id:$sha,submitted_at:"2026-10-28T10:00:00Z",body:"a <!-- agent:reviewer -->"},{user:{login:"github-actions[bot]"},state:"APPROVED",commit_id:$sha,submitted_at:"2026-10-28T11:00:00Z",body:"b <!-- agent:reviewer -->"}]' > "$T/pr_reviews_12.json"
+revise pr 12 --source reviewer
+assert_count "$T/claude.calls" "called" 0 "changes requested, then approved: no launch"
+
+echo "revise: --source reviewer runs once per review"
+reviewer_pr issue-9-feature-x
+echo '[{"id":7,"created_at":"2026-10-28T10:05:00Z","body":"Picked up. <!-- agent:ack source=reviewer -->","author_association":"OWNER"}]' > "$T/issue_comments_12.json"
+revise pr 12 --source reviewer
+assert_count "$T/claude.calls" "called" 0 "an acknowledgement newer than the review: no second launch"
+
+echo "revise: --source reviewer is refused on an architect PR"
+reviewer_pr arch-4-plan
+rc=0; revise pr 12 --source reviewer || rc=$?
+if [ "$rc" -ne 0 ]; then ok "exits non-zero"; else bad "exits non-zero"; fi
+assert_count "$T/claude.calls" "called" 0 "no launch"
+assert_grep "$T/out" 'issue-\*' "says only issue-* PRs"
+reviewer_pr issue-9-feature-x
+rc=0; revise issue 12 --source reviewer || rc=$?
+assert_eq "$rc" "2" "--source reviewer with kind issue is a usage error"
+
+echo "revise: local mode is unchanged (no flags still polls and dispatches)"
+new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+assert_count "$T/claude.calls" "called" 1 "--once still dispatches Ready work"
+assert_grep "$T/gh.log" 'project item-list' "and reads the board"
+
 # --- the `ready` label doorbell (#55, ADR 0015) -------------------------------------------------
 card() { # id number status -> a one-card board, labelled so the coordinator dispatches it
   echo "{\"items\":[{\"id\":\"$1\",\"status\":\"$3\",\"content\":{\"number\":$2,\"title\":\"x\",\"url\":\"https://github.com/cooper3330/weekly-meal-planner/issues/$2\"},\"labels\":[\"type:architecture\"]}]}"

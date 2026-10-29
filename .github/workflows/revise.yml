@@ -1,0 +1,163 @@
+name: Revise
+
+# Runs a revision as soon as feedback arrives, instead of waiting for a coordinator poll
+# (docs/adr/0015). Triggers:
+#   - a trusted `/revise` comment, or a "Request changes" review (OWNER, MEMBER, COLLABORATOR);
+#   - workflow_dispatch, used by scripts/after-review.sh to start a reviewer-requested revision.
+#
+# Two jobs. `resolve` decides what to revise and sees no secrets; `revise` runs the agent. The
+# trusted-author, marker and trigger checks are in `resolve`'s job-level `if:`, so they are evaluated
+# before any step can see a secret, and `revise` only runs when `resolve` found an item.
+#
+# One review submission fires both pull_request_review and pull_request_review_comment; only one
+# revision runs, because the second finds the first one's acknowledgement (coordinator.sh --revise
+# checks that the item is still pending) and the two share a concurrency group.
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+  pull_request_review_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      kind:
+        description: 'What to revise: a PR, or the plan on an issue'
+        required: true
+        type: choice
+        options: [pr, issue]
+      number:
+        description: 'The PR or issue number'
+        required: true
+        type: string
+      source:
+        description: 'Where the feedback comes from (reviewer: the reviewer agent requested changes)'
+        required: false
+        default: human
+        type: choice
+        options: [human, reviewer]
+
+# The workflow token only reads. Writes (branches, PRs, comments) use the GitHub App token.
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    # Kill switch: set the repository variable AGENTS_PAUSED to true to stop all agent runs.
+    # For comment and review events: only a trusted author, never an agent comment (the hidden
+    # marker), and only /revise or a "Request changes" review.
+    if: >-
+      vars.AGENTS_PAUSED != 'true' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association || github.event.review.author_association) &&
+        !contains(github.event.comment.body || github.event.review.body || '', '<!-- agent:') &&
+        (contains(github.event.comment.body || github.event.review.body || '', '/revise') ||
+         github.event.review.state == 'changes_requested')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    outputs:
+      kind: ${{ steps.target.outputs.kind }}
+      number: ${{ steps.target.outputs.number }}
+      source: ${{ steps.target.outputs.source }}
+    steps:
+      # Always main, never the PR's merge ref (the default for review events): the scripts that run
+      # with the App token and the OAuth token must not come from a pull request.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Map the event to the item to revise
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          scripts/revise-target.sh >> "$GITHUB_OUTPUT"
+          if ! grep -q '^number=' "$GITHUB_OUTPUT"; then
+            echo "::notice::This event maps to nothing to revise."
+          fi
+
+  revise:
+    needs: resolve
+    if: needs.resolve.outputs.number != '' && vars.AGENTS_PAUSED != 'true'
+    # One revision at a time per item; a run in progress is never cancelled, the next waits and then
+    # finds the first one's acknowledgement.
+    concurrency:
+      group: revise-${{ needs.resolve.outputs.kind }}-${{ needs.resolve.outputs.number }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    # The App token lives one hour.
+    timeout-minutes: 55
+    steps:
+      # Always main (see above), with full history: worktrees are created from origin.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          # Do not keep the read-only workflow token in git's config: git would push with it (403).
+          persist-credentials: false
+
+      - name: Mint the GitHub App token
+        id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ secrets.AGENT_APP_ID }}
+          private-key: ${{ secrets.AGENT_APP_PRIVATE_KEY }}
+
+      - name: Let git act as the GitHub App
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: gh auth setup-git
+
+      - name: Install the claude CLI
+        run: npm install -g "@anthropic-ai/claude-code@2.1.308"
+
+      - name: Resolve the App bot identity
+        id: bot
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          APP_SLUG: ${{ steps.app.outputs.app-slug }}
+        run: |
+          set -euo pipefail
+          id=$(gh api "users/${APP_SLUG}%5Bbot%5D" --jq .id)
+          echo "name=${APP_SLUG}[bot]" >> "$GITHUB_OUTPUT"
+          echo "email=${id}+${APP_SLUG}[bot]@users.noreply.github.com" >> "$GITHUB_OUTPUT"
+
+      - name: Preflight
+        id: preflight
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          AGENT_DAILY_RUNS: ${{ vars.AGENT_DAILY_RUNS }}   # unset means the guard's default (12)
+        run: |
+          rc=0
+          scripts/agent-guard.sh preflight || rc=$?
+          if [ "$rc" -eq 78 ]; then
+            echo "::notice::Daily agent cap reached; skipping this revision."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          elif [ "$rc" -ne 0 ]; then
+            exit "$rc"
+          fi
+
+      - name: Revise
+        if: steps.preflight.outputs.skip != 'true'
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          AGENT_GH_TOKEN: ${{ steps.app.outputs.token }}
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          PROJECT_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+          PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER || '1' }}
+          ARCHITECT_MAX_TURNS: ${{ vars.ARCHITECT_MAX_TURNS || '60' }}
+          DEVELOPER_MAX_TURNS: ${{ vars.DEVELOPER_MAX_TURNS || '80' }}
+          AGENT_GIT_NAME: ${{ steps.bot.outputs.name }}
+          AGENT_GIT_EMAIL: ${{ steps.bot.outputs.email }}
+          REVISE_KIND: ${{ needs.resolve.outputs.kind }}
+          REVISE_NUMBER: ${{ needs.resolve.outputs.number }}
+          REVISE_SOURCE: ${{ needs.resolve.outputs.source }}
+        run: scripts/coordinator.sh --revise "$REVISE_KIND" "$REVISE_NUMBER" --source "$REVISE_SOURCE"

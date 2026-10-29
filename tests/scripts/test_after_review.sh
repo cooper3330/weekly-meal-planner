@@ -16,6 +16,7 @@ setup() {
   unset AGENTS_PAUSED OWNER
   export REPO=cooper3330/weekly-meal-planner
   set_pr main ""
+  echo '[]' > "$T/comments.json"
   approve_on "$SHA"
   echo "src/mealplanner/app.py" > "$T/files.txt"
   cat > "$T/bin/gh" <<'STUB'
@@ -28,9 +29,11 @@ done
 out() { if [ -n "$jqexpr" ]; then jq -r "$jqexpr" < "$1"; else cat "$1"; fi; }
 case "$1 $2" in
   "pr view") out "$STUB_DIR/pr.json" ;;
+  "workflow run") [ -n "${STUB_WORKFLOW_FAIL:-}" ] && { echo "HTTP 403" >&2; exit 1; } ;;
   "api repos/"*)
     case "$2" in
       */reviews*) out "$STUB_DIR/reviews.json" ;;
+      */issues/*/comments*) out "$STUB_DIR/comments.json" ;;
       */files*)   cat "$STUB_DIR/files.txt" ;;
     esac ;;
 esac
@@ -39,9 +42,16 @@ STUB
   chmod +x "$T/bin/gh"
 }
 # set_pr BASE LABEL: the PR fixture (LABEL may be empty)
-set_pr() {
-  jq -n --arg base "$1" --arg sha "$SHA" --arg label "$2" \
-    '{baseRefName:$base, headRefOid:$sha, labels:(if $label == "" then [] else [{name:$label}] end)}' > "$T/pr.json"
+set_pr() { # BASE LABEL [BRANCH]
+  jq -n --arg base "$1" --arg sha "$SHA" --arg label "$2" --arg branch "${3:-issue-39-example}" \
+    '{baseRefName:$base, headRefName:$branch, headRefOid:$sha, labels:(if $label == "" then [] else [{name:$label}] end)}' > "$T/pr.json"
+}
+# set_acks REVIEWER HUMAN: the PR's acknowledgement comments (reviewer ones carry source=reviewer)
+set_acks() {
+  jq -n --argjson r "$1" --argjson h "$2" \
+    '[range($r) | {body: "Picked up. <!-- agent:ack source=reviewer -->"}]
+     + [range($h) | {body: "Picked up. <!-- agent:ack -->"}]
+     + [{body: "an unrelated comment"}]' > "$T/comments.json"
 }
 # approve_on SHA [STATE] [BODY]: the one review fixture
 approve_on() {
@@ -126,6 +136,71 @@ assert_grep "$T/gh.log" '^gh api repos/[^ ]+/pulls/70/files .*--paginate' "lists
 assert_eq "$(merges)" "0" "a protected path on a later page gives high: no merge"
 setup; printf 'src/a.py\nsrc/b.py\n' > "$T/files.txt"; run
 assert_eq "$(merges)" "1" "many low-risk files still merge"
+
+# --- changes requested: dispatch a revision within REVISION_BUDGET, else hand over (#39) ------------
+dispatches() { grep -c '^gh workflow run' "$T/gh.log" || true; }
+cr_setup() { setup; approve_on "$SHA" CHANGES_REQUESTED; }   # BRANCH via set_pr after, if needed
+
+echo "after-review.sh: changes requested, within the budget, dispatches one revision"
+for prior in 0 1 2; do
+  cr_setup; set_acks "$prior" 0; run
+  assert_eq "$(dispatches)" "1" "$prior prior reviewer acknowledgements: one dispatch"
+  assert_grep "$T/gh.log" '^gh workflow run revise\.yml .*-f kind=pr .*-f number=70 .*-f source=reviewer' "$prior: revise.yml with kind=pr, the number and source=reviewer"
+  assert_no_grep "$T/gh.log" 'needs-human|add-reviewer' "$prior: no hand-over"
+  assert_eq "$(merges)" "0" "$prior: no merge"
+done
+
+echo "after-review.sh: at the budget, the PR is handed to a human"
+cr_setup; set_acks 3 0; run
+assert_eq "$(dispatches)" "0" "3 prior acknowledgements: no dispatch"
+assert_grep "$T/gh.log" '^gh pr edit 70 .*--add-label needs-human' "the PR is labelled needs-human"
+assert_grep "$T/gh.log" '^gh pr edit 70 .*--add-reviewer cooper3330' "the owner's review is requested"
+assert_eq "$(gates)" "1" "exactly one comment, with the merge-gate marker"
+assert_grep "$T/gh.log" 'budget' "the comment says the budget is spent"
+assert_eq "$(merges)" "0" "no merge"
+cr_setup; set_acks 5 0; run
+assert_eq "$(dispatches)" "0" "over the budget: no dispatch"
+assert_eq "$(gates)" "1" "over the budget: one comment"
+
+echo "after-review.sh: REVISION_BUDGET is respected"
+cr_setup; set_acks 1 0; REVISION_BUDGET=1 run
+assert_eq "$(dispatches)" "0" "REVISION_BUDGET=1 with 1 prior: no dispatch"
+assert_grep "$T/gh.log" 'needs-human' "REVISION_BUDGET=1 with 1 prior: handed over"
+cr_setup; set_acks 0 0; REVISION_BUDGET=1 run
+assert_eq "$(dispatches)" "1" "REVISION_BUDGET=1 with 0 prior: dispatched"
+cr_setup; set_acks 3 0; REVISION_BUDGET=5 run
+assert_eq "$(dispatches)" "1" "REVISION_BUDGET=5 with 3 prior: dispatched"
+cr_setup; set_acks 3 0; REVISION_BUDGET= run
+assert_eq "$(dispatches)" "0" "an empty REVISION_BUDGET (unset variable) means the default of 3"
+cr_setup; set_acks 0 0; REVISION_BUDGET=abc run
+assert_eq "$(dispatches)" "1" "a non-numeric REVISION_BUDGET falls back to the default"
+
+echo "after-review.sh: human acknowledgements do not count"
+cr_setup; set_acks 2 7; run
+assert_eq "$(dispatches)" "1" "2 reviewer + 7 human acknowledgements: still dispatches"
+cr_setup; set_acks 0 9; run
+assert_eq "$(dispatches)" "1" "only human acknowledgements: dispatches"
+
+echo "after-review.sh: changes requested never dispatches on an ADR PR, a stale review or while paused"
+cr_setup; set_pr main "" arch-4-plan; set_acks 0 0; run
+assert_eq "$(dispatches)" "0" "arch-* PR: no dispatch"
+assert_no_grep "$T/gh.log" 'needs-human' "arch-* PR: not labelled either"
+cr_setup; approve_on old000 CHANGES_REQUESTED; run
+assert_eq "$(dispatches)" "0" "a change request on an older head: no dispatch"
+cr_setup; approve_on "$SHA" CHANGES_REQUESTED "no marker"; run
+assert_eq "$(dispatches)" "0" "an unmarked change request: no dispatch"
+cr_setup; AGENTS_PAUSED=true run
+assert_eq "$(dispatches)" "0" "paused: no dispatch"
+
+echo "after-review.sh: a hand-over already made is not repeated"
+cr_setup; set_acks 3 0; set_pr main needs-human; run
+assert_eq "$(gates)" "0" "already labelled needs-human: no second comment"
+assert_eq "$(dispatches)" "0" "and no dispatch"
+
+echo "after-review.sh: a failed dispatch is reported, not hidden"
+cr_setup; set_acks 0 0
+rc=0; STUB_WORKFLOW_FAIL=1 run || rc=$?
+if [ "$rc" -ne 0 ]; then ok "a failing gh workflow run makes the step fail"; else bad "a failing gh workflow run makes the step fail"; fi
 
 echo "after-review.sh: structure"
 assert_grep scripts/after-review.sh 'previous_filename' "includes the previous path of renames"
