@@ -79,7 +79,7 @@ Agents act as an owner-created GitHub App installed on this repository only (doc
 - Pull requests: Read & write
 - Actions: Write (to dispatch workflows)
 
-Store its ID and private key as the repository secrets `AGENT_APP_ID` and `AGENT_APP_PRIVATE_KEY`. If a push from a workflow fails with `403`, check that the App has Contents write and is installed on this repository; the coordinator also stops early with that message when GitHub reports the App cannot push.
+Store its ID and private key as the repository secrets `AGENT_APP_ID` and `AGENT_APP_PRIVATE_KEY`. If a push from a workflow fails with `403`, check that the App has Contents write and is installed on this repository; the coordinator also stops early with that message when GitHub reports the App cannot push. When that stops a revision (`--revise`), it also leaves one comment on the PR or issue, ending with `<!-- agent:permission -->`: it says the revision could not start, names the permission to give the App and to accept on the installation, and shows the permissions the token reported. Fix the App, then comment `/revise` again. The comment is never counted toward the revision budget, and it is posted once, not on every retry.
 
 ## Releasing work with the `ready` label
 Approving a spec or releasing a task is one action: add the `ready` label to the issue. A GitHub Actions workflow cannot trigger on a card move in a user-owned project (ADR 0015), so the label is the doorbell. Within seconds the coordinator workflow sets the card to Ready (unless it is already moving), removes the label, and runs a pass. The architect applies the label to the tasks it plans, so they are dispatched at once; tasks parked in Plan Review get no label.

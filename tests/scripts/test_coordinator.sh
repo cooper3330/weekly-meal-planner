@@ -340,6 +340,54 @@ env -u AGENT_GH_TOKEN GITHUB_ACTIONS=true PROJECT_TOKEN=ptok PROJECT_NUMBER=1 ba
 assert_grep "$T/out" 'AGENT_GH_TOKEN is missing' "the missing-token message comes first"
 assert_no_grep "$T/out" 'Contents' "and the permission message is not reached"
 
+# --- a revision that cannot start because the App cannot push says so on the item (#78) -------------
+perm() { # kind number: a --revise run in Actions whose token reports no push access
+  GITHUB_ACTIONS=true AGENT_GH_TOKEN=atok PROJECT_TOKEN=ptok PROJECT_NUMBER=1 bash "$SCRIPT" --revise "$1" "$2" > "$T/out" 2>&1; echo $? > "$T/rc"
+}
+echo "identity: --revise pr with an App that cannot push comments on the PR (#78)"
+new_sandbox; echo '{"permissions":{"admin":false,"push":false,"pull":true}}' > "$T/repo.json"
+perm pr 12
+if [ "$(cat "$T/rc")" -ne 0 ]; then ok "exits non-zero"; else bad "exits non-zero"; fi
+assert_count "$T/claude.calls" "called" 0 "no agent is launched"
+assert_count "$T/gh.log" '^gh pr comment 12 ' 1 "one comment on the PR"
+body=$(awk '/^gh pr comment 12 /{f=1} f' "$T/gh.log")   # the call's arguments span several lines
+for want in 'Contents' 'Pull requests' '/revise' '"push": false' '<!-- agent:permission -->'; do
+  if grep -qF -- "$want" <<<"$body"; then ok "the comment has: $want"; else bad "the comment has: $want"; fi
+done
+if grep -qF 'source=' <<<"$body"; then bad "no source= marker (it never counts toward the revision budget)"; else ok "no source= marker (it never counts toward the revision budget)"; fi
+
+echo "identity: --revise issue comments on the issue (#78)"
+new_sandbox; echo '{"permissions":{"push":false}}' > "$T/repo.json"
+perm issue 12
+assert_count "$T/gh.log" '^gh issue comment 12 ' 1 "one comment on the issue"
+assert_count "$T/claude.calls" "called" 0 "no agent is launched"
+
+echo "identity: the comment is posted at most once (#78)"
+new_sandbox; echo '{"permissions":{"push":false}}' > "$T/repo.json"
+echo '[{"id":1,"created_at":"2026-10-29T10:00:00Z","body":"please /revise","author_association":"OWNER"},{"id":2,"created_at":"2026-10-29T10:01:00Z","body":"could not start <!-- agent:permission -->","author_association":"NONE"}]' > "$T/issue_comments_12.json"
+perm pr 12
+if [ "$(cat "$T/rc")" -ne 0 ]; then ok "still exits non-zero"; else bad "still exits non-zero"; fi
+assert_count "$T/gh.log" 'comment 12' 0 "nothing more is posted"
+
+echo "identity: other cases post nothing (#78)"
+new_sandbox; echo '{"permissions":{"push":true}}' > "$T/repo.json"
+perm pr 12
+assert_count "$T/gh.log" 'comment 12' 0 "an App that can push: no comment"
+new_sandbox; echo '{}' > "$T/repo.json"
+perm pr 12
+assert_count "$T/gh.log" 'comment 12' 0 "an unreadable permission: no comment"
+new_sandbox; echo '{"permissions":{"push":false}}' > "$T/repo.json"
+env -u GITHUB_ACTIONS -u AGENT_GH_TOKEN PROJECT_NUMBER=1 bash "$SCRIPT" --revise pr 12 > "$T/out" 2>&1
+assert_count "$T/gh.log" 'comment 12' 0 "a local run: no comment"
+new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"; echo '{"permissions":{"push":false}}' > "$T/repo.json"
+GITHUB_ACTIONS=true AGENT_GH_TOKEN=atok PROJECT_TOKEN=ptok PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1; rc=$?
+if [ "$rc" -ne 0 ]; then ok "--once still exits non-zero"; else bad "--once still exits non-zero"; fi
+assert_count "$T/gh.log" ' comment ' 0 "--once has no item to comment on"
+new_sandbox; echo '{"permissions":{"push":false}}' > "$T/repo.json"
+env -u AGENT_GH_TOKEN GITHUB_ACTIONS=true PROJECT_TOKEN=ptok PROJECT_NUMBER=1 bash "$SCRIPT" --revise pr 12 > "$T/out" 2>&1
+assert_grep "$T/out" 'AGENT_GH_TOKEN is missing' "the missing-token guard still stops first"
+assert_count "$T/gh.log" 'comment 12' 0 "and posts nothing"
+
 echo "identity: locally the push permission is not even checked"
 new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
 echo '{"permissions":{"push":false}}' > "$T/repo.json"

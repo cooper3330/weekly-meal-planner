@@ -119,6 +119,19 @@ if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
   can_push=$(gh api "repos/$REPO" --jq .permissions.push 2>/dev/null || true)
   if [ "$can_push" = "false" ]; then
     echo "$(ts) the GitHub App cannot push to $REPO: give the App Contents: Read & write (docs/adr/0014); not launching any agent" >&2
+    # A revision has an item to tell: say so there, once, so the owner does not have to open the Actions log.
+    if [ "$MODE" = revise ]; then
+      last=$(gh api "repos/$REPO/issues/$REV_NUMBER/comments" --paginate --jq '[.[] | select((.body // "") | contains("<!-- agent:"))] | last | (.body // "")' 2>/dev/null | tail -1 || true)
+      if ! grep -qF '<!-- agent:permission -->' <<<"$last"; then
+        reported=$(gh api "repos/$REPO" --jq .permissions 2>/dev/null || true)
+        msg="This revision could not start: the GitHub App that runs the agents cannot push to this repository. In the App's settings give it Contents: Read and write (and Pull requests: Read and write), accept the new permissions on the App's installation for this repository, then comment /revise again. The token reported these repository permissions: ${reported:-unavailable}"$'\n\n'"<!-- agent:permission -->"
+        if [ "$REV_KIND" = pr ]; then
+          gh pr comment "$REV_NUMBER" --repo "$REPO" --body "$msg" || true
+        else
+          gh issue comment "$REV_NUMBER" --repo "$REPO" --body "$msg" || true
+        fi
+      fi
+    fi
     exit 1
   fi
 fi
