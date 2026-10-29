@@ -48,6 +48,11 @@ if grep -qF '`scripts/board.sh status 12 Ready`' .claude/agents/architect.md; th
 if allowed "scripts/board.sh status 12 Ready"; then ok "scripts/board.sh status 12 Ready is allowed"; else bad "scripts/board.sh status 12 Ready is allowed"; fi
 if allowed "gh project item-edit --id X"; then bad "raw gh project item-edit is no longer allowed"; else ok "raw gh project item-edit is no longer allowed"; fi
 if grep -ohE '`gh project item-(edit|add)[^`]*`' .claude/agents/*.md | grep -q .; then bad "agent definitions do not tell agents to run raw gh project item-edit/item-add"; else ok "agent definitions do not tell agents to run raw gh project item-edit/item-add"; fi
+# The ready-label doorbell (#55): the architect's two commands must be covered by the allowlist.
+for c in "gh issue edit 12 --add-label ready" "scripts/board.sh status 12 Ready"; do
+  if allowed "$c"; then ok "allowed: $c"; else bad "NOT allowed: $c"; fi
+done
+if grep -qF '`gh issue edit <issue number> --add-label ready`' .claude/agents/architect.md; then ok "architect.md names the add-label command (checked above as a documented command)"; else bad "architect.md names the add-label command"; fi
 [ "$checked" -gt 5 ] && ok "checked $checked documented commands" || bad "checked enough documented commands (got $checked)"
 
 # --- the reviewer has its own, narrower allowlist (REVIEWER_ALLOWED_TOOLS in scripts/review.sh) ---

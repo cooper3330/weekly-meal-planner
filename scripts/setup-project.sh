@@ -22,6 +22,8 @@ for l in "type:feature:1d76db" "type:task:0e8a16" "type:architecture:5319e7" "ty
   IFS=: read -r a b c <<<"$l"
   gh label create "$a:$b" --color "$c" --repo "$REPO" --force
 done
+# The doorbell for the coordinator workflow (docs/workflow.md): adding it wakes the coordinator.
+gh label create ready --color 0e8a16 --description "Release this issue to the agents: sets the card to Ready and wakes the coordinator" --repo "$REPO" --force
 
 # Milestones act as epics (see docs/workflow.md). Create only the missing ones.
 existing_milestones=$(gh api "repos/$REPO/milestones?state=all&per_page=100" --jq '.[].title')

@@ -8,7 +8,7 @@ echo "setup: fresh repository"
 new_sandbox
 bash "$SCRIPT" > "$T/out" 2>&1; rc=$?
 assert_eq "$rc" "0" "exits 0"
-assert_count "$T/gh.log" 'label create' 6 "creates the four type labels plus risk:high and needs-human"
+assert_count "$T/gh.log" 'label create' 7 "creates the four type labels plus risk:high, needs-human and ready"
 assert_count "$T/gh.log" 'milestones -f title=' 4 "creates four milestones"
 assert_count "$T/gh.log" 'project create' 1 "creates one project"
 assert_grep "$T/gh.log" 'project create --owner cooper3330' "creates the project as the repo owner"
@@ -26,6 +26,14 @@ assert_grep "$T/gh.log" 'label create risk:high' "creates risk:high"
 assert_grep "$T/gh.log" 'label create needs-human' "creates needs-human"
 bash "$SCRIPT" > "$T/out" 2>&1; rc=$?
 assert_eq "$rc" "0" "re-run does not fail"
+
+echo "setup: the ready label"
+new_sandbox
+bash "$SCRIPT" > "$T/out" 2>&1
+assert_count "$T/gh.log" 'label create ready .*--description' 1 "creates ready, with a description"
+assert_grep "$T/gh.log" 'label create ready .*--force' "with --force, so a re-run updates instead of failing"
+bash "$SCRIPT" > "$T/out" 2>&1; rc=$?
+assert_eq "$rc" "0" "a second run does not fail"
 
 echo "setup: safe to re-run"
 new_sandbox

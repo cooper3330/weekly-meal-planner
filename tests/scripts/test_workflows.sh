@@ -50,6 +50,18 @@ workflow_violations() {
   grep -Eq 'ANTHROPIC_AUTH_TOKEN' <<<"$body" && echo "sets ANTHROPIC_AUTH_TOKEN"
   grep -Eq -- '--bare' <<<"$body" && echo "uses --bare"
   grep -Eq 'DISABLE_TELEMETRY' <<<"$body" && echo "sets DISABLE_TELEMETRY"
+  # A workflow that runs claude must not leave the read-only checkout token in git's config: git would
+  # push with it instead of the App token (#66).
+  if grep -Eq "$RUNS_CLAUDE_RE" <<<"$body"; then
+    awk '
+      function flush() { if (co && !ok) print "checkout leaves persist-credentials at its default (set persist-credentials: false)"; co = 0; ok = 0 }
+      /^[[:space:]]*#/ { next }
+      /^[[:space:]]*-[[:space:]]/ { flush() }
+      /uses:[[:space:]]*actions\/checkout@/ { co = 1 }
+      /persist-credentials:[[:space:]]*false/ { ok = 1 }
+      END { flush() }
+    ' "$f"
+  fi
   # The daily cap is a repository variable (ADR 0015); the guard reads it from its environment, so the step
   # that runs the preflight must pass it (#71). Without it the guard silently uses its default of 12.
   awk '
@@ -91,7 +103,8 @@ if [ -z "$v" ]; then ok "a job that only runs gh pr merge --disable-auto is exem
 echo "workflows: the auth and kill-switch checker bites on bad fixtures"
 for pair in "bad-api-key:ANTHROPIC_API_KEY" "bad-auth-token:ANTHROPIC_AUTH_TOKEN" "bad-bare:--bare" \
             "bad-telemetry:DISABLE_TELEMETRY" "bad-no-oauth:CLAUDE_CODE_OAUTH_TOKEN" \
-            "bad-no-paused:AGENTS_PAUSED" "bad-merge-no-paused:AGENTS_PAUSED" "bad-no-cap-var:AGENT_DAILY_RUNS" "bad-cap-var-other-step:AGENT_DAILY_RUNS"; do
+            "bad-no-paused:AGENTS_PAUSED" "bad-merge-no-paused:AGENTS_PAUSED" "bad-persist-credentials:persist-credentials" \
+            "bad-no-cap-var:AGENT_DAILY_RUNS" "bad-cap-var-other-step:AGENT_DAILY_RUNS"; do
   name="${pair%%:*}"; want="${pair#*:}"
   v=$(workflow_violations "$FIX/workflows/$name.yml")
   if grep -q -- "$want" <<<"$v"; then ok "$name is reported ($want)"; else bad "$name is reported ($want); got: $v"; fi
@@ -109,6 +122,21 @@ for f in .github/workflows/*.yml; do
 done
 echo "  checked $checked workflows, $claude_files of them run claude"
 if [ "$checked" -ge 1 ]; then ok "the checker saw $checked workflows"; else bad "the checker saw at least one workflow"; fi
+
+# --- git pushes as the GitHub App, not as the read-only checkout token (#66, ADR 0014) ---------
+for f in .github/workflows/coordinator.yml .github/workflows/review.yml; do
+  assert_grep "$f" 'persist-credentials:[[:space:]]*false' "$f: checkout does not persist the workflow token"
+done
+CO_=.github/workflows/coordinator.yml
+assert_grep "docs/workflow.md" 'Contents: Read & write' "workflow.md lists the App's Contents permission"
+assert_grep "docs/workflow.md" 'Pull requests: Read & write' "workflow.md lists the App's pull request permission"
+assert_grep "$CO_" 'gh auth setup-git' "coordinator.yml: git authenticates through gh auth setup-git"
+mint=$(grep -n 'create-github-app-token' "$CO_" | head -1 | cut -d: -f1)
+setup=$(grep -n 'gh auth setup-git' "$CO_" | head -1 | cut -d: -f1)
+run=$(grep -n 'run: scripts/coordinator.sh' "$CO_" | head -1 | cut -d: -f1)
+if [ -n "$mint" ] && [ -n "$setup" ] && [ -n "$run" ] && [ "$mint" -lt "$setup" ] && [ "$setup" -lt "$run" ]; then ok "setup-git runs after the App token is minted and before the coordinator"; else bad "setup-git runs after the App token is minted and before the coordinator (mint=$mint setup=$setup run=$run)"; fi
+step=$(awk '/- name:/ { name = $0 } /gh auth setup-git/ { print name; exit }' "$CO_")
+if sed -n "/$(printf '%s' "$step" | sed 's/[][\.*^$/]/\\&/g')/,/gh auth setup-git/p" "$CO_" | grep -Eq 'GH_TOKEN:[[:space:]]*\$\{\{[[:space:]]*steps\.app\.outputs\.token'; then ok "that step's GH_TOKEN is the App token"; else bad "that step's GH_TOKEN is the App token"; fi
 
 CI=.github/workflows/ci.yml
 echo "workflows: ci.yml"
@@ -160,8 +188,12 @@ assert_grep "$CO" '^  schedule:' "has a schedule trigger"
 assert_grep "$CO" "cron:[[:space:]]*['\"]17 \* \* \* \*['\"]" "runs hourly at minute 17"
 assert_grep "$CO" '^  workflow_dispatch:' "has workflow_dispatch"
 assert_grep "$CO" "^    if:[[:space:]]*vars\.AGENTS_PAUSED != 'true'" "job is gated by the AGENTS_PAUSED kill switch"
-assert_grep "$CO" '^  group:[[:space:]]*coordinator[[:space:]]*$' "concurrency group is coordinator"
-assert_grep "$CO" '^  cancel-in-progress:[[:space:]]*false' "never cancels a run in progress"
+# At job level, so a run whose job if: is false (an unrelated label, a stranger's issue) never enters
+# the group and cannot cancel a pending run (#55). Workflow-level concurrency would apply first.
+assert_grep "$CO" '^    concurrency:' "concurrency is set on the job"
+assert_no_grep "$CO" '^concurrency:' "and not on the workflow"
+assert_grep "$CO" '^      group:[[:space:]]*coordinator[[:space:]]*$' "concurrency group is coordinator"
+assert_grep "$CO" '^      cancel-in-progress:[[:space:]]*false' "never cancels a run in progress"
 tm=$(sed -nE 's/^    timeout-minutes:[[:space:]]*([0-9]+).*/\1/p' "$CO" | head -1)
 if [ -n "$tm" ] && [ "$tm" -le 55 ]; then ok "timeout-minutes is $tm (at most 55)"; else bad "timeout-minutes is at most 55 (got '$tm')"; fi
 assert_grep "$CO" '^  contents:[[:space:]]+read' "contents: read"
@@ -184,6 +216,65 @@ assert_grep "$CO" 'MAX_PARALLEL:[[:space:]]*\$\{\{[[:space:]]*vars\.MAX_PARALLEL
 assert_grep "$CO" 'AGENT_GIT_NAME' "sets AGENT_GIT_NAME"
 assert_grep "$CO" 'AGENT_GIT_EMAIL' "sets AGENT_GIT_EMAIL"
 assert_no_grep "$CO" 'ANTHROPIC_' "sets no ANTHROPIC_* variable"
+
+# --- event-driven triggers (#55, ADR 0015) ---------------------------------------------------------
+# job_if FILE: the whole job-level if: expression (continuation lines joined), one per file.
+job_if() {
+  awk '/^    if:/ { on = 1; print; next } on && /^    [A-Za-z-]+:/ { exit } on { print }' "$1" | tr '\n' ' '
+}
+# trigger_types FILE TRIGGER: the `types:` value under the trigger.
+trigger_types() {
+  awk -v t="$2" '
+    $0 ~ "^  " t ":" { inb = 1; next }
+    inb && /^  [^ ]/ { inb = 0 }
+    inb && /^    types:/ { sub(/^    types:[ ]*/, ""); print; exit }
+  ' "$1"
+}
+# trigger_violations FILE: an issues:labeled trigger needs a job condition naming the label.
+trigger_violations() {
+  local f="$1" cond
+  cond=$(job_if "$f")
+  if grep -Eq '^  issues:' "$f" && trigger_types "$f" issues | grep -q labeled \
+     && ! grep -Eq "github\.event\.label\.name[[:space:]]*==[[:space:]]*'ready'" <<<"$cond"; then
+    echo "issues: labeled has no job condition on the label name"
+  fi
+  # A closed issue can be opened and closed by any stranger (the issue template labels it type:task),
+  # and every run counts toward the daily cap: the closed branch must name a trusted author.
+  if grep -Eq '^  issues:' "$f" && trigger_types "$f" issues | grep -q closed \
+     && ! grep -Eq "github\.event\.issue\.author_association" <<<"$cond"; then
+    echo "issues: closed has no trusted-author condition (author_association)"
+  fi
+}
+
+echo "workflows: the label-trigger checker bites on a fixture with no label-name condition"
+if [ -n "$(trigger_violations "$FIX/workflows/bad-label-no-name.yml")" ]; then ok "reported as a violation"; else bad "reported as a violation"; fi
+
+echo "workflows: the closed-issue checker bites on a fixture with no trusted-author condition"
+if trigger_violations "$FIX/workflows/bad-closed-no-actor.yml" | grep -q 'trusted-author'; then ok "reported as a violation"; else bad "reported as a violation"; fi
+
+echo "workflows: coordinator.yml event triggers"
+assert_grep "$CO" '^  issues:' "has an issues trigger"
+assert_grep "$CO" '^  pull_request:' "has a pull_request trigger"
+assert_eq "$(trigger_types "$CO" pull_request)" "[closed]" "pull_request types: closed"
+assert_eq "$(trigger_branches "$CO" pull_request)" "[main]" "pull_request restricted to main"
+types=$(trigger_types "$CO" issues)
+if grep -q labeled <<<"$types" && grep -q closed <<<"$types"; then ok "issues types: labeled and closed"; else bad "issues types: labeled and closed (got $types)"; fi
+assert_no_grep "$CO" 'pull_request_target' "never uses pull_request_target"
+cond=$(job_if "$CO")
+if [ -z "$(trigger_violations "$CO")" ]; then ok "the labeled job condition names the label"; else bad "the labeled job condition names the label"; fi
+if [ -z "$(trigger_violations "$CO" | grep trusted-author)" ]; then ok "the closed job condition names a trusted author"; else bad "the closed job condition names a trusted author"; fi
+for role in OWNER MEMBER COLLABORATOR; do
+  if grep -qF -- "'$role'" <<<"$cond"; then ok "closed issues from a $role start a pass"; else bad "closed issues from a $role start a pass"; fi
+done
+for want in "github.event.label.name == 'ready'" "type:task" "type:bug" "github.event.pull_request.merged == true" \
+            "startsWith(github.event.pull_request.head.ref, 'issue-')" \
+            "github.event.pull_request.head.repo.full_name == github.repository" "vars.AGENTS_PAUSED != 'true'"; do
+  if grep -qF -- "$want" <<<"$cond"; then ok "job condition has: $want"; else bad "job condition has: $want"; fi
+done
+assert_grep "$CO" 'scripts/coordinator\.sh --ready-label \$\{\{[[:space:]]*github\.event\.issue\.number[[:space:]]*\}\}' "a label event runs --ready-label with the issue number"
+assert_grep "$CO" 'scripts/coordinator\.sh --once' "other events run --once"
+rl_line=$(grep -n -- '--ready-label' "$CO" | head -1 | cut -d: -f1)
+if [ -n "$rl_line" ] && [ -n "$g" ] && [ "$g" -lt "$rl_line" ]; then ok "preflight runs before the label-event pass too"; else bad "preflight runs before the label-event pass too"; fi
 
 RV=.github/workflows/review.yml
 echo "workflows: review.yml"

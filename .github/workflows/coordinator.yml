@@ -1,16 +1,22 @@
 name: Coordinator
 
-# Picks up approved work (Status = Ready) hourly, or at once with "Run workflow". Project item
-# events do not exist, so this is polling. See docs/adr/0014 (identities) and 0015 (this workflow).
+# Picks up approved work (Status = Ready). Project item events do not exist for a user-owned project,
+# so the triggers are: the hourly schedule (the fallback that catches anything missed), "Run workflow",
+# and events that mean work may have become ready (docs/adr/0014 identities, 0015 this workflow):
+#   - the `ready` label is applied to an issue (the doorbell: the owner approves a spec or releases a
+#     task, and the architect releases the tasks it plans);
+#   - a task or bug issue is closed, or an issue-* PR is merged into main (a `Blocked by:` line may
+#     have just cleared).
+# The pass never applies `ready` itself, so it cannot start itself.
 on:
   schedule:
     - cron: '17 * * * *'
   workflow_dispatch:
-
-# Exactly one coordinator at a time; a run in progress is never cancelled, the next one waits.
-concurrency:
-  group: coordinator
-  cancel-in-progress: false
+  issues:
+    types: [labeled, closed]
+  pull_request:
+    types: [closed]
+    branches: [main]
 
 # The workflow token only reads. Writes (branches, PRs, comments) use the GitHub App token.
 permissions:
@@ -19,7 +25,34 @@ permissions:
 jobs:
   coordinate:
     # Kill switch: set the repository variable AGENTS_PAUSED to true to stop all agent runs.
-    if: vars.AGENTS_PAUSED != 'true'
+    # Then, per trigger: the schedule and manual runs always; a label event only for `ready`; a closed
+    # issue only when it is a task or bug filed by the owner, a member or a collaborator (a stranger can
+    # open and close an issue from the template, and every run counts toward the daily cap; tasks the App
+    # files are covered by the merged-PR trigger); a PR only when merged, from this repository (no secrets for
+    # forks), and from an issue-* branch.
+    if: vars.AGENTS_PAUSED != 'true' && (
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && github.event.action == 'labeled' &&
+        github.event.label.name == 'ready') ||
+      (github.event_name == 'issues' && github.event.action == 'closed' &&
+        (github.event.issue.author_association == 'OWNER' ||
+         github.event.issue.author_association == 'MEMBER' ||
+         github.event.issue.author_association == 'COLLABORATOR') &&
+        (contains(github.event.issue.labels.*.name, 'type:task') ||
+         contains(github.event.issue.labels.*.name, 'type:bug'))) ||
+      (github.event_name == 'pull_request' &&
+        github.event.pull_request.merged == true &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        startsWith(github.event.pull_request.head.ref, 'issue-')))
+    # Exactly one coordinator at a time; a run in progress is never cancelled. Set on the job, not the
+    # workflow, so a run whose `if:` is false (an unrelated label, a stranger's issue) never enters the
+    # group and cannot supersede a pending run. A burst of events queues one pass behind the running one
+    # (GitHub cancels the older pending runs, which the daily cap does not count); each pass sweeps every
+    # eligible item, so nothing is lost.
+    concurrency:
+      group: coordinator
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     # The App token lives one hour.
     timeout-minutes: 55
@@ -27,6 +60,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0   # worktrees are created from origin/main
+          # Do not keep the read-only workflow token in git's config: git would push with it (403).
+          persist-credentials: false
+          ref: ${{ github.event.repository.default_branch }}   # a merged PR's merge ref may be gone
 
       - name: Mint the GitHub App token
         id: app
@@ -34,6 +70,11 @@ jobs:
         with:
           app-id: ${{ secrets.AGENT_APP_ID }}
           private-key: ${{ secrets.AGENT_APP_PRIVATE_KEY }}
+
+      - name: Let git act as the GitHub App
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: gh auth setup-git
 
       - name: Install the claude CLI
         run: npm install -g "@anthropic-ai/claude-code@2.1.308"
@@ -65,8 +106,25 @@ jobs:
             exit "$rc"
           fi
 
+      # A `ready` label event: set the card to Ready if needed, remove the label, then one pass.
+      - name: Run the coordinator (ready label)
+        if: steps.preflight.outputs.skip != 'true' && github.event_name == 'issues' && github.event.action == 'labeled'
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          AGENT_GH_TOKEN: ${{ steps.app.outputs.token }}
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          PROJECT_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+          PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER || '1' }}
+          MAX_PARALLEL: ${{ vars.MAX_PARALLEL || '1' }}
+          ARCHITECT_MAX_TURNS: ${{ vars.ARCHITECT_MAX_TURNS || '60' }}
+          DEVELOPER_MAX_TURNS: ${{ vars.DEVELOPER_MAX_TURNS || '80' }}
+          AGENT_GIT_NAME: ${{ steps.bot.outputs.name }}
+          AGENT_GIT_EMAIL: ${{ steps.bot.outputs.email }}
+        run: scripts/coordinator.sh --ready-label ${{ github.event.issue.number }}
+
+      # Every other trigger: one normal pass.
       - name: Run the coordinator
-        if: steps.preflight.outputs.skip != 'true'
+        if: steps.preflight.outputs.skip != 'true' && !(github.event_name == 'issues' && github.event.action == 'labeled')
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           AGENT_GH_TOKEN: ${{ steps.app.outputs.token }}
