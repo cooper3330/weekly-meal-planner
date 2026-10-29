@@ -50,6 +50,16 @@ workflow_violations() {
   grep -Eq 'ANTHROPIC_AUTH_TOKEN' <<<"$body" && echo "sets ANTHROPIC_AUTH_TOKEN"
   grep -Eq -- '--bare' <<<"$body" && echo "uses --bare"
   grep -Eq 'DISABLE_TELEMETRY' <<<"$body" && echo "sets DISABLE_TELEMETRY"
+  # The daily cap is a repository variable (ADR 0015); the guard reads it from its environment, so the step
+  # that runs the preflight must pass it (#71). Without it the guard silently uses its default of 12.
+  awk '
+    function flush() { if (pre && !cap) print "runs the preflight without passing vars.AGENT_DAILY_RUNS in that step"; pre = 0; cap = 0 }
+    /^[[:space:]]*#/ { next }
+    /^[[:space:]]*-[[:space:]]/ { flush() }
+    /agent-guard\.sh[[:space:]]+preflight/ { pre = 1 }
+    /AGENT_DAILY_RUNS:[[:space:]]*\$\{\{[[:space:]]*vars\.AGENT_DAILY_RUNS[[:space:]]*\}\}/ { cap = 1 }
+    END { flush() }
+  ' "$f"
   awk -v runs_re="$RUNS_CLAUDE_RE" '
     function flush() {
       if (job != "" && (runs || merges) && !paused)
@@ -81,7 +91,7 @@ if [ -z "$v" ]; then ok "a job that only runs gh pr merge --disable-auto is exem
 echo "workflows: the auth and kill-switch checker bites on bad fixtures"
 for pair in "bad-api-key:ANTHROPIC_API_KEY" "bad-auth-token:ANTHROPIC_AUTH_TOKEN" "bad-bare:--bare" \
             "bad-telemetry:DISABLE_TELEMETRY" "bad-no-oauth:CLAUDE_CODE_OAUTH_TOKEN" \
-            "bad-no-paused:AGENTS_PAUSED" "bad-merge-no-paused:AGENTS_PAUSED"; do
+            "bad-no-paused:AGENTS_PAUSED" "bad-merge-no-paused:AGENTS_PAUSED" "bad-no-cap-var:AGENT_DAILY_RUNS" "bad-cap-var-other-step:AGENT_DAILY_RUNS"; do
   name="${pair%%:*}"; want="${pair#*:}"
   v=$(workflow_violations "$FIX/workflows/$name.yml")
   if grep -q -- "$want" <<<"$v"; then ok "$name is reported ($want)"; else bad "$name is reported ($want); got: $v"; fi
