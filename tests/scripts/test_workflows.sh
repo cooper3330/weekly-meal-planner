@@ -299,6 +299,11 @@ rv_skipstep=$(awk '/- name: Comment that the daily cap skipped the review/ { on 
 if grep -q "if: steps.preflight.outputs.skip == 'true'" <<<"$rv_skipstep"; then ok "review.yml: the cap-skip comment step runs only when the preflight skipped"; else bad "review.yml: the cap-skip comment step runs only when the preflight skipped"; fi
 if grep -q 'agent-guard.sh skip-comment --number "$PR_NUMBER" --sha "$HEAD_SHA"' <<<"$rv_skipstep"; then ok "review.yml: the cap-skip step posts through agent-guard.sh skip-comment with the PR and head SHA"; else bad "review.yml: the cap-skip step posts through agent-guard.sh skip-comment with the PR and head SHA"; fi
 if grep -q 'github.event.pull_request.head.sha' <<<"$rv_skipstep" && grep -q 'vars.AGENT_DAILY_RUNS' <<<"$rv_skipstep"; then ok "review.yml: the cap-skip step gets the head SHA and AGENT_DAILY_RUNS"; else bad "review.yml: the cap-skip step gets the head SHA and AGENT_DAILY_RUNS"; fi
+# Coordinator and Revise mark a cap-skipped run with a step that runs only on that path (the guard reads it).
+for wf in "$CO" .github/workflows/revise.yml; do
+  capstep=$(awk '/- name: Daily cap skip$/ { on = 1; print; next } on && /^      - name:/ { exit } on { print }' "$wf")
+  if grep -q "if: steps.preflight.outputs.skip == 'true'" <<<"$capstep"; then ok "$wf: the Daily cap skip step runs only when the preflight skipped"; else bad "$wf: the Daily cap skip step runs only when the preflight skipped"; fi
+done
 assert_grep "$RV" '^      - name: Run the reviewer$' "review.yml: the reviewer step keeps the name the guard looks for when it discounts cap-skipped runs"
 assert_grep .github/workflows/coordinator.yml 'daily cap does count' "coordinator.yml: the concurrency comment says cancelled runs are counted"
 # review_budget_violations FILE: the reviewer's time budget (#61). The wait loop is bounded to at most

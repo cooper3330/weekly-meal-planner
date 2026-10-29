@@ -33,9 +33,10 @@ usage() {
 }
 
 # Prints how many agent runs count toward today's cap; returns 1 (with a message) when gh fails.
-# Skipped runs never count (their job condition was false). A Review run that concluded success but
-# whose "Run the reviewer" step was skipped was skipped by the cap itself (review.yml): it never called
-# claude, so it does not count either. Cancelled runs do count: a run cancelled by timeout or by hand
+# Skipped runs never count (their job condition was false). A run the cap itself skipped concludes
+# success without calling claude, so it does not count either: a Review run whose "Run the reviewer"
+# step was skipped (review.yml), or a Coordinator or Revise run whose "Daily cap skip" step ran (that
+# step runs only on the cap-skip path). Unreadable jobs mean the run is counted. Cancelled runs do count: a run cancelled by timeout or by hand
 # called claude, and one superseded while pending cannot be told apart from those, so it uses a slot too.
 count_runs() {
   local today names runs counted ids id n jobs repo_args=()
@@ -52,10 +53,10 @@ count_runs() {
           | select((.createdAt // "") | startswith($today))
           | select(.conclusion != "skipped")]' <<<"${runs:-[]}") || { echo "agent-guard: unreadable gh run list output" >&2; return 1; }
   n=$(jq 'length' <<<"$counted")
-  ids=$(jq -r '.[] | select(.workflowName == "Review" and .conclusion == "success" and .databaseId != null) | .databaseId' <<<"$counted")
+  ids=$(jq -r '.[] | select(.conclusion == "success" and .databaseId != null) | .databaseId' <<<"$counted")
   for id in $ids; do
     jobs=$(gh run view "$id" ${repo_args[@]+"${repo_args[@]}"} --json jobs 2>/dev/null) || continue
-    if jq -e '[.jobs[]?.steps[]? | select(.name == "Run the reviewer" and .conclusion == "skipped")] | length > 0' <<<"$jobs" >/dev/null 2>&1; then
+    if jq -e '[.jobs[]?.steps[]? | select((.name == "Run the reviewer" and .conclusion == "skipped") or (.name == "Daily cap skip" and .conclusion == "success"))] | length > 0' <<<"$jobs" >/dev/null 2>&1; then
       n=$((n - 1))
     fi
   done
@@ -87,7 +88,7 @@ preflight() {
 
 # Posts one comment on a PR whose review the daily cap skipped, once per head SHA.
 skip_comment() {
-  local number="" sha="" cap="${AGENT_DAILY_RUNS:-12}" count marker body repo_args=() api_repo='{owner}/{repo}'
+  local number="" sha="" cap="${AGENT_DAILY_RUNS:-12}" count marker body existing repo_args=() api_repo='{owner}/{repo}'
   while [ $# -gt 0 ]; do
     case "$1" in
       --number) [ $# -ge 2 ] || usage; number="$2"; shift 2 ;;
@@ -99,12 +100,15 @@ skip_comment() {
   [ -n "$sha" ] || usage
   [ -n "${REPO:-}" ] && { repo_args=(--repo "$REPO"); api_repo="$REPO"; }
   marker="<!-- agent:review-skipped sha=$sha -->"
-  if gh api "repos/$api_repo/issues/$number/comments" --paginate --jq '.[].body' 2>/dev/null | grep -qF -- "$marker"; then
+  # Read every page before matching: `grep -q` exiting early would SIGPIPE gh, and pipefail would
+  # then report "not posted" and comment twice.
+  existing=$(gh api "repos/$api_repo/issues/$number/comments" --paginate --jq '.[].body' 2>/dev/null) || existing=""
+  if grep -qF -- "$marker" <<<"$existing"; then
     echo "agent-guard: the cap-skip comment for $sha is already posted"
     return 0
   fi
   count=$(count_runs) || count="an unknown number of"
-  body="The review was skipped because the daily agent cap was reached ($count agent runs today (UTC), cap AGENT_DAILY_RUNS=$cap), so any earlier review verdict on this PR may be stale. Raise the repository variable AGENT_DAILY_RUNS, or wait for 00:00 UTC, then re-run the Review job (a skipped run does not count toward the cap). $marker"
+  body="The review was skipped because the daily agent cap was reached ($count agent runs today (UTC), cap AGENT_DAILY_RUNS=$cap), so any earlier review verdict on this PR may be stale. Raise the repository variable AGENT_DAILY_RUNS, or wait for 00:00 UTC, then re-run the Review job (a run the cap skipped does not count toward the cap). $marker"
   gh pr comment "$number" ${repo_args[@]+"${repo_args[@]}"} --body "$body" >/dev/null || echo "agent-guard: could not post the cap-skip comment" >&2
 }
 

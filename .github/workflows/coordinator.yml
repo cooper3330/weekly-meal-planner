@@ -107,6 +107,11 @@ jobs:
             exit "$rc"
           fi
 
+      # Runs only on the cap-skip path. The guard reads it to leave this run out of the daily count.
+      - name: Daily cap skip
+        if: steps.preflight.outputs.skip == 'true'
+        run: echo "The daily cap skipped this run; it is not counted."
+
       # A `ready` label event: set the card to Ready if needed, remove the label, then one pass.
       - name: Run the coordinator (ready label)
         if: steps.preflight.outputs.skip != 'true' && github.event_name == 'issues' && github.event.action == 'labeled'

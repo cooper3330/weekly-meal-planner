@@ -73,6 +73,24 @@ out=$(AGENT_DAILY_RUNS=12 pf); rc=$?; assert_eq "$rc" "78" "Review runs that ran
 rm -f "$T"/run_view_9*.json
 { mkruns 11 "$today" success; mkrr 5 901; } | jq -s add > "$T/run_list.json"
 out=$(AGENT_DAILY_RUNS=12 pf); rc=$?; assert_eq "$rc" "78" "a Review run whose jobs cannot be read is counted"
+# Coordinator and Revise runs the cap skipped conclude success with only their "Daily cap skip" step run.
+mkwr() { jq -n --argjson n "$1" --argjson id "$2" --arg w "$3" --arg d "$today" '[range($n) | {databaseId:($id + .), workflowName:$w, conclusion:"success", status:"completed", createdAt:($d + "T10:00:00Z")}]'; }
+for i in 911 912 913 914 915; do
+  echo '{"jobs":[{"name":"pass","steps":[{"name":"Preflight","conclusion":"success"},{"name":"Daily cap skip","conclusion":"success"},{"name":"Run the coordinator (ready label)","conclusion":"skipped"},{"name":"Run the coordinator","conclusion":"skipped"}]}]}' > "$T/run_view_$i.json"
+done
+{ mkruns 11 "$today" success; mkwr 5 911 Coordinator; } | jq -s add > "$T/run_list.json"
+out=$(AGENT_DAILY_RUNS=12 pf); rc=$?; assert_eq "$rc" "0" "cap-skipped Coordinator runs (Daily cap skip step ran) are not counted"
+for i in 911 912 913 914 915; do
+  echo '{"jobs":[{"name":"revise","steps":[{"name":"Preflight","conclusion":"success"},{"name":"Daily cap skip","conclusion":"success"},{"name":"Revise","conclusion":"skipped"}]}]}' > "$T/run_view_$i.json"
+done
+{ mkruns 11 "$today" success; mkwr 5 911 Revise; } | jq -s add > "$T/run_list.json"
+out=$(AGENT_DAILY_RUNS=12 pf); rc=$?; assert_eq "$rc" "0" "cap-skipped Revise runs (Daily cap skip step ran) are not counted"
+for i in 911 912 913 914 915; do
+  echo '{"jobs":[{"name":"pass","steps":[{"name":"Preflight","conclusion":"success"},{"name":"Daily cap skip","conclusion":"skipped"},{"name":"Run the coordinator (ready label)","conclusion":"skipped"},{"name":"Run the coordinator","conclusion":"success"}]}]}' > "$T/run_view_$i.json"
+done
+{ mkruns 11 "$today" success; mkwr 5 911 Coordinator; } | jq -s add > "$T/run_list.json"
+out=$(AGENT_DAILY_RUNS=12 pf); rc=$?; assert_eq "$rc" "78" "Coordinator runs that ran claude (one run step skipped by event type) are counted"
+rm -f "$T"/run_view_9*.json
 { mkruns 11 "$today" success; mkruns 5 "$today" success Other; } | jq -s add > "$T/run_list.json"
 out=$(AGENT_DAILY_RUNS=12 pf); rc=$?; assert_eq "$rc" "0" "workflows outside the list are not counted"
 mkruns 12 "$today" success > "$T/run_list.json"
@@ -104,6 +122,13 @@ assert_eq "$rc" "0" "a re-run on the same SHA exits 0"
 assert_count "$T/gh.log" '^gh pr comment' 0 "a re-run on the same SHA posts nothing"
 out=$(REPO=o/r AGENT_DAILY_RUNS=12 guard skip-comment --number 7 --sha def456 2>&1)
 assert_count "$T/gh.log" '^gh pr comment 7 ' 1 "a new head SHA gets its own comment"
+# The marker first, then far more output than a pipe holds: an early-exiting grep must not make gh die
+# with SIGPIPE (pipefail) and the check conclude "not posted".
+jq -n '[{body:"<!-- agent:review-skipped sha=abc123 -->"}] + [range(40000) | {body:("filler " + ("x" * 200))}]' > "$T/issue_comments_7.json"
+: > "$T/gh.log"
+out=$(REPO=o/r AGENT_DAILY_RUNS=12 guard skip-comment --number 7 --sha abc123 2>&1); rc=$?
+assert_eq "$rc" "0" "a marker followed by many more comments exits 0"
+assert_count "$T/gh.log" '^gh pr comment' 0 "a marker followed by many more comments posts nothing"
 out=$(guard skip-comment --number 7 2>&1); rc=$?; assert_eq "$rc" "2" "skip-comment without --sha is a usage error"
 
 echo "run: argument errors"
