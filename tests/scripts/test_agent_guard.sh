@@ -55,7 +55,7 @@ out=$(AGENT_DAILY_RUNS=12 pf); rc=$?; assert_eq "$rc" "0" "yesterday's runs are 
 { mkruns 11 "$today" success; mkruns 5 "$today" skipped; } | jq -s add > "$T/run_list.json"
 out=$(AGENT_DAILY_RUNS=12 pf); rc=$?; assert_eq "$rc" "0" "skipped runs are not counted"
 { mkruns 11 "$today" success; mkruns 5 "$today" cancelled; } | jq -s add > "$T/run_list.json"
-out=$(AGENT_DAILY_RUNS=12 pf); rc=$?; assert_eq "$rc" "0" "cancelled runs (superseded while pending) are not counted"
+out=$(AGENT_DAILY_RUNS=12 pf); rc=$?; assert_eq "$rc" "78" "cancelled Coordinator runs are counted (a timed-out or hand-cancelled run called claude; a run cannot be told apart from a superseded pending one)"
 { mkruns 11 "$today" success; mkruns 5 "$today" cancelled Review; } | jq -s add > "$T/run_list.json"
 out=$(AGENT_DAILY_RUNS=12 pf); rc=$?; assert_eq "$rc" "78" "cancelled Review runs (cancel-in-progress, they called claude) are counted"
 { mkruns 11 "$today" success; mkruns 5 "$today" success Other; } | jq -s add > "$T/run_list.json"
