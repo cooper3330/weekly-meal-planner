@@ -75,7 +75,7 @@ Moving every planned task to Ready by hand was a chore, not a decision, so the a
 Approving a spec or releasing a task is one action: add the `ready` label to the issue. A GitHub Actions workflow cannot trigger on a card move in a user-owned project (ADR 0015), so the label is the doorbell. Within seconds the coordinator workflow sets the card to Ready (unless it is already moving), removes the label, and runs a pass. The architect applies the label to the tasks it plans, so they are dispatched at once; tasks parked in Plan Review get no label.
 
 - The board stays the source of truth. The label only triggers a pass, so a repeated or stale label is harmless. A card already in Architecture, Implementation, In Review or Done is never moved backwards.
-- Moving the card to Ready by hand still works; the hourly pass picks it up. The hourly schedule is also the fallback for any missed event.
+- Moving the card to Ready by hand still works; the hourly pass picks it up. Every pass (hourly included) first releases any open issue still labelled `ready`, so an event skipped by `AGENTS_PAUSED`, the daily cap, a cancelled queued run or a failed read is recovered by the next scheduled pass.
 - Closing a task or bug issue, or merging an `issue-*` PR into `main`, also starts a pass, so a task whose `Blocked by:` line just cleared is released without waiting.
 - Re-run `scripts/setup-project.sh` once (it is safe to re-run) to create the `ready` label. `AGENTS_PAUSED`, the preflight and the daily cap apply to these triggers like any other.
 
