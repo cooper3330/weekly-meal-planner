@@ -69,6 +69,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
 
       - name: Map the event to the item to revise
         id: target
@@ -99,6 +100,8 @@ jobs:
         with:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
+          # Do not keep the read-only workflow token in git's config: git would push with it (403).
+          persist-credentials: false
 
       - name: Mint the GitHub App token
         id: app
@@ -106,6 +109,11 @@ jobs:
         with:
           app-id: ${{ secrets.AGENT_APP_ID }}
           private-key: ${{ secrets.AGENT_APP_PRIVATE_KEY }}
+
+      - name: Let git act as the GitHub App
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: gh auth setup-git
 
       - name: Install the claude CLI
         run: npm install -g "@anthropic-ai/claude-code@2.1.308"
