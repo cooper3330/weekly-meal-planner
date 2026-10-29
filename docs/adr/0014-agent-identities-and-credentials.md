@@ -49,3 +49,6 @@ Four credentials, each used only for its own job:
 - Agents cannot approve their own work or change their own rules unreviewed, which supports principles 6 and 7.
 - P8 Simple over clever: one App, the built-in token, one narrow PAT. No per-agent Apps; the role marker identifies the agent.
 - No secrets are committed. Every credential is a repository secret, and the subscription token is never logged.
+
+## Amendment (task #66): git pushes as the App
+The first agent push from Actions failed with `403` for `github-actions[bot]`. `actions/checkout` persists the workflow `GITHUB_TOKEN` (read-only here) in git's config, and `git` used it instead of the App token, which only `gh` had. Agent workflows therefore set `persist-credentials: false` on checkout and run `gh auth setup-git` with the App token before the coordinator, so `git fetch` and `git push` authenticate as `<app>[bot]` (and a push starts CI). `test_workflows.sh` fails any workflow that runs an agent and keeps the default. The App needs the Contents read/write permission listed above; the coordinator stops early with that message when GitHub reports that the App cannot push.

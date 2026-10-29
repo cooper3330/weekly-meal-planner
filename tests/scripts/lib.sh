@@ -86,6 +86,7 @@ if [ "$1" = "api" ]; then
       n="${path#repos/*/issues/}"; f="$STUB_DIR/issue_state_${n%%/*}.json"
       [ -f "$f" ] || echo '{"state":"open"}' > "$f"
       emit "$f" ;;
+    repos/*/*)                 [ -n "${STUB_REPO_API_FAIL:-}" ] && { echo "gh: HTTP 500" >&2; exit 1; }; emit "$STUB_DIR/repo.json" ;;   # the repository itself (.permissions.push)
     *) echo '[]' ;;
   esac
   exit 0
@@ -97,6 +98,15 @@ case "$1 $2" in
   "project view")        emit "$STUB_DIR/project.json" ;;
   "project field-list")  emit "$STUB_DIR/fields.json" ;;
   "project item-add")    echo "${STUB_ITEM_ID:-PVTI_added}" ;;
+  "project item-edit")   # stateful: the card takes the Status whose option ID was passed, so a later read sees it
+    id=""; opt=""
+    for ((i = 0; i < ${#args[@]}; i++)); do
+      case "${args[$i]}" in --id) id="${args[$((i + 1))]}" ;; --single-select-option-id) opt="${args[$((i + 1))]}" ;; esac
+    done
+    name=$(jq -r --arg o "$opt" '[.fields[] | select(.name=="Status") | .options[]? | select(.id==$o) | .name] | first // empty' "$STUB_DIR/fields.json")
+    if [ -n "$name" ]; then
+      jq --arg id "$id" --arg n "$name" '(.items[] | select(.id==$id) | .status) = $n' "$STUB_DIR/items.json" > "$STUB_DIR/items.tmp" && mv "$STUB_DIR/items.tmp" "$STUB_DIR/items.json"
+    fi ;;
   "project create")     echo '{"number":7}' > "$STUB_DIR/created.json"; emit "$STUB_DIR/created.json" ;;
   "project link")        if [ -n "${STUB_LINK_FAIL:-}" ]; then echo "has different owner from '@me'" >&2; exit 1; fi ;;
   "pr list")             emit "$STUB_DIR/prs.json" ;;

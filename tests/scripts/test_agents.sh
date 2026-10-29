@@ -109,6 +109,12 @@ for a in coordinator architect developer; do
   assert_no_grep ".claude/agents/$a.md" 'gh project item-(edit|add)' "$a: no raw gh project item-edit or item-add"
 done
 
+echo "agents: the architect rings the ready-label doorbell for the tasks it releases (#55)"
+assert_grep ".claude/agents/architect.md" '`gh issue edit <issue number> --add-label ready`' "architect has the exact command that applies the ready label"
+assert_grep ".claude/agents/architect.md" '`scripts/board\.sh status <issue number> Ready`' "and the exact command that sets the card to Ready"
+assert_grep ".claude/agents/architect.md" 'Plan Review.*no label|no label.*Plan Review|not (apply|add) .*label' "tasks parked in Plan Review get no label"
+assert_grep "docs/workflow.md" '`ready`' "workflow.md documents the ready label"
+
 R=.claude/agents/reviewer.md
 echo "agents: the reviewer"
 if [ -f "$R" ]; then ok "reviewer.md exists"; else bad "reviewer.md exists"; fi
@@ -128,6 +134,7 @@ assert_grep "$R" 'delete.*skip.*loosen|deletes, skips or loosens' "adds risk:hig
 assert_grep "$R" 'make check' "adds risk:high when make check is relaxed"
 assert_grep "$R" 'pyproject\.toml' "and when lint or type settings in pyproject.toml are relaxed"
 assert_grep "$R" '[Cc]onstitution check' "includes a constitution check"
+assert_grep "$R" 'A red or missing `check` is a reason to request changes' "a red, missing or pending check is a reason to request changes"
 assert_grep "$R" 'gh pr review N --(approve|request-changes)' "has the exact review command"
 assert_grep "$R" '\.agent-tmp/review\.md' "writes the review under .agent-tmp/"
 assert_grep "$R" 'arch-' "knows arch-* ADR PRs"
