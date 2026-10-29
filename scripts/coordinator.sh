@@ -68,6 +68,16 @@ if [ -n "${AGENT_GIT_NAME:-}" ] && [ -n "${AGENT_GIT_EMAIL:-}" ]; then
 fi
 
 REPO="${REPO:-$(gh repo view --json nameWithOwner -q .nameWithOwner)}"
+
+# In Actions, stop early (with the fix named) if the App cannot push; agents would otherwise run to the
+# end of a task and fail at `git push`. Best effort: an unreadable answer never blocks the run.
+if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+  can_push=$(gh api "repos/$REPO" --jq .permissions.push 2>/dev/null || true)
+  if [ "$can_push" = "false" ]; then
+    echo "$(ts) the GitHub App cannot push to $REPO: give the App Contents: Read & write (docs/adr/0014); not launching any agent" >&2
+    exit 1
+  fi
+fi
 OWNER="${OWNER:-${REPO%%/*}}"
 INTERVAL="${INTERVAL:-300}"
 MAX_PARALLEL="${MAX_PARALLEL:-1}"
