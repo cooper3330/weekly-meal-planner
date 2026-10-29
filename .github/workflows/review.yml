@@ -66,6 +66,7 @@ jobs:
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           GH_TOKEN: ${{ github.token }}
+          AGENT_DAILY_RUNS: ${{ vars.AGENT_DAILY_RUNS }}   # unset means the guard's default (12)
         run: |
           rc=0
           scripts/agent-guard.sh preflight || rc=$?

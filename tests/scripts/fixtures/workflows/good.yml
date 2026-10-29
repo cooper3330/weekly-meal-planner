@@ -14,6 +14,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: bash scripts/agent-guard.sh preflight
+        env:
+          AGENT_DAILY_RUNS: ${{ vars.AGENT_DAILY_RUNS }}
       - run: claude -p "hello"
   merge:
     if: vars.AGENTS_PAUSED != 'true'
