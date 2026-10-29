@@ -58,11 +58,11 @@ if grep -qF 'acceptEdits' "$args"; then bad "runs without --permission-mode acce
 echo "review.sh: goes through the agent guard"
 assert_grep scripts/review.sh 'GUARD"? run --kind pr --number' "wraps claude in agent-guard.sh run --kind pr --number N"
 : > "$T/gh.log"
-echo "Usage limit reached. Your limit resets at 5pm" > "$T/claude.out"
-rc=0; bash scripts/review.sh 71 >/dev/null 2>&1 || rc=$?
+echo "Usage limit reached. Your limit resets at 5pm" > "$T/claude.err"
+rc=0; STUB_CLAUDE_FAIL=1 bash scripts/review.sh 71 >/dev/null 2>&1 || rc=$?
 if [ "$rc" -ne 0 ]; then ok "a usage-limit stop exits non-zero"; else bad "a usage-limit stop exits non-zero"; fi
 assert_grep "$T/gh.log" 'pr comment 71' "and the guard comments on the PR"
-rm -f "$T/claude.out"
+rm -f "$T/claude.err"
 
 echo "review.sh: the prompt for a PR that closes a task"
 printf 'Closes #36\n' > "$T/pr_body.txt"
