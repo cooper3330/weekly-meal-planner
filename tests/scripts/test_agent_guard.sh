@@ -61,6 +61,8 @@ out=$(AGENT_DAILY_RUNS=12 pf); rc=$?; assert_eq "$rc" "78" "cancelled Review run
 { mkruns 11 "$today" success; mkruns 5 "$today" success Other; } | jq -s add > "$T/run_list.json"
 out=$(AGENT_DAILY_RUNS=12 pf); rc=$?; assert_eq "$rc" "0" "workflows outside the list are not counted"
 mkruns 12 "$today" success > "$T/run_list.json"
+out=$(AGENT_DAILY_RUNS= pf); rc=$?; assert_eq "$rc" "78" "an empty cap (an unset repository variable passed through) means 12"
+mkruns 12 "$today" success > "$T/run_list.json"
 out=$(unset AGENT_DAILY_RUNS; pf); rc=$?; assert_eq "$rc" "78" "unset cap means 12"
 mkruns 11 "$today" success > "$T/run_list.json"
 out=$(unset AGENT_DAILY_RUNS; pf); rc=$?; assert_eq "$rc" "0" "unset cap, 11 runs passes"
