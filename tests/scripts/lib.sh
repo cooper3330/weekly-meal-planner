@@ -142,6 +142,8 @@ printf '%s\n' "$@" > "$STUB_DIR/claude.args"
 { echo "---CALL---"; printf '%s\n' "$@"; } >> "$STUB_DIR/claude.all"
 # claude.out is what the run prints (for example --output-format json); STUB_CLAUDE_FAIL fails it.
 [ -f "$STUB_DIR/claude.out" ] && cat "$STUB_DIR/claude.out"
+# claude.err is what the CLI prints on stderr; a real usage-limit stop is a failing run with its message here.
+[ -f "$STUB_DIR/claude.err" ] && cat "$STUB_DIR/claude.err" >&2
 [ -n "${STUB_CLAUDE_FAIL:-}" ] && exit 1
 exit 0
 STUB
