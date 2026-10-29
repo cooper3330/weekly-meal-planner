@@ -80,3 +80,34 @@ jobs:
         run: |
           mkdir -p .agent-tmp
           scripts/review.sh "$PR_NUMBER"
+
+      # The merge gate is a script, not the model. It runs with the App token (not github.token) so
+      # that the merge's push to main triggers CI on main (ADR 0014). The token is minted after the
+      # reviewer has finished, so the model never sees it.
+      # The gate and its risk rules come from the base branch, never from the PR: the PR's own
+      # scripts/ are untrusted and must not run with the App token. (Until after-review.sh exists
+      # on main, the step below is skipped.)
+      - name: Check out the base branch for the merge gate
+        if: steps.preflight.outputs.skip != 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          path: trusted
+          persist-credentials: false
+
+      - name: Mint the GitHub App token
+        if: steps.preflight.outputs.skip != 'true'
+        id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ secrets.AGENT_APP_ID }}
+          private-key: ${{ secrets.AGENT_APP_PRIVATE_KEY }}
+
+      - name: Enable auto-merge for low-risk approved PRs
+        if: steps.preflight.outputs.skip != 'true' && hashFiles('trusted/scripts/after-review.sh') != ''
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          REPO: ${{ github.repository }}
+          AGENTS_PAUSED: ${{ vars.AGENTS_PAUSED }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: bash trusted/scripts/after-review.sh "$PR_NUMBER"

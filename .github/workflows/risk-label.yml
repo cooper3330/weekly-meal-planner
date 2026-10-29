@@ -3,10 +3,14 @@ name: Risk label
 # Only PRs into main are gated. pull_request_target runs with the base repository's workflow and
 # a write token, so this job checks out the base ref only (the default for this event) and never
 # executes or reads anything from the PR head. It only ever adds the label.
+#
+# The `labeled` event turns auto-merge off when risk:high is added (ADR 0013). That job is not gated
+# by AGENTS_PAUSED on purpose: a PR whose auto-merge is already on must stay stoppable while agents
+# are paused. It uses the App token and checks out nothing.
 on:
   pull_request_target:
     branches: [main]
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, labeled]
 
 permissions:
   contents: read
@@ -14,6 +18,7 @@ permissions:
 
 jobs:
   label:
+    if: github.event.action != 'labeled'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -31,4 +36,31 @@ jobs:
           echo "risk: $risk"
           if [ "$risk" = high ]; then
             gh pr edit "$PR" --repo "$REPO" --add-label risk:high
+          fi
+
+  disable-auto-merge:
+    if: github.event.action == 'labeled' && github.event.label.name == 'risk:high'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Mint the GitHub App token
+        id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ secrets.AGENT_APP_ID }}
+          private-key: ${{ secrets.AGENT_APP_PRIVATE_KEY }}
+      - name: Turn auto-merge off
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        # A no-op when auto-merge was not enabled; any other failure fails the job, so it is seen.
+        run: |
+          if out=$(gh pr merge "$PR" --repo "$REPO" --disable-auto 2>&1); then
+            echo "auto-merge disabled"
+          elif grep -qi 'not enabled' <<<"$out"; then
+            echo "auto-merge was not enabled"
+          else
+            echo "$out" >&2
+            exit 1
           fi

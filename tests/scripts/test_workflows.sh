@@ -121,7 +121,18 @@ assert_eq "$(trigger_branches "$FIX/no-branch-filter.yml" pull_request_target)" 
 if [ -f "$RL" ]; then ok "risk-label.yml exists"; else bad "risk-label.yml exists"; finish; exit; fi
 assert_grep "$RL" '^  pull_request_target:' "uses pull_request_target"
 assert_eq "$(trigger_branches "$RL" pull_request_target)" "[main]" "restricted to main"
-assert_grep "$RL" 'types:[[:space:]]*\[opened, synchronize, reopened\]' "opened, synchronize, reopened"
+assert_grep "$RL" 'types:[[:space:]]*\[opened, synchronize, reopened, labeled\]' "opened, synchronize, reopened, labeled"
+# job_block FILE JOB: the lines of one job
+job_block() { awk -v j="  $2:" '$0 == j { on = 1; print; next } on && /^  [A-Za-z0-9_-]+:/ { exit } on { print }' "$1"; }
+label_job=$(job_block "$RL" label)
+if grep -q "github.event.action != 'labeled'" <<<"$label_job"; then ok "the labeling job skips the labeled event"; else bad "the labeling job skips the labeled event"; fi
+da_job=$(job_block "$RL" disable-auto-merge)
+if grep -q 'gh pr merge .*--disable-auto' <<<"$da_job"; then ok "a job runs gh pr merge --disable-auto"; else bad "a job runs gh pr merge --disable-auto"; fi
+if grep -q "github.event.label.name == 'risk:high'" <<<"$da_job" && grep -q "github.event.action == 'labeled'" <<<"$da_job"; then ok "the disable job runs only when the label added is risk:high"; else bad "the disable job runs only when the label added is risk:high"; fi
+if grep -q 'AGENTS_PAUSED' <<<"$da_job"; then bad "the disable job has no AGENTS_PAUSED condition"; else ok "the disable job has no AGENTS_PAUSED condition"; fi
+if grep -q 'actions/checkout' <<<"$da_job"; then bad "the disable job has no checkout step"; else ok "the disable job has no checkout step"; fi
+if grep -q 'create-github-app-token@' <<<"$da_job" && grep -Eq 'GH_TOKEN:[[:space:]]*\$\{\{[[:space:]]*steps\.app\.outputs\.token' <<<"$da_job"; then ok "the disable job uses the App token"; else bad "the disable job uses the App token"; fi
+if grep -Eq 'github\.token|secrets\.GITHUB_TOKEN' <<<"$da_job"; then bad "the disable job does not use the workflow token"; else ok "the disable job does not use the workflow token"; fi
 assert_no_grep "$RL" 'ref:' "checkout has no ref: (base only)"
 assert_no_grep "$RL" 'github\.event\.pull_request\.head' "never references the PR head"
 assert_no_grep "$RL" 'remove-label' "never removes the label"
@@ -188,7 +199,19 @@ assert_grep "$RV" '^  issues:[[:space:]]+read' "issues: read"
 assert_grep "$RV" '^  checks:[[:space:]]+read' "checks: read"
 assert_no_grep "$RV" 'contents:[[:space:]]+write' "no contents: write"
 assert_grep "$RV" 'GH_TOKEN:[[:space:]]*\$\{\{[[:space:]]*github\.token[[:space:]]*\}\}' "GH_TOKEN is github.token"
-assert_no_grep "$RV" 'create-github-app-token|AGENT_APP|AGENT_GH_TOKEN|PROJECT_TOKEN' "does not use the App token (the reviewer is never the PR author)"
+assert_no_grep "$RV" 'AGENT_GH_TOKEN|PROJECT_TOKEN' "uses neither AGENT_GH_TOKEN nor PROJECT_TOKEN"
+# The reviewer's own steps use the workflow token (never the PR author); only the merge gate uses the App token.
+rv_review_step=$(awk '/- name: Run the reviewer/ { on = 1; print; next } on && /^      - / { exit } on { print }' "$RV")
+if grep -Eq 'GH_TOKEN:[[:space:]]*\$\{\{[[:space:]]*github\.token' <<<"$rv_review_step" && ! grep -q 'steps\.app' <<<"$rv_review_step"; then ok "the reviewer step uses github.token, not the App token"; else bad "the reviewer step uses github.token, not the App token"; fi
+rv_merge_step=$(awk '/- name: Enable auto-merge/ { on = 1; print; next } on && /^      - / { exit } on { print }' "$RV")
+if grep -Eq 'GH_TOKEN:[[:space:]]*\$\{\{[[:space:]]*steps\.app\.outputs\.token' <<<"$rv_merge_step"; then ok "the merge step uses the App token"; else bad "the merge step uses the App token"; fi
+if grep -Eq 'github\.token|secrets\.GITHUB_TOKEN' <<<"$rv_merge_step"; then bad "the merge step does not use github.token"; else ok "the merge step does not use github.token"; fi
+assert_grep "$RV" 'actions/create-github-app-token@' "mints the App token"
+assert_grep "$RV" 'path:[[:space:]]*trusted' "the merge gate comes from a separate base-branch checkout"
+assert_grep "$RV" 'trusted/scripts/after-review\.sh' "runs after-review.sh from the base-branch checkout"
+r=$(grep -n 'scripts/review\.sh "' "$RV" | head -1 | cut -d: -f1)
+a=$(grep -n 'scripts/after-review\.sh "' "$RV" | head -1 | cut -d: -f1)
+if [ -n "$r" ] && [ -n "$a" ] && [ "$r" -lt "$a" ]; then ok "after-review.sh runs after review.sh"; else bad "after-review.sh runs after review.sh"; fi
 assert_grep "$RV" 'CLAUDE_CODE_OAUTH_TOKEN:[[:space:]]*\$\{\{[[:space:]]*secrets\.CLAUDE_CODE_OAUTH_TOKEN' "CLAUDE_CODE_OAUTH_TOKEN comes from secrets"
 assert_no_grep "$RV" 'ANTHROPIC_' "sets no ANTHROPIC_* variable"
 assert_grep "$RV" 'check-runs|gh pr checks' "waits for the check status on the head SHA"
