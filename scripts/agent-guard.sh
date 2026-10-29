@@ -7,7 +7,7 @@
 #       any other non-zero = misconfiguration (the message says what to fix). Never prints the token.
 #   agent-guard.sh run --kind <pr|issue|none> [--number N] -- <command...>
 #       Runs the command once and passes its exit code through. When its output shows a
-#       subscription usage-limit stop, posts one comment on the item (kind none: only logs) and
+#       subscription usage-limit stop (non-zero exit, with the CLI's own message on stderr or in the final is_error json result; never agent-written text), posts one comment on the item (kind none: only logs) and
 #       exits non-zero. It never retries.
 # Env: AGENT_DAILY_RUNS (default 12), REPO (owner/name, passed to gh when set).
 # Works with macOS (BSD) tools and bash 3.2.
@@ -15,6 +15,8 @@ set -uo pipefail
 
 # Usage-limit stop messages (extended regex, case-insensitive), kept in one place.
 LIMIT_PATTERNS='usage limit reached|5-hour limit reached|you.ve hit your (usage )?limit|hit your usage limit|reached your usage limit'
+# The reset time, when reported, is only a time phrase such as "resets at 5pm" or "resets 17:00 UTC".
+RESET_PATTERN='resets?( at)?[[:space:]]+([0-9]{1,2}:[0-9]{2}|[0-9]{1,2} ?[ap]m)( ?\(?UTC\)?)?'
 # Workflow names whose runs count toward the daily cap, kept in one place (ADR 0015).
 AGENT_WORKFLOWS='Coordinator Revise Review'
 # The comment signature the review loop uses to recognise this guard's comments.
@@ -79,14 +81,22 @@ run() {
   esac
   [ $# -gt 0 ] || usage
 
-  local out err rc=0 reset body
+  local out err rc=0 reset body cli_text=""
   out=$(mktemp "${TMPDIR:-/tmp}/guard-out-XXXXXX")
   err=$(mktemp "${TMPDIR:-/tmp}/guard-err-XXXXXX")
   "$@" >"$out" 2>"$err" || rc=$?
   cat "$out"
   cat "$err" >&2
-  if cat "$out" "$err" | grep -Eiq -- "$LIMIT_PATTERNS"; then
-    reset=$(cat "$out" "$err" | grep -Ei 'resets?' | head -1 | sed -E 's/^.*[Rr]esets?[[:space:]]*/resets /' | cut -c1-80 || true)
+  # Only text the CLI itself produced for an error counts: stderr, and the final is_error result
+  # of --output-format json. Agent-written text (stdout prose, quoted logs, tests) never does,
+  # and a run that exited zero is never a limit stop.
+  if [ "$rc" -ne 0 ]; then
+    cli_text=$(cat "$err"; jq -rs 'map(if type == "array" then .[] else . end)
+      | map(select(type == "object" and .type == "result" and .is_error == true))
+      | last | (.result // empty) | strings' "$out" 2>/dev/null || true)
+  fi
+  if [ "$rc" -ne 0 ] && grep -Eiq -- "$LIMIT_PATTERNS" <<<"$cli_text"; then
+    reset=$(grep -Eio -- "$RESET_PATTERN" <<<"$cli_text" | head -1 || true)
     body="The Claude subscription usage limit was hit, so this agent run stopped and will not retry automatically."
     [ -n "$reset" ] && body="$body Limit $reset."
     body="$body The next scheduled pass, or a human, can pick the item up again. $LIMIT_MARKER"
