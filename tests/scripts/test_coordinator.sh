@@ -333,6 +333,13 @@ actions bash "$SCRIPT" --once
 assert_eq "$(cat "$T/rc")" "0" "exits 0"
 assert_count "$T/claude.calls" "called" 1 "the agent is launched"
 
+echo "identity: a failing repository-permissions call does not block the run"
+new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+STUB_REPO_API_FAIL=1 actions bash "$SCRIPT" --once
+assert_eq "$(cat "$T/rc")" "0" "exits 0 (the probe was accepted, and the diagnostic call is only a log line)"
+assert_grep "$T/out" 'reported repository permissions for this token: unavailable' "the log says the permissions were unavailable"
+assert_count "$T/claude.calls" "called" 1 "the agent is launched"
+
 echo "identity: a probe that fails for another reason (network) does not block the run"
 new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
 STUB_PUSH_NET=1 actions bash "$SCRIPT" --once
