@@ -164,6 +164,52 @@ assert_grep "$CO" 'AGENT_GIT_NAME' "sets AGENT_GIT_NAME"
 assert_grep "$CO" 'AGENT_GIT_EMAIL' "sets AGENT_GIT_EMAIL"
 assert_no_grep "$CO" 'ANTHROPIC_' "sets no ANTHROPIC_* variable"
 
+# --- event-driven triggers (#55, ADR 0015) ---------------------------------------------------------
+# job_if FILE: the whole job-level if: expression (continuation lines joined), one per file.
+job_if() {
+  awk '/^    if:/ { on = 1; print; next } on && /^    [A-Za-z-]+:/ { exit } on { print }' "$1" | tr '\n' ' '
+}
+# trigger_types FILE TRIGGER: the `types:` value under the trigger.
+trigger_types() {
+  awk -v t="$2" '
+    $0 ~ "^  " t ":" { inb = 1; next }
+    inb && /^  [^ ]/ { inb = 0 }
+    inb && /^    types:/ { sub(/^    types:[ ]*/, ""); print; exit }
+  ' "$1"
+}
+# trigger_violations FILE: an issues:labeled trigger needs a job condition naming the label.
+trigger_violations() {
+  local f="$1" cond
+  cond=$(job_if "$f")
+  if grep -Eq '^  issues:' "$f" && trigger_types "$f" issues | grep -q labeled \
+     && ! grep -Eq "github\.event\.label\.name[[:space:]]*==[[:space:]]*'ready'" <<<"$cond"; then
+    echo "issues: labeled has no job condition on the label name"
+  fi
+}
+
+echo "workflows: the label-trigger checker bites on a fixture with no label-name condition"
+if [ -n "$(trigger_violations "$FIX/workflows/bad-label-no-name.yml")" ]; then ok "reported as a violation"; else bad "reported as a violation"; fi
+
+echo "workflows: coordinator.yml event triggers"
+assert_grep "$CO" '^  issues:' "has an issues trigger"
+assert_grep "$CO" '^  pull_request:' "has a pull_request trigger"
+assert_eq "$(trigger_types "$CO" pull_request)" "[closed]" "pull_request types: closed"
+assert_eq "$(trigger_branches "$CO" pull_request)" "[main]" "pull_request restricted to main"
+types=$(trigger_types "$CO" issues)
+if grep -q labeled <<<"$types" && grep -q closed <<<"$types"; then ok "issues types: labeled and closed"; else bad "issues types: labeled and closed (got $types)"; fi
+assert_no_grep "$CO" 'pull_request_target' "never uses pull_request_target"
+cond=$(job_if "$CO")
+if [ -z "$(trigger_violations "$CO")" ]; then ok "the labeled job condition names the label"; else bad "the labeled job condition names the label"; fi
+for want in "github.event.label.name == 'ready'" "type:task" "type:bug" "github.event.pull_request.merged == true" \
+            "startsWith(github.event.pull_request.head.ref, 'issue-')" \
+            "github.event.pull_request.head.repo.full_name == github.repository" "vars.AGENTS_PAUSED != 'true'"; do
+  if grep -qF -- "$want" <<<"$cond"; then ok "job condition has: $want"; else bad "job condition has: $want"; fi
+done
+assert_grep "$CO" 'scripts/coordinator\.sh --ready-label \$\{\{[[:space:]]*github\.event\.issue\.number[[:space:]]*\}\}' "a label event runs --ready-label with the issue number"
+assert_grep "$CO" 'scripts/coordinator\.sh --once' "other events run --once"
+rl_line=$(grep -n -- '--ready-label' "$CO" | head -1 | cut -d: -f1)
+if [ -n "$rl_line" ] && [ -n "$g" ] && [ "$g" -lt "$rl_line" ]; then ok "preflight runs before the label-event pass too"; else bad "preflight runs before the label-event pass too"; fi
+
 RV=.github/workflows/review.yml
 echo "workflows: review.yml"
 assert_eq "$(trigger_branches "$FIX/unpinned.yml" pull_request)" "" "a fixture without the branches filter is visible as a violation"

@@ -1,0 +1,15 @@
+name: Coordinator
+# Fixture: an `issues: labeled` trigger whose job condition never names a label, so any label
+# (including ones the agents or strangers apply) would start a pass.
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  coordinate:
+    if: vars.AGENTS_PAUSED != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - run: scripts/coordinator.sh --ready-label ${{ github.event.issue.number }}
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}

@@ -100,6 +100,12 @@ for a in coordinator architect developer; do
   assert_no_grep ".claude/agents/$a.md" 'gh project item-(edit|add)' "$a: no raw gh project item-edit or item-add"
 done
 
+echo "agents: the architect rings the ready-label doorbell for the tasks it releases (#55)"
+assert_grep ".claude/agents/architect.md" '`gh issue edit <issue number> --add-label ready`' "architect has the exact command that applies the ready label"
+assert_grep ".claude/agents/architect.md" '`scripts/board\.sh status <issue number> Ready`' "and the exact command that sets the card to Ready"
+assert_grep ".claude/agents/architect.md" 'Plan Review.*no label|no label.*Plan Review|not (apply|add) .*label' "tasks parked in Plan Review get no label"
+assert_grep "docs/workflow.md" '`ready`' "workflow.md documents the ready label"
+
 R=.claude/agents/reviewer.md
 echo "agents: the reviewer"
 if [ -f "$R" ]; then ok "reviewer.md exists"; else bad "reviewer.md exists"; fi
