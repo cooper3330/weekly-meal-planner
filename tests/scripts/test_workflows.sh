@@ -124,12 +124,14 @@ echo "  checked $checked workflows, $claude_files of them run claude"
 if [ "$checked" -ge 1 ]; then ok "the checker saw $checked workflows"; else bad "the checker saw at least one workflow"; fi
 
 # --- git pushes as the GitHub App, not as the read-only checkout token (#66, ADR 0014) ---------
-for f in .github/workflows/coordinator.yml .github/workflows/review.yml; do
+for f in .github/workflows/coordinator.yml .github/workflows/review.yml .github/workflows/revise.yml; do
   assert_grep "$f" 'persist-credentials:[[:space:]]*false' "$f: checkout does not persist the workflow token"
 done
 CO_=.github/workflows/coordinator.yml
 assert_grep "docs/workflow.md" 'Contents: Read & write' "workflow.md lists the App's Contents permission"
 assert_grep "docs/workflow.md" 'Pull requests: Read & write' "workflow.md lists the App's pull request permission"
+# revise.yml pushes the PR branch, so it needs git to act as the App too (#39).
+assert_grep ".github/workflows/revise.yml" 'gh auth setup-git' "revise.yml: git authenticates through gh auth setup-git"
 assert_grep "$CO_" 'gh auth setup-git' "coordinator.yml: git authenticates through gh auth setup-git"
 mint=$(grep -n 'create-github-app-token' "$CO_" | head -1 | cut -d: -f1)
 setup=$(grep -n 'gh auth setup-git' "$CO_" | head -1 | cut -d: -f1)

@@ -2,7 +2,7 @@
 # Coordinator loop: polls the GitHub Project for items in Status=Ready and
 # hands each to the coordinator agent (which dispatches the architect/developer).
 #
-# Usage: PROJECT_NUMBER=1 ./scripts/coordinator.sh [--once]
+# Usage: PROJECT_NUMBER=1 ./scripts/coordinator.sh [--once | --ready-label <issue-number>]
 #        PROJECT_NUMBER=1 ./scripts/coordinator.sh --revise <pr|issue> <number> [--source human|reviewer]
 #   --revise runs one revision for one item and exits (event-driven, from .github/workflows/revise.yml).
 #   With --source human (default) the item must be pending according to scripts/pending-revisions.sh;
@@ -32,16 +32,24 @@
 set -euo pipefail
 
 usage() {
-  echo "usage: scripts/coordinator.sh [--once | --revise <pr|issue> <number> [--source human|reviewer]]" >&2
+  echo "usage: scripts/coordinator.sh [--once | --ready-label <issue-number> | --revise <pr|issue> <number> [--source human|reviewer]]" >&2
   exit 2
 }
 
 # Argument check, before anything touches GitHub. Modes: no flag (loop), --once (one pass), and
 # --revise (one revision for one item; used by .github/workflows/revise.yml).
 MODE=loop; REV_KIND=""; REV_NUMBER=""; REV_SOURCE=human
+# --ready-label N: handle one `ready` label event on issue N, then run one pass (like --once).
+# Validated here, so a bad number launches and writes nothing.
+READY_LABEL_ISSUE=""
 case "${1:-}" in
   "") ;;
   --once) [ $# -eq 1 ] || usage; MODE=once ;;
+  --ready-label)
+    case "${2:-}" in
+      ''|*[!0-9]*|0|0[0-9]*) echo "usage: coordinator.sh --ready-label <issue-number> (a positive integer)" >&2; exit 2 ;;
+    esac
+    READY_LABEL_ISSUE="$2"; MODE=once ;;
   --revise)
     [ $# -ge 3 ] || usage
     REV_KIND="$2"; REV_NUMBER="$3"; shift 3
@@ -63,15 +71,6 @@ for cmd in gh jq claude; do
 done
 cd "$(dirname "$0")/.."
 
-# --ready-label N: handle one `ready` label event on issue N, then run one pass (like --once).
-# Validated first, so a bad number launches and writes nothing.
-READY_LABEL_ISSUE=""
-if [ "${1:-}" = "--ready-label" ]; then
-  case "${2:-}" in
-    ''|*[!0-9]*|0|0[0-9]*) echo "usage: coordinator.sh --ready-label <issue-number> (a positive integer)" >&2; exit 2 ;;
-  esac
-  READY_LABEL_ISSUE="$2"
-fi
 # Every claude launch goes through the guard (usage-limit reporting, no retry; docs/adr/0015).
 GUARD="$PWD/scripts/agent-guard.sh"
 
