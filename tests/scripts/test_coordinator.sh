@@ -305,94 +305,88 @@ for mode in unset empty; do
   assert_no_grep "$T/gh.log" 'pr comment' "$mode: nothing was posted"
 done
 
-echo "identity: in Actions an App token that cannot push stops the run before any launch (#66)"
+# --- the push probe: a dry-run push is the same handshake the agent's real push makes (#66, #78) -----
+actions() { # extra env... -- mode args...: run the coordinator the way the workflow does
+  GITHUB_ACTIONS=true AGENT_GH_TOKEN=atok PROJECT_TOKEN=ptok PROJECT_NUMBER=1 "$@" > "$T/out" 2>&1; echo $? > "$T/rc"
+}
+echo "identity: in Actions a refused push probe stops the run before any launch"
 new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
-echo '{"permissions":{"push":false}}' > "$T/repo.json"
-GITHUB_ACTIONS=true AGENT_GH_TOKEN=atok PROJECT_TOKEN=ptok PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1; rc=$?
-if [ "$rc" -ne 0 ]; then ok "exits non-zero"; else bad "exits non-zero"; fi
+STUB_PUSH_DENIED=1 actions bash "$SCRIPT" --once
+if [ "$(cat "$T/rc")" -ne 0 ]; then ok "exits non-zero"; else bad "exits non-zero"; fi
 assert_count "$T/claude.calls" "called" 0 "no agent is launched"
 assert_grep "$T/out" 'Contents' "the message names the Contents permission"
+assert_grep "$T/out" 'returned error: 403' "and shows what git said, so the refusal can be read from the log"
+assert_count "$T/git.log" 'push --dry-run' 1 "the probe is one dry-run push (it changes nothing on the remote)"
 
-echo "identity: in Actions an App token that can push proceeds"
+echo "identity: in Actions the permissions the token reports are logged for diagnosis"
 new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
-echo '{"permissions":{"push":true}}' > "$T/repo.json"
-GITHUB_ACTIONS=true AGENT_GH_TOKEN=atok PROJECT_TOKEN=ptok PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1; rc=$?
-assert_eq "$rc" "0" "exits 0"
+echo '{"permissions":{"admin":false,"push":false,"pull":true}}' > "$T/repo.json"
+actions bash "$SCRIPT" --once
+assert_grep "$T/out" 'reported repository permissions' "a log line names them"
+assert_grep "$T/out" '"push": false' "and shows the reported value"
+assert_eq "$(cat "$T/rc")" "0" "a reported push:false alone does not stop the run (the probe decides)"
+assert_count "$T/claude.calls" "called" 1 "so the agent is launched"
+
+echo "identity: an accepted probe proceeds"
+new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+actions bash "$SCRIPT" --once
+assert_eq "$(cat "$T/rc")" "0" "exits 0"
 assert_count "$T/claude.calls" "called" 1 "the agent is launched"
 
-echo "identity: an unreadable permission (no permissions field) does not block the run"
+echo "identity: a probe that fails for another reason (network) does not block the run"
 new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
-echo '{}' > "$T/repo.json"
-GITHUB_ACTIONS=true AGENT_GH_TOKEN=atok PROJECT_TOKEN=ptok PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1; rc=$?
-assert_eq "$rc" "0" "exits 0"
+STUB_PUSH_NET=1 actions bash "$SCRIPT" --once
+assert_eq "$(cat "$T/rc")" "0" "exits 0"
 assert_count "$T/claude.calls" "called" 1 "the agent is launched"
+assert_grep "$T/out" 'could not tell' "and the log says the probe was inconclusive"
 
-echo "identity: a failing permission call does not block the run"
+echo "identity: a missing AGENT_GH_TOKEN is reported before the push probe"
 new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
-GITHUB_ACTIONS=true STUB_REPO_API_FAIL=1 AGENT_GH_TOKEN=atok PROJECT_TOKEN=ptok PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1; rc=$?
-assert_eq "$rc" "0" "exits 0"
-assert_count "$T/claude.calls" "called" 1 "the agent is launched"
-
-echo "identity: a missing AGENT_GH_TOKEN is reported before the push permission"
-new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
-echo '{"permissions":{"push":false}}' > "$T/repo.json"
-env -u AGENT_GH_TOKEN GITHUB_ACTIONS=true PROJECT_TOKEN=ptok PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+env -u AGENT_GH_TOKEN GITHUB_ACTIONS=true STUB_PUSH_DENIED=1 PROJECT_TOKEN=ptok PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
 assert_grep "$T/out" 'AGENT_GH_TOKEN is missing' "the missing-token message comes first"
-assert_no_grep "$T/out" 'Contents' "and the permission message is not reached"
+assert_count "$T/git.log" 'push --dry-run' 0 "and the probe is not reached"
 
 # --- a revision that cannot start because the App cannot push says so on the item (#78) -------------
-perm() { # kind number: a --revise run in Actions whose token reports no push access
-  GITHUB_ACTIONS=true AGENT_GH_TOKEN=atok PROJECT_TOKEN=ptok PROJECT_NUMBER=1 bash "$SCRIPT" --revise "$1" "$2" > "$T/out" 2>&1; echo $? > "$T/rc"
-}
-echo "identity: --revise pr with an App that cannot push comments on the PR (#78)"
+echo "identity: --revise pr with a refused probe comments on the PR (#78)"
 new_sandbox; echo '{"permissions":{"admin":false,"push":false,"pull":true}}' > "$T/repo.json"
-perm pr 12
+STUB_PUSH_DENIED=1 actions bash "$SCRIPT" --revise pr 12
 if [ "$(cat "$T/rc")" -ne 0 ]; then ok "exits non-zero"; else bad "exits non-zero"; fi
 assert_count "$T/claude.calls" "called" 0 "no agent is launched"
 assert_count "$T/gh.log" '^gh pr comment 12 ' 1 "one comment on the PR"
 body=$(awk '/^gh pr comment 12 /{f=1} f' "$T/gh.log")   # the call's arguments span several lines
-for want in 'Contents' 'Pull requests' '/revise' '"push": false' '<!-- agent:permission -->'; do
+for want in 'Contents' 'Pull requests' '/revise' 'returned error: 403' '"push": false' '<!-- agent:permission -->'; do
   if grep -qF -- "$want" <<<"$body"; then ok "the comment has: $want"; else bad "the comment has: $want"; fi
 done
 if grep -qF 'source=' <<<"$body"; then bad "no source= marker (it never counts toward the revision budget)"; else ok "no source= marker (it never counts toward the revision budget)"; fi
 
 echo "identity: --revise issue comments on the issue (#78)"
-new_sandbox; echo '{"permissions":{"push":false}}' > "$T/repo.json"
-perm issue 12
+new_sandbox
+STUB_PUSH_DENIED=1 actions bash "$SCRIPT" --revise issue 12
 assert_count "$T/gh.log" '^gh issue comment 12 ' 1 "one comment on the issue"
 assert_count "$T/claude.calls" "called" 0 "no agent is launched"
 
 echo "identity: the comment is posted at most once (#78)"
-new_sandbox; echo '{"permissions":{"push":false}}' > "$T/repo.json"
+new_sandbox
 echo '[{"id":1,"created_at":"2026-10-29T10:00:00Z","body":"please /revise","author_association":"OWNER"},{"id":2,"created_at":"2026-10-29T10:01:00Z","body":"could not start <!-- agent:permission -->","author_association":"NONE"}]' > "$T/issue_comments_12.json"
-perm pr 12
+STUB_PUSH_DENIED=1 actions bash "$SCRIPT" --revise pr 12
 if [ "$(cat "$T/rc")" -ne 0 ]; then ok "still exits non-zero"; else bad "still exits non-zero"; fi
 assert_count "$T/gh.log" 'comment 12' 0 "nothing more is posted"
 
 echo "identity: other cases post nothing (#78)"
-new_sandbox; echo '{"permissions":{"push":true}}' > "$T/repo.json"
-perm pr 12
-assert_count "$T/gh.log" 'comment 12' 0 "an App that can push: no comment"
-new_sandbox; echo '{}' > "$T/repo.json"
-perm pr 12
-assert_count "$T/gh.log" 'comment 12' 0 "an unreadable permission: no comment"
-new_sandbox; echo '{"permissions":{"push":false}}' > "$T/repo.json"
-env -u GITHUB_ACTIONS -u AGENT_GH_TOKEN PROJECT_NUMBER=1 bash "$SCRIPT" --revise pr 12 > "$T/out" 2>&1
+new_sandbox
+actions bash "$SCRIPT" --revise pr 12
+assert_count "$T/gh.log" 'comment 12' 0 "an accepted probe: no comment"
+new_sandbox
+STUB_PUSH_NET=1 actions bash "$SCRIPT" --revise pr 12
+assert_count "$T/gh.log" 'comment 12' 0 "an inconclusive probe: no comment"
+new_sandbox
+STUB_PUSH_DENIED=1 env -u GITHUB_ACTIONS -u AGENT_GH_TOKEN PROJECT_NUMBER=1 bash "$SCRIPT" --revise pr 12 > "$T/out" 2>&1
 assert_count "$T/gh.log" 'comment 12' 0 "a local run: no comment"
-new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"; echo '{"permissions":{"push":false}}' > "$T/repo.json"
-GITHUB_ACTIONS=true AGENT_GH_TOKEN=atok PROJECT_TOKEN=ptok PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1; rc=$?
-if [ "$rc" -ne 0 ]; then ok "--once still exits non-zero"; else bad "--once still exits non-zero"; fi
-assert_count "$T/gh.log" ' comment ' 0 "--once has no item to comment on"
-new_sandbox; echo '{"permissions":{"push":false}}' > "$T/repo.json"
-env -u AGENT_GH_TOKEN GITHUB_ACTIONS=true PROJECT_TOKEN=ptok PROJECT_NUMBER=1 bash "$SCRIPT" --revise pr 12 > "$T/out" 2>&1
-assert_grep "$T/out" 'AGENT_GH_TOKEN is missing' "the missing-token guard still stops first"
-assert_count "$T/gh.log" 'comment 12' 0 "and posts nothing"
-
-echo "identity: locally the push permission is not even checked"
+assert_count "$T/git.log" 'push --dry-run' 0 "and no probe"
 new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
-echo '{"permissions":{"push":false}}' > "$T/repo.json"
-env -u GITHUB_ACTIONS -u AGENT_GH_TOKEN PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
-assert_count "$T/claude.calls" "called" 1 "the agent is launched"
+STUB_PUSH_DENIED=1 actions bash "$SCRIPT" --once
+if [ "$(cat "$T/rc")" -ne 0 ]; then ok "--once still exits non-zero"; else bad "--once still exits non-zero"; fi
+assert_count "$T/gh.log" ' comment ' 0 "--once has no item to comment on"
 
 echo "identity: locally, without AGENT_GH_TOKEN, it launches as before and logs the fallback once"
 new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"

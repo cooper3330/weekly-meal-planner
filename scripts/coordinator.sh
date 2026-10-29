@@ -114,25 +114,35 @@ fi
 REPO="${REPO:-$(gh repo view --json nameWithOwner -q .nameWithOwner)}"
 
 # In Actions, stop early (with the fix named) if the App cannot push; agents would otherwise run to the
-# end of a task and fail at `git push`. Best effort: an unreadable answer never blocks the run.
+# end of a task and fail at `git push`. The probe is a dry-run push of a throwaway branch name: git does
+# the same authenticated handshake as a real push and changes nothing on the remote. It stops the run
+# only on a clear refusal (403, permission denied); any other failure (network, an odd error) is logged
+# and lets the run continue. The permissions the token reports are logged for diagnosis only: that field
+# is not a reliable answer for an App installation token, so it never decides.
 if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
-  can_push=$(gh api "repos/$REPO" --jq .permissions.push 2>/dev/null || true)
-  if [ "$can_push" = "false" ]; then
-    echo "$(ts) the GitHub App cannot push to $REPO: give the App Contents: Read & write (docs/adr/0014); not launching any agent" >&2
-    # A revision has an item to tell: say so there, once, so the owner does not have to open the Actions log.
-    if [ "$MODE" = revise ]; then
-      last=$(gh api "repos/$REPO/issues/$REV_NUMBER/comments" --paginate --jq '[.[] | select((.body // "") | contains("<!-- agent:"))] | last | (.body // "")' 2>/dev/null | tail -1 || true)
-      if ! grep -qF '<!-- agent:permission -->' <<<"$last"; then
-        reported=$(gh api "repos/$REPO" --jq .permissions 2>/dev/null || true)
-        msg="This revision could not start: the GitHub App that runs the agents cannot push to this repository. In the App's settings give it Contents: Read and write (and Pull requests: Read and write), accept the new permissions on the App's installation for this repository, then comment /revise again. The token reported these repository permissions: ${reported:-unavailable}"$'\n\n'"<!-- agent:permission -->"
-        if [ "$REV_KIND" = pr ]; then
-          gh pr comment "$REV_NUMBER" --repo "$REPO" --body "$msg" || true
-        else
-          gh issue comment "$REV_NUMBER" --repo "$REPO" --body "$msg" || true
+  reported=$(gh api "repos/$REPO" --jq .permissions 2>/dev/null || true)
+  echo "$(ts) reported repository permissions for this token: ${reported:-unavailable}"
+  probe_rc=0
+  probe=$(git push --dry-run origin "HEAD:refs/heads/agent-push-probe" 2>&1) || probe_rc=$?
+  if [ "$probe_rc" -ne 0 ]; then
+    if grep -qiE '(returned error: )?403|permission to .* denied|permission denied|not permitted|write access .*not granted' <<<"$probe"; then
+      echo "$(ts) the GitHub App cannot push to $REPO: give the App Contents: Read & write and accept it on the installation (docs/adr/0014); not launching any agent" >&2
+      echo "$(ts) git said: $probe" >&2
+      # A revision has an item to tell: say so there, once, so the owner does not have to open the Actions log.
+      if [ "$MODE" = revise ]; then
+        last=$(gh api "repos/$REPO/issues/$REV_NUMBER/comments" --paginate --jq '[.[] | select((.body // "") | contains("<!-- agent:"))] | last | (.body // "")' 2>/dev/null | tail -1 || true)
+        if ! grep -qF '<!-- agent:permission -->' <<<"$last"; then
+          msg="This revision could not start: a test push from the GitHub App that runs the agents was refused. In the App's settings give it Contents: Read and write (and Pull requests: Read and write), accept the new permissions on the App's installation for this repository, then comment /revise again."$'\n\n'"git said:"$'\n\n'"${probe}"$'\n\n'"The token reported these repository permissions: ${reported:-unavailable}"$'\n\n'"<!-- agent:permission -->"
+          if [ "$REV_KIND" = pr ]; then
+            gh pr comment "$REV_NUMBER" --repo "$REPO" --body "$msg" || true
+          else
+            gh issue comment "$REV_NUMBER" --repo "$REPO" --body "$msg" || true
+          fi
         fi
       fi
+      exit 1
     fi
-    exit 1
+    echo "$(ts) could not tell whether the App can push (the dry-run push failed for another reason); continuing: $probe" >&2
   fi
 fi
 OWNER="${OWNER:-${REPO%%/*}}"

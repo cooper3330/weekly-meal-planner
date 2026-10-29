@@ -139,7 +139,14 @@ case " $* " in
   *" status --porcelain"*)          [ -n "${STUB_GIT_DIRTY:-}" ] && echo " M tests/scripts/test_workflows.sh" ;;
   *" rev-parse --abbrev-ref HEAD"*) echo "${STUB_GIT_BRANCH:-HEAD}" ;;
   *" rev-list --count"*)            echo "${STUB_GIT_UNPUSHED:-0}" ;;
-  *" push "*)                       [ -n "${STUB_PUSH_FAIL:-}" ] && { echo "! [rejected]" >&2; exit 1; } ;;
+  *" push "*)
+    # STUB_PUSH_DENIED / STUB_PUSH_NET make a `git push --dry-run` (the coordinator's probe) fail:
+    # a 403 from the remote, or an error that says nothing about permissions.
+    if [[ " $* " == *" --dry-run "* ]]; then
+      [ -n "${STUB_PUSH_DENIED:-}" ] && { echo "remote: Permission to cooper3330/weekly-meal-planner.git denied to github-actions[bot]." >&2; echo "fatal: unable to access 'https://github.com/cooper3330/weekly-meal-planner/': The requested URL returned error: 403" >&2; exit 128; }
+      [ -n "${STUB_PUSH_NET:-}" ] && { echo "fatal: unable to access 'https://github.com/cooper3330/weekly-meal-planner/': Could not resolve host: github.com" >&2; exit 128; }
+    fi
+    [ -n "${STUB_PUSH_FAIL:-}" ] && { echo "! [rejected]" >&2; exit 1; } ;;
 esac
 if [ "${1:-}" = "worktree" ] && [ "${2:-}" = "add" ]; then
   args=("$@"); n=${#args[@]}
