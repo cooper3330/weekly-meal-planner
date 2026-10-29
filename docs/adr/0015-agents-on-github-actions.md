@@ -1,6 +1,7 @@
 # ADR 0015: Agents run on GitHub Actions with the `claude` CLI and the existing scripts, behind a kill switch, a preflight, and usage caps
 - Status: Accepted
 - Date: 2026-10-26
+- Amended: 2026-10-29 (task #55, event-driven triggers)
 
 ## Context
 Issue #4 (FR-3, FR-6, FR-8, FR-10, FR-11; AC-3, AC-6, AC-8, AC-10 to AC-12) and the owner's scope note on #4. The note asks for an event-driven revision loop with loop safety and a revision budget per PR.
@@ -99,8 +100,8 @@ Constraints:
 - P8 Simple over clever: one runner and the existing scripts. Caps and the kill switch are repository variables, not code.
 - P1 and CLAUDE.md's "no hosted backends" govern the app. GitHub Actions runs the delivery process, not the app, and holds no user data.
 
-## Amendment (task #55): event-driven coordinator triggers
-The owner decided that approving a spec or releasing a task should start the coordinator at once, not on the next hourly run. This reverses the first Decision bullet and the "`ready` label" alternative above.
+## Amendment (task #55): Event-driven triggers
+The owner decided that approving a spec or releasing a task should start the coordinator at once, not on the next hourly run. This reverses the "Project item events are not available…" bullet under **Workflows** and the "`ready` label" alternative above.
 
 **The doorbell.** Applying the `ready` label to an issue starts `coordinator.yml` (`issues: labeled`, only for the label `ready`). The label is a trigger, not state: `scripts/coordinator.sh --ready-label <issue>` sets the issue's card to Ready if it is not yet moving (no card, Backlog, Spec Review, Plan Review or Blocked), never moves a card that is already in Architecture, Implementation, In Review or Done, removes the label, and runs a normal pass. The architect applies the label to the tasks it plans (`.claude/agents/architect.md`); tasks parked in Plan Review get none. A closed issue or a pull request only loses the label.
 
