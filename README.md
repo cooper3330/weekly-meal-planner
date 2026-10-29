@@ -32,6 +32,10 @@ CLAUDE.md            instructions every Claude session loads
 
 The first issues to file are listed in [`docs/backlog.md`](docs/backlog.md).
 
+### Running the agents
+
+By default the agents run on GitHub Actions (hourly, and on events such as the `ready` label); the owner must first make the one-time settings in "Manual repository settings" in [`docs/workflow.md`](docs/workflow.md). To run them on your machine instead, use `scripts/coordinator.sh` (`--once` for a single pass). Low-risk PRs auto-merge after CI and the reviewer agent; `risk:high` PRs wait for you.
+
 To ask an agent to change its PR or its plan, comment `/revise` (or submit a review as **Request changes**); see the review and revision loop in [`docs/workflow.md`](docs/workflow.md).
 
 Agent identity (docs/adr/0014): in Actions the coordinator requires `AGENT_GH_TOKEN` (a GitHub App token) and fails without it. Locally it is optional: without it, agents post as your own `gh` login and it logs that once. Board moves go only through `scripts/board.sh`, which uses `PROJECT_TOKEN` (a project-only classic PAT) when set and your `gh` login otherwise. Set `AGENT_GIT_NAME` and `AGENT_GIT_EMAIL` together to make agent commits use that identity.
