@@ -506,4 +506,58 @@ done
 distinct=$(printf '%s\n' $all_pins | sort -u | grep -c . || true)
 if [ "$distinct" -le 1 ]; then ok "all workflows install the same claude-code version"; else bad "all workflows install the same claude-code version (found:$(printf ' %s' $all_pins | tr ' ' '\n' | sort -u | tr '\n' ' '))"; fi
 
+# --- ci-fix.yml (revise a PR when its CI check fails, #56) -------------------------------------
+# ci_fix_violations FILE: one line per violation of the ci-fix.yml contract.
+ci_fix_violations() {
+  local f="$1" body fj
+  body=$(grep -Ev '^[[:space:]]*#' "$f")
+  grep -Eq '^  workflow_run:' <<<"$body" || echo "missing the workflow_run trigger"
+  grep -Eq 'workflows:[[:space:]]*\[CI\]' <<<"$body" || echo "does not watch the CI workflow"
+  grep -Eq 'types:[[:space:]]*\[completed\]' <<<"$body" || echo "does not trigger on completed"
+  grep -Eq 'pull_request_target' <<<"$body" && echo "uses pull_request_target"
+  fj=$(job_if "$f" fix)
+  grep -q "vars\.AGENTS_PAUSED != 'true'" <<<"$fj" || echo "the if: lacks the AGENTS_PAUSED condition"
+  grep -q "workflow_run\.conclusion == 'failure'" <<<"$fj" || echo "the if: lacks the conclusion == 'failure' condition"
+  grep -q "workflow_run\.event == 'pull_request'" <<<"$fj" || echo "the if: lacks the event == 'pull_request' condition"
+  grep -Eq 'workflow_run\.head_repository\.full_name == github\.repository' <<<"$fj" || echo "the if: lacks the same-repository head check"
+  grep -Eq "startsWith\([^)]*head_branch, 'issue-'\)" <<<"$fj" && grep -Eq "startsWith\([^)]*head_branch, 'arch-'\)" <<<"$fj" || echo "the if: lacks the issue-/arch- branch prefix check"
+  grep -Eq '^[[:space:]]+group:[[:space:]]*revise-pr-\$\{\{[^}]*workflow_run\.pull_requests\[0\]\.number[^}]*\}\}' <<<"$body" || echo "concurrency group is not revise-pr-<PR number>"
+  grep -Eq '^[[:space:]]+cancel-in-progress:[[:space:]]*false' <<<"$body" || echo "concurrency may cancel a run in progress"
+}
+
+CF=.github/workflows/ci-fix.yml
+echo "workflows: ci-fix.yml checker bites on a fixture without the same-repository check"
+v=$(ci_fix_violations "$FIX/workflows/ci-fix-no-same-repo.yml")
+if grep -q 'same-repository' <<<"$v"; then ok "a missing same-repository check is reported"; else bad "a missing same-repository check is reported; got: $v"; fi
+if [ "$(grep -c . <<<"$v")" -eq 1 ]; then ok "and it is the only violation of that fixture"; else bad "the fixture has only that violation; got: $v"; fi
+echo "workflows: ci-fix.yml"
+if [ -f "$CF" ]; then ok "ci-fix.yml exists"; else bad "ci-fix.yml exists"; finish; exit; fi
+v=$(ci_fix_violations "$CF")
+if [ -z "$v" ]; then ok "ci-fix.yml meets the contract (trigger, job condition, concurrency)"; else bad "ci-fix.yml violates: $v"; fi
+assert_no_grep "$CF" 'ANTHROPIC_' "sets no ANTHROPIC_* variable"
+assert_no_grep "$CF" 'pull_request_target' "never uses pull_request_target"
+assert_grep "$CF" 'CLAUDE_CODE_OAUTH_TOKEN:[[:space:]]*\$\{\{[[:space:]]*secrets\.CLAUDE_CODE_OAUTH_TOKEN' "CLAUDE_CODE_OAUTH_TOKEN comes from secrets"
+assert_grep "$CF" '^  contents:[[:space:]]+read' "contents: read at workflow level"
+assert_no_grep "$CF" ':[[:space:]]+write' "no write permission (the App token carries the writes)"
+assert_grep "$CF" 'persist-credentials:[[:space:]]*false' "the checkout does not persist the workflow token"
+assert_grep "$CF" 'ref:[[:space:]]*\$\{\{[[:space:]]*github\.event\.repository\.default_branch' "checks out the default branch, not the PR"
+assert_grep "$CF" 'fetch-depth:[[:space:]]*0' "checks out full history"
+tm=$(sed -nE 's/^    timeout-minutes:[[:space:]]*([0-9]+).*/\1/p' "$CF" | tail -1)
+if [ -n "$tm" ] && [ "$tm" -le 55 ]; then ok "timeout-minutes is $tm (at most 55)"; else bad "timeout-minutes is at most 55 (got '$tm')"; fi
+g=$(grep -n 'scripts/agent-guard.sh preflight' "$CF" | head -1 | cut -d: -f1)
+c=$(grep -n 'scripts/coordinator.sh --revise' "$CF" | head -1 | cut -d: -f1)
+m=$(grep -n 'actions/create-github-app-token@' "$CF" | head -1 | cut -d: -f1)
+i=$(grep -n '@anthropic-ai/claude-code@[0-9]' "$CF" | head -1 | cut -d: -f1)
+k=$(grep -n 'actions/checkout@' "$CF" | tail -1 | cut -d: -f1)
+if [ -n "$g" ] && [ -n "$c" ] && [ "$g" -lt "$c" ]; then ok "preflight runs before coordinator.sh --revise"; else bad "preflight runs before coordinator.sh --revise"; fi
+if [ -n "$k" ] && [ -n "$m" ] && [ -n "$i" ] && [ -n "$g" ] && [ "$k" -lt "$m" ] && [ "$m" -lt "$i" ] && [ "$i" -lt "$g" ]; then ok "checkout, token, claude install, then preflight"; else bad "checkout, token, claude install, then preflight"; fi
+assert_grep "$CF" '--source ci --run "\$RUN_ID"' "coordinator.sh gets --source ci and the failed run id"
+assert_grep "$CF" '78' "handles preflight exit code 78"
+# Event text reaches the shell only through env: (never ${{ }} inside a run: block).
+if awk '/^[[:space:]]+run:/ { inrun = 1 } /^[[:space:]]+(env|with|name|if|uses|id):/ { inrun = 0 } inrun && /\$\{\{[^}]*github\.event\./ { bad = 1 } END { exit !bad }' "$CF"; then
+  bad "no run: block interpolates event data"
+else
+  ok "no run: block interpolates event data"
+fi
+
 finish

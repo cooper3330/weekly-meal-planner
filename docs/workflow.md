@@ -126,6 +126,13 @@ You review agent PRs and plan issues in GitHub as usual. The coordinator picks u
 
 **The marker.** Agents post with the owner's own GitHub account, so every agent comment ends with a hidden marker, `<!-- agent:NAME -->`. The marker, not the author, is how the loop tells agent comments from yours. It also means an agent's reply, even one that quotes `/revise`, is never treated as feedback.
 
+**When CI fails on an agent PR (`.github/workflows/ci-fix.yml`)**
+When the `check` job of `CI` fails on an `issue-*` PR from this repository, the developer is started automatically, in revision mode, instead of the PR waiting for you to comment `/revise`. The workflow only triggers; `scripts/coordinator.sh --revise pr N --source ci --run R` decides. It starts the developer only if the failed run is for the PR's current head, the `check` job really failed in a step (not cancelled, not a runner failure), and CI on `main` is not red (otherwise it posts one comment that the cause is probably not the PR). The reviewer agent is not involved. Each round is acknowledged with `<!-- agent:ack source=ci -->`.
+- **Shared budget.** CI rounds and reviewer-requested rounds count together against `REVISION_BUDGET` (default 3). At the budget the PR gets the `needs-human` label, one comment, and your review request. Your own `/revise` rounds never count.
+- **ADR PRs** (`arch-*`) are not fixed automatically: a red `check` gets the `needs-human` label and one comment with the failing job's link.
+- The developer's push restarts CI; a second failure is another round until the budget is spent. A green run triggers nothing. If the failure is not the PR's (infrastructure, or a test that also fails on `main`), the developer says so on the PR and stops.
+- Local mode does not react to CI.
+
 **Limits**
 - It runs while the coordinator runs: loop mode polls every `INTERVAL` seconds, `--once` does a single pass.
 - A failed run is reported in the coordinator's output. Comment `/revise` again to retry.

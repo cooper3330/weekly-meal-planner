@@ -23,7 +23,8 @@ assert_eq()      { if [ "$1" = "$2" ]; then ok "$3"; else bad "$3 (expected '$2'
 #   items.json projects.json fields.json project.json milestones.json   (project setup / board)
 #   prs.json issues.json                                                (gh pr list / gh issue list)
 #   issue_comments_<N>.json pr_comments_<N>.json pr_reviews_<N>.json    (REST comment endpoints)
-#   pr_view_<N>.json                                                    (gh pr view N --json ...; default: open, no branch)
+#   run_<id>.json run_jobs_<id>.json main_runs.json                     (Actions: a run, its jobs, CI runs on main)
+#   pr_view_<N>.json                                                   (gh pr view N --json ...; default: open, no branch)
 #   release_latest.json ref_<tag>.json gittag_<sha>.json                (scripts/pin-action.sh lookups)
 new_sandbox() {
   # Start from a clean environment: GitHub's runners set GITHUB_ACTIONS=true (the coordinator then
@@ -82,6 +83,9 @@ if [ "$1" = "api" ]; then
     repos/*/releases/latest)   emit "$STUB_DIR/release_latest.json" ;;
     repos/*/git/ref/tags/*)    t="${path#repos/*/git/ref/tags/}"; emit "$STUB_DIR/ref_${t//\//_}.json" ;;
     repos/*/git/tags/*)        t="${path#repos/*/git/tags/}"; emit "$STUB_DIR/gittag_${t}.json" ;;
+    repos/*/actions/runs/*/jobs) n="${path#repos/*/actions/runs/}"; emit "$STUB_DIR/run_jobs_${n%%/*}.json" ;;
+    repos/*/actions/runs/*)    n="${path#repos/*/actions/runs/}"; emit "$STUB_DIR/run_${n%%/*}.json" ;;
+    repos/*/actions/runs)      emit "$STUB_DIR/main_runs.json" ;;   # {workflow_runs: [...]}, newest first: CI runs on main
     repos/*/issues/*)          # a single issue or PR: state (and pull_request.merged_at for PRs); default open
       n="${path#repos/*/issues/}"; f="$STUB_DIR/issue_state_${n%%/*}.json"
       [ -f "$f" ] || echo '{"state":"open"}' > "$f"
