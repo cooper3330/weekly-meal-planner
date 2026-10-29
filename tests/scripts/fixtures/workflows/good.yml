@@ -16,6 +16,8 @@ jobs:
         with:
           persist-credentials: false
       - run: bash scripts/agent-guard.sh preflight
+        env:
+          AGENT_DAILY_RUNS: ${{ vars.AGENT_DAILY_RUNS }}
       - run: claude -p "hello"
   merge:
     if: vars.AGENTS_PAUSED != 'true'
