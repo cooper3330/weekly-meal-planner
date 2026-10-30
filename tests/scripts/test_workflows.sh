@@ -141,6 +141,29 @@ if [ -n "$mint" ] && [ -n "$setup" ] && [ -n "$run" ] && [ "$mint" -lt "$setup" 
 step=$(awk '/- name:/ { name = $0 } /gh auth setup-git/ { print name; exit }' "$CO_")
 if sed -n "/$(printf '%s' "$step" | sed 's/[][\.*^$/]/\\&/g')/,/gh auth setup-git/p" "$CO_" | grep -Eq 'GH_TOKEN:[[:space:]]*\$\{\{[[:space:]]*steps\.app\.outputs\.token'; then ok "that step's GH_TOKEN is the App token"; else bad "that step's GH_TOKEN is the App token"; fi
 
+# --- the agents' workflows can run uv, so a developer agent can run make check on a Python task (#89) ----
+# uv_violations FILE: a workflow that runs scripts/coordinator.sh (an agent may run) must install uv and Python
+# 3.12 with the same pinned setup-uv as ci.yml, before the step that runs the coordinator.
+uv_violations() {
+  local f="$1" want sha runl uvl
+  want=$(grep -h 'astral-sh/setup-uv@' .github/workflows/ci.yml | head -1 | sed -E 's/.*setup-uv@([0-9a-f]{40}).*/\1/')
+  grep -Eq 'scripts/coordinator\.sh' "$f" || return 0
+  uvl=$(grep -n 'astral-sh/setup-uv@' "$f" | head -1 | cut -d: -f1)
+  runl=$(grep -n 'run: scripts/coordinator\.sh' "$f" | head -1 | cut -d: -f1)
+  if [ -z "$uvl" ]; then echo "does not install uv before it runs an agent"; return 0; fi
+  sha=$(sed -n "${uvl}p" "$f" | sed -E 's/.*setup-uv@([0-9a-f]{40}).*/\1/')
+  [ "$sha" = "$want" ] || echo "setup-uv is not the pin ci.yml uses"
+  sed -n "$uvl,$((uvl + 3))p" "$f" | grep -Eq 'python-version:[[:space:]]*"?3\.12"?' || echo "setup-uv does not select Python 3.12"
+  if [ -n "$runl" ] && [ "$uvl" -gt "$runl" ]; then echo "uv is installed after the coordinator runs"; fi
+}
+echo "workflows: the uv checker bites on a fixture that runs an agent without uv"
+if [ -n "$(uv_violations "$FIX/workflows/no-uv.yml")" ]; then ok "reported as a violation"; else bad "reported as a violation"; fi
+echo "workflows: every workflow that can run an agent installs uv (#89)"
+for f in .github/workflows/*.yml; do
+  v=$(uv_violations "$f")
+  if [ -z "$v" ]; then ok "$f: ok"; else bad "$f: $v"; fi
+done
+
 CI=.github/workflows/ci.yml
 echo "workflows: ci.yml"
 if [ -f "$CI" ]; then ok "ci.yml exists"; else bad "ci.yml exists"; finish; exit; fi
