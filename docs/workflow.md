@@ -207,7 +207,7 @@ Agents cannot make these. Do each once as the repository owner. `tests/scripts/t
 
   | Variable | Default | Purpose |
   |---|---|---|
-  | `PROJECT_NUMBER` | none (required) | the project's number |
+  | `PROJECT_NUMBER` | `1` on Actions (the workflows use `vars.PROJECT_NUMBER \|\| '1'`); required for local runs | the project's number |
   | `MAX_PARALLEL` | 1 | agents running at once |
   | `AGENTS_PAUSED` | unset (not paused) | `true` stops all agent runs |
   | `AGENT_DAILY_RUNS` | 12 | daily cap on runs that call `claude` |

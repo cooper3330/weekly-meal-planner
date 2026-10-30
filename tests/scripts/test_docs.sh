@@ -58,6 +58,7 @@ echo "docs: the gate is described, and the protected list is not copied"
 assert_grep "$DOC" '\.github/risk-paths' "workflow.md points to .github/risk-paths"
 assert_grep "$DOC" 'AGENTS_PAUSED' "workflow.md describes the kill switch"
 assert_no_grep "$DOC" 'src/mealplanner/config\.py' "workflow.md does not copy the protected list"
+assert_no_grep "$DOC" 'PROJECT_NUMBER.*none' "PROJECT_NUMBER default is not documented as none (Actions falls back to 1)"
 assert_grep "$CLAUDE_MD" 'risk:high' "CLAUDE.md mentions risk:high"
 assert_grep README.md 'Running the agents' "README.md has a 'Running the agents' note"
 
