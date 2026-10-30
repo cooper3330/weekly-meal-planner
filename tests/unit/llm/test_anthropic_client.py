@@ -180,6 +180,21 @@ def test_transport_errors_map_to_unavailable(exc: Exception) -> None:
     assert len(sdk.calls) == 1
 
 
+def test_rejected_key_maps_to_config_error() -> None:
+    client, sdk = make(_http_error(anthropic.AuthenticationError, 401), reply(tool_use(GOOD)))
+    with pytest.raises(LLMConfigError) as info:
+        gen(client)
+    assert len(sdk.calls) == 1
+    assert SENTINEL not in str(info.value)
+
+
+def test_other_client_errors_are_not_mapped() -> None:
+    client, sdk = make(_http_error(anthropic.BadRequestError, 400), reply(tool_use(GOOD)))
+    with pytest.raises(anthropic.BadRequestError):
+        gen(client)
+    assert len(sdk.calls) == 1
+
+
 def test_missing_key_raises_config_error_on_call() -> None:
     client = AnthropicLLMClient(load_settings({}))
     with pytest.raises(LLMConfigError) as info:
