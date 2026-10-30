@@ -1,12 +1,14 @@
 """Application wiring only. Routes live in ``mealplanner.web``."""
 
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
 
 from mealplanner.config import Settings
+from mealplanner.db import apply_migrations
 from mealplanner.web.routes import router
 
 SECURITY_HEADERS = {
@@ -16,10 +18,26 @@ SECURITY_HEADERS = {
 }
 
 _STATIC_DIR = Path(__file__).parent / "web" / "static"
+MIGRATIONS_DIR = Path(__file__).parent / "db" / "migrations"
+DB_FILENAME = "mealplanner.sqlite3"
 
 
 def create_app(settings: Settings) -> FastAPI:
-    app = FastAPI(title="Weekly meal planner", docs_url=None, redoc_url=None, openapi_url=None)
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        settings.data_dir.mkdir(parents=True, exist_ok=True)
+        apply_migrations(
+            settings.data_dir / DB_FILENAME, MIGRATIONS_DIR, settings.data_dir / "backups"
+        )
+        yield
+
+    app = FastAPI(
+        title="Weekly meal planner",
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
+        lifespan=lifespan,
+    )
     app.state.settings = settings
 
     @app.middleware("http")
