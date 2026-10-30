@@ -65,7 +65,7 @@ def format_validation_errors(exc: ValidationError) -> list[str]:
     return out
 
 
-def run_attempts(
+def run_attempts[T: BaseModel](
     *,
     send: Send,
     system: str,

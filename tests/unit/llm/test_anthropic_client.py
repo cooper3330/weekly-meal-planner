@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Annotated, Any
 
 import anthropic
 import httpx
@@ -72,7 +72,10 @@ def make(*items: Any, key: str | None = SENTINEL) -> tuple[AnthropicLLMClient, S
 
 def gen(client: LLMClient) -> Meal:
     return client.generate(
-        system="be helpful", messages=[{"role": "user", "content": "hi"}], output=Meal, max_tokens=99
+        system="be helpful",
+        messages=[{"role": "user", "content": "hi"}],
+        output=Meal,
+        max_tokens=99,
     )
 
 
@@ -229,7 +232,7 @@ def test_app_uses_injected_client() -> None:
     app: FastAPI = create_app(load_settings({}), llm_client=fake)
 
     @app.get("/_probe")
-    def probe(client: LLMClient = Depends(get_llm_client)) -> dict[str, bool]:
+    def probe(client: Annotated[LLMClient, Depends(get_llm_client)]) -> dict[str, bool]:
         return {"same": client is fake}
 
     assert TestClient(app).get("/_probe").json() == {"same": True}
