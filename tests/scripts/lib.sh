@@ -23,7 +23,8 @@ assert_eq()      { if [ "$1" = "$2" ]; then ok "$3"; else bad "$3 (expected '$2'
 #   items.json projects.json fields.json project.json milestones.json   (project setup / board)
 #   prs.json issues.json                                                (gh pr list / gh issue list)
 #   issue_comments_<N>.json pr_comments_<N>.json pr_reviews_<N>.json    (REST comment endpoints)
-#   pr_view_<N>.json                                                    (gh pr view N --json ...; default: open, no branch)
+#   run_<id>.json run_jobs_<id>.json main_runs.json                     (Actions: a run, its jobs, CI runs on main)
+#   pr_view_<N>.json                                                   (gh pr view N --json ...; default: open, no branch)
 #   release_latest.json ref_<tag>.json gittag_<sha>.json                (scripts/pin-action.sh lookups)
 new_sandbox() {
   # Start from a clean environment: GitHub's runners set GITHUB_ACTIONS=true (the coordinator then
@@ -57,17 +58,26 @@ new_sandbox() {
 #!/usr/bin/env bash
 echo "gh $*" >> "$STUB_DIR/gh.log"
 echo "$1 $2 GH_TOKEN=${GH_TOKEN-UNSET}" >> "$STUB_DIR/gh.env"   # which token each call ran with
-args=("$@"); jqexpr=""; has_f=""
+args=("$@"); jqexpr=""; has_f=""; paginate=""
 for ((i = 0; i < ${#args[@]}; i++)); do
   case "${args[$i]}" in
+    --paginate) paginate=1 ;;
     -q|--jq) jqexpr="${args[$((i + 1))]}" ;;
     -f|-F) has_f=1 ;;
     -X) [ "${args[$((i + 1))]}" != "GET" ] && has_f=1 ;;
   esac
 done
 # emit FILE: print the fixture (or [] if it does not exist), through --jq/-q if given.
+# With --paginate, a fixture FILE.pages.json (an array of pages) is served page by page, as the real gh does:
+# --jq runs once per page, and without --jq the pages are printed one after another.
 emit() {
-  local f="$1"
+  local f="$1" pg="${1%.json}.pages.json" page
+  if [ -n "$paginate" ] && [ -f "$pg" ]; then
+    jq -c '.[]' "$pg" | while IFS= read -r page; do
+      if [ -n "$jqexpr" ]; then jq -r "$jqexpr" <<<"$page"; else printf '%s\n' "$page"; fi
+    done
+    return
+  fi
   if [ ! -f "$f" ]; then f="$STUB_DIR/empty.json"; echo '[]' > "$f"; fi
   if [ -n "$jqexpr" ]; then jq -r "$jqexpr" < "$f"; else cat "$f"; fi
 }
@@ -82,6 +92,9 @@ if [ "$1" = "api" ]; then
     repos/*/releases/latest)   emit "$STUB_DIR/release_latest.json" ;;
     repos/*/git/ref/tags/*)    t="${path#repos/*/git/ref/tags/}"; emit "$STUB_DIR/ref_${t//\//_}.json" ;;
     repos/*/git/tags/*)        t="${path#repos/*/git/tags/}"; emit "$STUB_DIR/gittag_${t}.json" ;;
+    repos/*/actions/runs/*/jobs) n="${path#repos/*/actions/runs/}"; emit "$STUB_DIR/run_jobs_${n%%/*}.json" ;;
+    repos/*/actions/runs/*)    n="${path#repos/*/actions/runs/}"; emit "$STUB_DIR/run_${n%%/*}.json" ;;
+    repos/*/actions/runs)      emit "$STUB_DIR/main_runs.json" ;;   # {workflow_runs: [...]}, newest first: CI runs on main
     repos/*/issues/*)          # a single issue or PR: state (and pull_request.merged_at for PRs); default open
       n="${path#repos/*/issues/}"; f="$STUB_DIR/issue_state_${n%%/*}.json"
       [ -f "$f" ] || echo '{"state":"open"}' > "$f"
@@ -113,6 +126,7 @@ case "$1 $2" in
   "pr view")             f="$STUB_DIR/pr_view_$3.json"; [ -f "$f" ] || echo '{"state":"OPEN","headRefName":"","headRefOid":""}' > "$f"; emit "$f" ;;
   "issue list")          emit "$STUB_DIR/issues.json" ;;
   "run list")            emit "$STUB_DIR/run_list.json" ;;   # [{workflowName, conclusion, status, createdAt}]
+  "run view")            f="$STUB_DIR/run_view_$3.json"; [ -f "$f" ] && emit "$f" || exit 1 ;;   # {jobs:[{steps:[{name,conclusion}]}]}
   "issue view")          f="$STUB_DIR/issue_$3.json"; [ -f "$f" ] || echo '{"body":""}' > "$f"; emit "$f" ;;
   *) ;;                  # label create, pr comment, issue comment, ...: only logged
 esac
@@ -135,7 +149,14 @@ case " $* " in
   *" status --porcelain"*)          [ -n "${STUB_GIT_DIRTY:-}" ] && echo " M tests/scripts/test_workflows.sh" ;;
   *" rev-parse --abbrev-ref HEAD"*) echo "${STUB_GIT_BRANCH:-HEAD}" ;;
   *" rev-list --count"*)            echo "${STUB_GIT_UNPUSHED:-0}" ;;
-  *" push "*)                       [ -n "${STUB_PUSH_FAIL:-}" ] && { echo "! [rejected]" >&2; exit 1; } ;;
+  *" push "*)
+    # STUB_PUSH_DENIED / STUB_PUSH_NET make a `git push --dry-run` (the coordinator's probe) fail:
+    # a 403 from the remote, or an error that says nothing about permissions.
+    if [[ " $* " == *" --dry-run "* ]]; then
+      [ -n "${STUB_PUSH_DENIED:-}" ] && { echo "remote: Permission to cooper3330/weekly-meal-planner.git denied to github-actions[bot]." >&2; echo "fatal: unable to access 'https://github.com/cooper3330/weekly-meal-planner/': The requested URL returned error: 403" >&2; exit 128; }
+      [ -n "${STUB_PUSH_NET:-}" ] && { echo "fatal: unable to access 'https://github.com/cooper3330/weekly-meal-planner/': Could not resolve host: github.com" >&2; exit 128; }
+    fi
+    [ -n "${STUB_PUSH_FAIL:-}" ] && { echo "! [rejected]" >&2; exit 1; } ;;
 esac
 if [ "${1:-}" = "worktree" ] && [ "${2:-}" = "add" ]; then
   args=("$@"); n=${#args[@]}

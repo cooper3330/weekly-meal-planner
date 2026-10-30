@@ -81,6 +81,19 @@ jobs:
             exit "$rc"
           fi
 
+      # A skipped review must not look like a pass. This is the only skip reason that reaches a step
+      # (the job's own `if:` skips the whole job). The run concludes success with the "Run the
+      # reviewer" step skipped, which scripts/agent-guard.sh uses to leave it out of the daily count.
+      - name: Comment that the daily cap skipped the review
+        if: steps.preflight.outputs.skip == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          AGENT_DAILY_RUNS: ${{ vars.AGENT_DAILY_RUNS }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: scripts/agent-guard.sh skip-comment --number "$PR_NUMBER" --sha "$HEAD_SHA"
+
       - name: Run the reviewer
         if: steps.preflight.outputs.skip != 'true'
         timeout-minutes: 18

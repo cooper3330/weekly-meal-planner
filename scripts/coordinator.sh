@@ -8,6 +8,9 @@
 #   With --source human (default) the item must be pending according to scripts/pending-revisions.sh;
 #   with --source reviewer it must be an open issue-* PR whose latest reviewer review requests changes
 #   on the current head. A stale or duplicate request logs and exits 0 without posting.
+#   --source ci --run <run-id> (from .github/workflows/ci-fix.yml) revises an issue-* PR whose `check` job
+#   failed in that run, on the PR's current head, while main is green and the revision budget (shared with
+#   the reviewer source) is not spent. An arch-* PR gets the needs-human label instead.
 #        --ready-label N handles one `ready` label event on issue N (sets its card to Ready if it is not
 #        yet moving, removes the label), then runs one pass like --once.
 # Env:   PROJECT_NUMBER       (required) the GitHub Project number
@@ -32,13 +35,13 @@
 set -euo pipefail
 
 usage() {
-  echo "usage: scripts/coordinator.sh [--once | --ready-label <issue-number> | --revise <pr|issue> <number> [--source human|reviewer]]" >&2
+  echo "usage: scripts/coordinator.sh [--once | --ready-label <issue-number> | --revise <pr|issue> <number> [--source human|reviewer | --source ci --run <run-id>]]" >&2
   exit 2
 }
 
 # Argument check, before anything touches GitHub. Modes: no flag (loop), --once (one pass), and
 # --revise (one revision for one item; used by .github/workflows/revise.yml).
-MODE=loop; REV_KIND=""; REV_NUMBER=""; REV_SOURCE=human
+MODE=loop; REV_KIND=""; REV_NUMBER=""; REV_SOURCE=human; REV_RUN=""
 # --ready-label N: handle one `ready` label event on issue N, then run one pass (like --once).
 # Validated here, so a bad number launches and writes nothing.
 READY_LABEL_ISSUE=""
@@ -55,12 +58,23 @@ case "${1:-}" in
     REV_KIND="$2"; REV_NUMBER="$3"; shift 3
     case "$REV_KIND" in pr|issue) ;; *) usage ;; esac
     case "$REV_NUMBER" in ''|*[!0-9]*) usage ;; esac
-    if [ $# -gt 0 ]; then
-      [ $# -eq 2 ] && [ "$1" = "--source" ] || usage
-      REV_SOURCE="$2"
-      case "$REV_SOURCE" in human|reviewer) ;; *) usage ;; esac
+    while [ $# -gt 0 ]; do
+      [ $# -ge 2 ] || usage
+      case "$1" in
+        --source) REV_SOURCE="$2" ;;
+        --run) REV_RUN="$2" ;;
+        *) usage ;;
+      esac
+      shift 2
+    done
+    case "$REV_SOURCE" in human|reviewer|ci) ;; *) usage ;; esac
+    if [ "$REV_SOURCE" != human ] && [ "$REV_KIND" != pr ]; then usage; fi
+    # --run is the failed CI run, and goes with --source ci only (a positive integer).
+    if [ "$REV_SOURCE" = ci ]; then
+      case "$REV_RUN" in ''|*[!0-9]*|0|0[0-9]*) usage ;; esac
+    elif [ -n "$REV_RUN" ]; then
+      usage
     fi
-    if [ "$REV_SOURCE" = reviewer ] && [ "$REV_KIND" != pr ]; then usage; fi
     MODE=revise ;;
   *) usage ;;
 esac
@@ -100,12 +114,36 @@ fi
 REPO="${REPO:-$(gh repo view --json nameWithOwner -q .nameWithOwner)}"
 
 # In Actions, stop early (with the fix named) if the App cannot push; agents would otherwise run to the
-# end of a task and fail at `git push`. Best effort: an unreadable answer never blocks the run.
+# end of a task and fail at `git push`. The probe is a dry-run push of a throwaway branch name: git does
+# the same authenticated handshake as a real push and changes nothing on the remote. It stops the run
+# only on a clear refusal (403, permission denied); any other failure (network, an odd error) is logged
+# and lets the run continue. The permissions the token reports are logged for diagnosis only: that field
+# is not a reliable answer for an App installation token, so it never decides.
 if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
-  can_push=$(gh api "repos/$REPO" --jq .permissions.push 2>/dev/null || true)
-  if [ "$can_push" = "false" ]; then
-    echo "$(ts) the GitHub App cannot push to $REPO: give the App Contents: Read & write (docs/adr/0014); not launching any agent" >&2
-    exit 1
+  reported=$(gh api "repos/$REPO" --jq .permissions 2>/dev/null || true)
+  echo "$(ts) reported repository permissions for this token: ${reported:-unavailable}"
+  probe_rc=0
+  probe=$(git push --dry-run origin "HEAD:refs/heads/agent-push-probe" 2>&1) || probe_rc=$?
+  if [ "$probe_rc" -ne 0 ]; then
+    if grep -qiE '(returned error: )?403|permission to .* denied|permission denied|not permitted|write access .*not granted' <<<"$probe"; then
+      echo "$(ts) the GitHub App cannot push to $REPO: give the App Contents: Read & write and accept it on the installation (docs/adr/0014); not launching any agent" >&2
+      echo "$(ts) git said: $probe" >&2
+      # A revision has an item to tell: say so there, once, so the owner does not have to open the Actions log.
+      if [ "$MODE" = revise ]; then
+        # --paginate with --jq would run the filter once per page; slurp every page, then take the newest agent comment.
+        last=$(gh api "repos/$REPO/issues/$REV_NUMBER/comments?per_page=100" --paginate 2>/dev/null | jq -rs '[.[][] | select((.body // "") | contains("<!-- agent:"))] | last | (.body // "")' 2>/dev/null || true)
+        if ! grep -qF '<!-- agent:permission -->' <<<"$last"; then
+          msg="This revision could not start: a test push from the GitHub App that runs the agents was refused. In the App's settings give it Contents: Read and write (and Pull requests: Read and write), accept the new permissions on the App's installation for this repository, then comment /revise again."$'\n\n'"git said:"$'\n\n'"${probe}"$'\n\n'"The token reported these repository permissions: ${reported:-unavailable}"$'\n\n'"<!-- agent:permission -->"
+          if [ "$REV_KIND" = pr ]; then
+            gh pr comment "$REV_NUMBER" --repo "$REPO" --body "$msg" || true
+          else
+            gh issue comment "$REV_NUMBER" --repo "$REPO" --body "$msg" || true
+          fi
+        fi
+      fi
+      exit 1
+    fi
+    echo "$(ts) could not tell whether the App can push (the dry-run push failed for another reason); continuing: $probe" >&2
   fi
 fi
 OWNER="${OWNER:-${REPO%%/*}}"
@@ -185,8 +223,8 @@ post_comment() { # kind number body
 # "reviewer" the feedback is the reviewer agent's CHANGES_REQUESTED review (the developer is told so in
 # its prompt), and the acknowledgement carries source=reviewer, which is how scripts/after-review.sh
 # counts rounds against REVISION_BUDGET.
-revise_item() { # item-json [source]
-  local item="$1" source="${2:-human}" kind number agent branch linked ack prompt wt fail turns marker
+revise_item() { # item-json [source] [ci-run-id]
+  local item="$1" source="${2:-human}" run="${3:-}" kind number agent branch linked ack prompt wt fail turns marker
     kind=$(jq -r .kind <<<"$item")
     number=$(jq -r .number <<<"$item")
     agent=$(jq -r .agent <<<"$item")
@@ -194,6 +232,7 @@ revise_item() { # item-json [source]
     linked=$(jq -r '.linked_issue // empty' <<<"$item")
     marker="<!-- agent:ack -->"
     if [ "$source" = reviewer ]; then marker="<!-- agent:ack source=reviewer -->"; fi
+    if [ "$source" = ci ]; then marker="<!-- agent:ack source=ci -->"; fi
     wt=$(mktemp -d "${TMPDIR:-/tmp}/revise-XXXXXX")
     fail=""
     if [ "$kind" = "pr" ]; then
@@ -208,6 +247,9 @@ revise_item() { # item-json [source]
       prompt="Revise after review (revision mode). Repository $REPO, PR #$number, branch $branch; you are in a git worktree with that branch's code, up to date with main. A trusted reviewer left feedback newer than your last reply. Follow the 'Revise after review' section of your agent definition: read all comments, review comments and reviews on the PR yourself, address them with new commits, reply on each thread, and push to $branch (git push origin HEAD:$branch). This prompt deliberately does not repeat the feedback."
       if [ "$source" = reviewer ]; then
         prompt="$prompt Source: reviewer. The feedback to act on is the latest review on the PR by github-actions[bot] that carries the reviewer marker and requests changes on the current head commit. Treat that review as feedback, as your agent definition describes."
+      fi
+      if [ "$source" = ci ]; then
+        prompt="$prompt Source: CI. The check job of CI run $run failed on the current head of this PR; there may be no human or reviewer feedback to read. Follow the CI-source rules of your agent definition: read the failure with gh run view $run --log-failed and gh pr checks $number, fix it only if this PR's change caused it, and otherwise comment why it is not this PR's and stop."
       fi
       if [ -n "$linked" ]; then
         prompt="$prompt The task's linked issue #$linked also counts: its comments from a trusted reviewer are feedback on this PR too (read them with gh api repos/$REPO/issues/$linked/comments)."
@@ -227,6 +269,9 @@ revise_item() { # item-json [source]
       post_comment "$kind" "$number" "$fail <!-- agent:ack -->"
     else
       ack="Picked up: the $agent agent is revising in response to the latest feedback. If this run fails, comment /revise again. $marker"
+      if [ "$source" = ci ]; then
+        ack="Picked up: the $agent agent is fixing the failed CI check [run $run]. If this run fails, comment /revise to try again. $marker"
+      fi
       post_comment "$kind" "$number" "$ack"
       # The prompt goes first: --allowedTools takes a list and would swallow a trailing prompt.
       turns=$DEVELOPER_MAX_TURNS
@@ -252,7 +297,106 @@ revise_pass() {
   done
 }
 
-# --revise <kind> <number> [--source human|reviewer]: one revision for one item, then exit. Events can
+hand_to_human() { # pr-number: label needs-human (creating the label if needed); ask the owner for a review
+  gh label create needs-human --repo "$REPO" --color D93F0B \
+    --description "An agent run stopped and a human must decide" >/dev/null 2>&1 || true
+  gh pr edit "$1" --repo "$REPO" --add-label needs-human >/dev/null || true
+  gh pr edit "$1" --repo "$REPO" --add-reviewer "$OWNER" >/dev/null 2>&1 \
+    || echo "$(ts) could not request a review from $OWNER (they may be the PR author)"
+}
+
+# --source ci: the `check` job failed on an agent PR (.github/workflows/ci-fix.yml). Everything here is
+# a deterministic check; the model only runs at the end. Stale, duplicate or unfixable events log why
+# and return 0 without posting; a PR that needs a human gets one comment and the needs-human label.
+revise_ci() { # pr-number run-id
+  local number="$1" run="$2" job_json pr state branch head labels run_json jobs_json job_url rounds budget comments main_state item
+  pr=$(gh pr view "$number" --repo "$REPO" --json state,headRefName,headRefOid,labels) || return 1
+  state=$(jq -r '.state // ""' <<<"$pr")
+  branch=$(jq -r '.headRefName // ""' <<<"$pr")
+  head=$(jq -r '.headRefOid // ""' <<<"$pr")
+  labels=$(jq -r '(.labels // [])[].name' <<<"$pr")
+  case "$branch" in
+    issue-*|arch-*) ;;
+    *) echo "$(ts) PR #$number: branch '$branch' is neither issue-* nor arch-*; nothing to do"; return 0 ;;
+  esac
+  if [ "$state" != OPEN ]; then echo "$(ts) PR #$number is $state; nothing to do"; return 0; fi
+
+  # The failed run must be for the PR's current head, and its `check` job must have failed in a step
+  # (not been cancelled, or died while setting up the runner before any step ran).
+  run_json=$(gh api "repos/$REPO/actions/runs/$run") || return 1
+  if [ -z "$head" ] || [ "$(jq -r '.head_sha // ""' <<<"$run_json")" != "$head" ]; then
+    echo "$(ts) PR #$number: CI run $run is not for the current head ${head:0:7} (a newer push makes it stale); nothing to do"
+    return 0
+  fi
+  if [ "$(jq -r '.conclusion // ""' <<<"$run_json")" != failure ]; then
+    echo "$(ts) PR #$number: CI run $run did not fail (conclusion '$(jq -r '.conclusion // ""' <<<"$run_json")'); nothing to do"
+    return 0
+  fi
+  jobs_json=$(gh api "repos/$REPO/actions/runs/$run/jobs?per_page=100") || return 1
+  job_json=$(jq -c '[(.jobs // [])[] | select(.name == "check" and .conclusion == "failure"
+              and ([(.steps // [])[] | select(.conclusion == "failure" and .name != "Set up job")] | length) > 0)]
+            | first // empty' <<<"$jobs_json")
+  job_url=$(jq -r '.html_url // "the failed run"' <<<"${job_json:-null}")
+  if [ -z "$job_json" ]; then
+    echo "$(ts) PR #$number: the check job of run $run did not fail in a step (cancelled, or a runner or setup failure); nothing to do"
+    return 0
+  fi
+
+  if [[ "$branch" == arch-* ]]; then
+    if printf '%s\n' "$labels" | grep -qx 'needs-human'; then
+      echo "$(ts) PR #$number: ADR PR with a failed check is already with a human; nothing to do"
+      return 0
+    fi
+    echo "$(ts) PR #$number: ADR PRs are not fixed automatically; handing it to $OWNER"
+    hand_to_human "$number"
+    post_comment pr "$number" "The \`check\` job failed on this ADR PR ($job_url). ADR PRs are not fixed automatically: the needs-human label is set and the owner's review is requested. Comment /revise after fixing or to ask the architect for a revision.
+
+<!-- agent:merge-gate -->"
+    return 0
+  fi
+
+  comments=$(gh api "repos/$REPO/issues/$number/comments?per_page=100" --paginate \
+    | jq -sc '[.[] | (if type == "array" then .[] else . end)]')
+  # Once per run: a CI acknowledgement that names this run means it was taken (a re-delivered event).
+  if jq -e --arg m "[run $run]" '[.[] | select((.body // "") | contains("<!-- agent:ack source=ci -->") and contains($m))] | length > 0' <<<"$comments" >/dev/null; then
+    echo "$(ts) PR #$number: CI run $run was already picked up; nothing to do"
+    return 0
+  fi
+
+  # If main is red, the cause is not this PR. The latest finished CI run on main, cancelled and skipped
+  # runs aside, is what counts.
+  main_state=$(gh api "repos/$REPO/actions/runs?branch=main&event=push&status=completed&per_page=20" \
+    | jq -r '[(.workflow_runs // [])[] | select(.name == "CI" and (.conclusion == "success" or .conclusion == "failure"))] | (first // {}) | .conclusion // ""') || return 1
+  if [ "$main_state" = failure ]; then
+    echo "$(ts) PR #$number: the latest CI run on main failed; not this PR's to fix"
+    post_comment pr "$number" "The \`check\` job failed on this PR [run $run], but CI on \`main\` is failing too, so the cause is probably not this PR. No automatic fix is started. Fix \`main\` first; then comment /revise if this PR still needs a fix. <!-- agent:ack source=ci -->"
+    return 0
+  fi
+
+  # The budget is shared with the reviewer: both kinds of acknowledgement are counted. Human /revise
+  # rounds (an acknowledgement without source=) never count.
+  budget="${REVISION_BUDGET:-3}"
+  case "$budget" in ''|*[!0-9]*) budget=3 ;; esac
+  rounds=$(jq -r '[.[] | select((.body // "") | contains("<!-- agent:ack source=reviewer -->") or contains("<!-- agent:ack source=ci -->"))] | length' <<<"$comments")
+  if [ "$rounds" -ge "$budget" ]; then
+    if printf '%s\n' "$labels" | grep -qx 'needs-human'; then
+      echo "$(ts) PR #$number: revision budget ($budget) is spent and the PR is already with a human; nothing to do"
+      return 0
+    fi
+    echo "$(ts) PR #$number: revision budget ($budget) is spent after $rounds rounds; handing it to $OWNER"
+    hand_to_human "$number"
+    post_comment pr "$number" "The revision budget is spent: the developer has already revised this PR $rounds times in response to the reviewer or to failing CI (budget $budget, set by REVISION_BUDGET). The \`check\` job failed again ($job_url). It is handed to a human: the owner's review is requested. Comment /revise to run another revision; that does not count against the budget.
+
+<!-- agent:merge-gate -->"
+    return 0
+  fi
+
+  item=$(jq -nc --argjson n "$number" --arg b "$branch" --arg l "$(sed -nE 's/^issue-([0-9]+)-.*/\1/p' <<<"$branch")" \
+    '{kind: "pr", number: $n, agent: "developer", branch: $b, linked_issue: (if $l == "" then null else ($l | tonumber) end)}')
+  revise_item "$item" ci "$run"
+}
+
+# --revise <kind> <number> [--source human|reviewer|ci]: one revision for one item, then exit. Events can
 # be stale or duplicated (the second event of one review submission, a re-run), so every run first
 # checks that the item still needs a revision and otherwise logs and exits 0 without posting.
 revise_one() { # kind number source
@@ -268,6 +412,11 @@ revise_one() { # kind number source
     fi
     revise_item "$item" human
     return 0
+  fi
+
+  if [ "$source" = ci ]; then
+    revise_ci "$number" "$REV_RUN"
+    return $?
   fi
 
   # Reviewer source: the reviewer is github-actions[bot], which pending-revisions never trusts, so

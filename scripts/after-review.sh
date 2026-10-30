@@ -12,7 +12,7 @@
 # Env:   REPO             owner/name (default: the current repository)
 #        OWNER            who to ask for a review (default: the repository owner)
 #        AGENTS_PAUSED    the kill switch; `true` blocks auto-merge and revision dispatch
-#        REVISION_BUDGET  reviewer-requested revision rounds per PR (default 3)
+#        REVISION_BUDGET  reviewer-requested and CI-fix revision rounds per PR, counted together (default 3)
 # Needs: gh (the App token, so the merge's push to main triggers CI; it also needs Actions: write to
 #        dispatch revise.yml, docs/adr/0014), jq. Works with bash 3.2.
 set -euo pipefail
@@ -35,6 +35,7 @@ log() { echo "after-review: PR #$PR: $*"; }
 # count). At the budget the PR goes to a human instead. ADR PRs (arch-*) are revised only on human
 # feedback, so nothing happens for them here.
 ACK_MARKER='<!-- agent:ack source=reviewer -->'
+CI_ACK_MARKER='<!-- agent:ack source=ci -->'
 request_revision() {
   local branch budget rounds labels
   branch=$(gh pr view "$PR" --repo "$REPO" --json headRefName -q .headRefName)
@@ -46,8 +47,10 @@ request_revision() {
 
   budget="${REVISION_BUDGET:-3}"   # an unset repository variable arrives as an empty string
   case "$budget" in ''|*[!0-9]*) budget=3 ;; esac
+  # The budget is shared with scripts/coordinator.sh --source ci: both kinds of acknowledgement count.
   rounds=$(gh api "repos/$REPO/issues/$PR/comments?per_page=100" --paginate \
-    | jq -s --arg m "$ACK_MARKER" '[.[] | (if type == "array" then .[] else . end) | select((.body // "") | contains($m))] | length')
+    | jq -s --arg m "$ACK_MARKER" --arg c "$CI_ACK_MARKER" \
+      '[.[] | (if type == "array" then .[] else . end) | select((.body // "") | contains($m) or contains($c))] | length')
 
   if [ "$rounds" -lt "$budget" ]; then
     log "revision round $((rounds + 1)) of $budget: dispatching the developer"
@@ -66,7 +69,7 @@ request_revision() {
   gh pr edit "$PR" --repo "$REPO" --add-label needs-human >/dev/null
   gh pr edit "$PR" --repo "$REPO" --add-reviewer "$OWNER" >/dev/null 2>&1 \
     || log "could not request a review from $OWNER (they may be the PR author)"
-  gh pr comment "$PR" --repo "$REPO" --body "The revision budget is spent: the developer has already revised this PR $rounds times in response to the reviewer (budget $budget, set by REVISION_BUDGET). It is handed to a human: the owner's review is requested. Comment /revise to run another revision; that does not count against the budget.
+  gh pr comment "$PR" --repo "$REPO" --body "The revision budget is spent: the developer has already revised this PR $rounds times in response to the reviewer or to failing CI (budget $budget, set by REVISION_BUDGET). It is handed to a human: the owner's review is requested. Comment /revise to run another revision; that does not count against the budget.
 
 <!-- agent:merge-gate -->" >/dev/null
 }

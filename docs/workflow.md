@@ -50,7 +50,7 @@ Feature issue (spec) --human: Ready--> Coordinator --> Architect
    `/revise` so the architect resolves them and promotes the tasks).
 Task issue --Ready, all blockers done--> Coordinator --> Developer
    Developer branches `issue-N-slug`, writes the tests first and implements until they pass, opens PR (`Closes #N`), sets In Review.
-Human reviews/merges. The PR's `Closes #N` closes the task, and the built-in project workflows move it to Done; when all sub-issues are Done, the coordinator moves the feature to Done.
+The reviewer agent reviews the PR; the merge gate (below) decides whether it merges by itself or waits for the owner. The PR's `Closes #N` closes the task, and the built-in project workflows move it to Done; when all sub-issues are Done, the coordinator moves the feature to Done.
 ```
 
 ## Routing rules (coordinator)
@@ -69,7 +69,7 @@ Human reviews/merges. The PR's `Closes #N` closes the task, and the built-in pro
 - Spec changes after approval: edit the issue body and leave a comment saying what changed. The architect re-checks the plan; the coordinator does not re-dispatch work already in progress.
 
 ## Planned work flows to Ready
-Moving every planned task to Ready by hand was a chore, not a decision, so the architect does it. When it has no open questions it puts each task in Ready itself; open questions (conflicting requirements, a security concern, a trade-off the spec and constitution do not settle) are the only reason a plan waits in Plan Review. Dependencies are explicit: a task is dispatched only once everything on its `Blocked by:` line is done. Tasks that rely on the architect's ADRs list the ADR PR there, so development starts after you accept the decisions by merging that PR (until the reviewer agent and risk-based auto-merge in #4 take that over).
+Moving every planned task to Ready by hand was a chore, not a decision, so the architect does it. When it has no open questions it puts each task in Ready itself; open questions (conflicting requirements, a security concern, a trade-off the spec and constitution do not settle) are the only reason a plan waits in Plan Review. Dependencies are explicit: a task is dispatched only once everything on its `Blocked by:` line is done. Tasks that rely on the architect's ADRs list the ADR PR there, so development starts after the ADR PR merges. ADR PRs touch `docs/adr/`, a protected path, so they are `risk:high` and you accept the decisions by merging them.
 
 ## The agents' GitHub App
 Agents act as an owner-created GitHub App installed on this repository only (docs/adr/0014). Give it these repository permissions, and no others:
@@ -79,7 +79,7 @@ Agents act as an owner-created GitHub App installed on this repository only (doc
 - Pull requests: Read & write
 - Actions: Write (to dispatch workflows)
 
-Store its ID and private key as the repository secrets `AGENT_APP_ID` and `AGENT_APP_PRIVATE_KEY`. If a push from a workflow fails with `403`, check that the App has Contents write and is installed on this repository; the coordinator also stops early with that message when GitHub reports the App cannot push.
+Store its ID and private key as the repository secrets `AGENT_APP_ID` and `AGENT_APP_PRIVATE_KEY`. If a push from a workflow fails with `403`, check that the App has Contents write and that the installation has accepted it. Before it launches any agent, the coordinator makes a test push (`git push --dry-run` of a throwaway branch name, which changes nothing on the remote) with the App's token. A clear refusal (403, permission denied) stops the run with a message naming the fix; any other failure of the probe is logged and the run continues. The run log also prints the permissions the token reports, for diagnosis only (that field is not a reliable answer for an App token, so it never decides). When a refusal stops a revision (`--revise`), it also leaves one comment on the PR or issue, ending with `<!-- agent:permission -->`: it says the revision could not start, names the permission to give the App and to accept on the installation, and shows what git said. Fix the App, then comment `/revise` again. The comment is never counted toward the revision budget, and it is posted once, not on every retry.
 
 ## Releasing work with the `ready` label
 Approving a spec or releasing a task is one action: add the `ready` label to the issue. A GitHub Actions workflow cannot trigger on a card move in a user-owned project (ADR 0015), so the label is the doorbell. Within seconds the coordinator workflow sets the card to Ready (unless it is already moving), removes the label, and runs a pass. The architect applies the label to the tasks it plans, so they are dispatched at once; tasks parked in Plan Review get no label.
@@ -90,10 +90,60 @@ Approving a spec or releasing a task is one action: add the `ready` label to the
 - A burst of events queues one pass behind the running one; GitHub cancels the older pending runs, and skipped runs do not count toward `AGENT_DAILY_RUNS`, but cancelled runs do (a run cancelled by timeout or by hand called Claude, and a superseded pending run cannot be told apart from it), so a burst of label events can use several slots. Raise `AGENT_DAILY_RUNS` if the cap is reached too early. Each pass sweeps every eligible item, so nothing is lost. The concurrency group is on the job, so an unrelated event (another label, a stranger's issue) never joins the queue.
 - Re-run `scripts/setup-project.sh` once (it is safe to re-run) to create the `ready` label. `AGENTS_PAUSED`, the preflight and the daily cap apply to these triggers like any other.
 
+### The daily cap
+- `AGENT_DAILY_RUNS` is a repository variable (Settings > Secrets and variables > Actions > Variables). Each workflow passes it to `scripts/agent-guard.sh preflight` in the `env:` of its Preflight step (`${{ vars.AGENT_DAILY_RUNS }}`); unset or empty means 12. The guard counts today's (UTC) runs of Coordinator, Revise and Review.
+- A review skipped by the cap is visible: the Review job posts one comment on the PR, marked `<!-- agent:review-skipped sha=... -->`, giving the count and the cap. It says to raise `AGENT_DAILY_RUNS` or wait for 00:00 UTC, then re-run the Review job. A re-run on the same head SHA posts no second comment. Until then any earlier verdict on the PR (for example CHANGES_REQUESTED) is stale.
+- A run the cap skipped does not count toward the cap, whichever workflow it is. Such a run concludes `success` without calling Claude: a Review run has its "Run the reviewer" step skipped, and a Coordinator or Revise run has run its "Daily cap skip" step (which runs only on the cap-skip path). The guard leaves those runs out (one `gh run view` per successful run today; unreadable jobs mean the run is counted). Cancelled runs are still counted.
+
+## The merge gate
+A risk-based gate replaces "a human merges every PR" (ADR 0013).
+
+- **Only PRs into `main` are gated.** CI, the labeler, the reviewer and auto-merge all filter on base branch `main`. A PR into any other branch starts none of them.
+- **CI's `check` job is required.** It runs `make check`, the same command developers loop on.
+- **The reviewer agent approves or requests changes.** It checks the PR against the task's acceptance criteria, the plan, the ADRs and the constitution, once per head commit.
+- **Low-risk PRs auto-merge.** After an approval, `scripts/after-review.sh` (code, not the model) enables GitHub's squash auto-merge when the base is `main`, the classifier says `low`, there is no `risk:high` label, and agents are not paused. GitHub merges once the required `check` and the approval are in.
+- **`risk:high` PRs need the owner.** The label is added by `.github/workflows/risk-label.yml` and is never removed by an agent. Adding it to a PR also turns auto-merge off.
+
+**Protected paths.** `.github/risk-paths` is the one list (do not copy it into docs); `.github/CODEOWNERS` mirrors it and a test fails if the two drift. They are the files that define the process and its guardrails: the constitution, this workflow, the ADRs, agent and Claude configuration, the scripts, the workflows, ignore files and the files holding secrets and configuration. An agent that could change them could loosen its own gate, so a PR touching any of them is `risk:high` and waits for you. `scripts/classify-risk.sh` applies the list and fails closed if it is missing.
+
+**Weakened tests.** The reviewer labels any PR that weakens tests or `make check` (skipped, deleted or loosened tests, a relaxed check) `risk:high`, because `tests/`, the `Makefile` and the dependency files are not protected paths.
+
+**Owner-authored protected PRs.** GitHub forbids approving your own PR, so you merge your own protected-path PRs with the admin bypass, which is why "Do not allow bypassing" stays off. Agent PRs come from the App and do not need it.
+
+## Agents on GitHub Actions (ADR 0015)
+The agents run on Actions by default, using the pinned `claude` CLI and the same scripts as local mode.
+
+| Workflow | Trigger | Does |
+|---|---|---|
+| `ci.yml` | PRs into `main`, pushes to `main` | the `check` job: `make check` (no secrets) |
+| `risk-label.yml` | `pull_request_target` into `main`, and `labeled` | adds `risk:high`; on that label, turns auto-merge off |
+| `coordinator.yml` | hourly (minute 17), "Run workflow", the `ready` label, a closed task or merged `issue-*` PR | `scripts/coordinator.sh --once`: dispatches the architect and developer |
+| `review.yml` | PRs into `main` from `issue-*` and `arch-*` branches of this repository | the reviewer agent, then `scripts/after-review.sh` (auto-merge or a revision) |
+| `revise.yml` | trusted comments and reviews, "Run workflow" | `scripts/coordinator.sh --revise`: one revision run |
+| `ci-fix.yml` | failed `check` on an `issue-*` PR | a developer revision (see above) |
+
+- **Kill switch.** Set the repository variable `AGENTS_PAUSED` to `true`: every job that runs `claude` or enables auto-merge is skipped. The labeler's disable-auto-merge step still runs, so a `risk:high` label stops a merge even while paused.
+- **Default caps** (repository variables; unset means the default):
+
+| Variable | Default |
+|---|---|
+| `MAX_PARALLEL` | 1 |
+| `AGENT_DAILY_RUNS` | 12 runs that called `claude`, per UTC day |
+| `ARCHITECT_MAX_TURNS` | 60 |
+| `DEVELOPER_MAX_TURNS` | 80 |
+| `REVIEWER_MAX_TURNS` | 30 |
+| `REVIEWER_MODEL` | `claude-opus-5-5` |
+| `REVISION_BUDGET` | 3 rounds per PR |
+
+  Job timeouts are 55 minutes for the agents, 30 for the reviewer and 10 for CI.
+- **Revision budget.** At `REVISION_BUDGET` the PR gets the `needs-human` label (see "Review and revision loop").
+- **Local mode is the fallback.** `scripts/coordinator.sh` still runs on your machine (loop mode, or `--once`) when Actions is paused, out of quota or unavailable. Local mode does not run the reviewer or CI-fix workflows, so you review and merge by hand.
+
 ## Human gates
 - Spec approval: moving a spec to Ready.
 - Answering the architect's open questions, when it has any (Plan Review).
-- Accepting architecture decisions by merging the ADR PR, and merging PRs generally, until #4 automates low-risk merges.
+- Accepting architecture decisions by merging the ADR PR (it is `risk:high`).
+- Merging any other `risk:high` PR. Low-risk PRs merge without you (see "The merge gate").
 - Plan approval is no longer a routine gate.
 
 ## Models
@@ -115,13 +165,56 @@ You review agent PRs and plan issues in GitHub as usual. The coordinator picks u
 - Only comments from the repo's OWNER, MEMBER, or COLLABORATOR count. Ordinary comments without `/revise` are ignored, so you can discuss freely.
 
 **What happens**
-1. Each coordinator pass (`scripts/coordinator.sh`, or the Actions coordinator once #4 lands) runs `scripts/pending-revisions.sh`. It lists work whose newest trusted feedback is newer than the newest agent comment.
+1. Each coordinator pass (`scripts/coordinator.sh` locally, or the Actions workflows `coordinator.yml` and `revise.yml`) runs `scripts/pending-revisions.sh`. It lists work whose newest trusted feedback is newer than the newest agent comment.
 2. For each item the coordinator posts a short acknowledgement, creates a throwaway detached git worktree on the PR branch (or on `origin/main` for plan feedback) so your own checkout and local branches are untouched, merges `origin/main` into the PR worktree first (so the agent runs the current protocol; a conflict is reported on the PR instead), and runs the owning agent in revision mode: the architect for `arch-*` branches and plan issues, the developer for `issue-*` branches. The prompt names the PR or issue but not the feedback text; the agent reads the comments itself and ignores untrusted authors.
 3. The agent adds new commits (never amends or force-pushes), replies on every thread, and pushes. You re-review, resolve the threads, and merge.
 
-**The marker.** Agents post with the owner's own GitHub account, so every agent comment ends with a hidden marker, `<!-- agent:NAME -->`. The marker, not the author, is how the loop tells agent comments from yours. It also means an agent's reply, even one that quotes `/revise`, is never treated as feedback.
+**The marker.** On Actions, agents now post as the GitHub App (the reviewer as `github-actions[bot]`); in local mode without `AGENT_GH_TOKEN` they still post as your own account. Either way every agent comment ends with a hidden marker, `<!-- agent:NAME -->`, and the marker stays: it, not the author, is how the loop tells agent comments from yours. It also means an agent's reply, even one that quotes `/revise`, is never treated as feedback.
+
+**When CI fails on an agent PR (`.github/workflows/ci-fix.yml`)**
+When the `check` job of `CI` fails on an `issue-*` PR from this repository, the developer is started automatically, in revision mode, instead of the PR waiting for you to comment `/revise`. The workflow only triggers; `scripts/coordinator.sh --revise pr N --source ci --run R` decides. It starts the developer only if the failed run is for the PR's current head, the `check` job really failed in a step (not cancelled, not a runner failure), and CI on `main` is not red (otherwise it posts one comment that the cause is probably not the PR). The reviewer agent is not involved. Each round is acknowledged with `<!-- agent:ack source=ci -->`.
+- **Shared budget.** CI rounds and reviewer-requested rounds count together against `REVISION_BUDGET` (default 3). At the budget the PR gets the `needs-human` label, one comment, and your review request. Your own `/revise` rounds never count.
+- **ADR PRs** (`arch-*`) are not fixed automatically: a red `check` gets the `needs-human` label and one comment with the failing job's link.
+- The developer's push restarts CI; a second failure is another round until the budget is spent. A green run triggers nothing. If the failure is not the PR's (infrastructure, or a test that also fails on `main`), the developer says so on the PR and stops.
+- Local mode does not react to CI.
 
 **Limits**
 - It runs while the coordinator runs: loop mode polls every `INTERVAL` seconds, `--once` does a single pass.
 - A failed run is reported in the coordinator's output. Comment `/revise` again to retry.
-- You still resolve threads and merge. The reviewer agent and risk-based auto-merge in #4 will take that over.
+- You resolve threads. You merge only `risk:high` PRs; the reviewer and the merge gate handle the rest.
+- **Revision budget and `needs-human`.** Reviewer-requested and CI-fix rounds count together against `REVISION_BUDGET` (default 3). When it is spent, the PR gets the `needs-human` label and one comment asking for you. Your own `/revise` rounds never count.
+
+## Manual repository settings
+Agents cannot make these. Do each once as the repository owner. `tests/scripts/test_docs.sh` fails if a workflow uses a secret or variable that is not named here.
+
+- [ ] **Branch protection on `main`** (Settings, Branches):
+  - Require a pull request before merging, with 1 approval.
+  - Require review from Code Owners.
+  - Require status checks to pass, and select the `check` status.
+  - Leave "Do not allow bypassing the above settings" off, so you can merge your own protected-path PRs (ADR 0013).
+- [ ] **Repository settings** (Settings, General, and Actions):
+  - Allow auto-merge.
+  - Automatically delete head branches.
+  - Allow GitHub Actions to create and approve pull requests (Settings, Actions, General, Workflow permissions); the reviewer needs it to approve.
+- [ ] **The GitHub App** (ADR 0014): create it with the permissions in "The agents' GitHub App", install it on this repository only, and add the secrets `AGENT_APP_ID` and `AGENT_APP_PRIVATE_KEY`.
+- [ ] **Board token.** Create a classic personal access token with only the `project` scope and add it as the secret `PROJECT_TOKEN`.
+- [ ] **Claude token.**
+  - Run `claude setup-token` on your Pro login and add the printed value as the secret `CLAUDE_CODE_OAUTH_TOKEN`.
+  - The token lasts one year. Record the creation date and the expiry date here when you create it: created `YYYY-MM-DD`, expires `YYYY-MM-DD` (one year later). Set a calendar reminder a few weeks before.
+  - To renew: run `claude setup-token` again, replace the secret `CLAUDE_CODE_OAUTH_TOKEN`, update the dates, and reset the reminder.
+  - Do not add `ANTHROPIC_API_KEY` for the delivery loop; the preflight fails if it is set. Switching to an API key is a documented fallback: replace the secret and change the preflight in `scripts/agent-guard.sh`.
+- [ ] **Repository variables** (Settings, Secrets and variables, Actions, Variables). Unset means the default:
+
+  | Variable | Default | Purpose |
+  |---|---|---|
+  | `PROJECT_NUMBER` | `1` on Actions (the workflows use `vars.PROJECT_NUMBER \|\| '1'`); required for local runs | the project's number |
+  | `MAX_PARALLEL` | 1 | agents running at once |
+  | `AGENTS_PAUSED` | unset (not paused) | `true` stops all agent runs |
+  | `AGENT_DAILY_RUNS` | 12 | daily cap on runs that call `claude` |
+  | `ARCHITECT_MAX_TURNS` | 60 | architect turn cap |
+  | `DEVELOPER_MAX_TURNS` | 80 | developer turn cap |
+  | `REVIEWER_MAX_TURNS` | 30 | reviewer turn cap |
+  | `REVIEWER_MODEL` | `claude-opus-5-5` | reviewer model |
+  | `REVISION_BUDGET` | 3 | automatic revision rounds per PR |
+- [ ] **Labels and project.** Run `scripts/setup-project.sh` (safe to re-run). It creates the labels `risk:high`, `needs-human` and `ready`, and checks the board's Status options.
+- [ ] **The 60-day schedule limit.** On a public repository GitHub disables a scheduled workflow after 60 days without repository activity. If the hourly coordinator stops, re-enable it from the Actions tab.
