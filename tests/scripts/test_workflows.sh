@@ -128,6 +128,7 @@ for f in .github/workflows/coordinator.yml .github/workflows/review.yml .github/
   assert_grep "$f" 'persist-credentials:[[:space:]]*false' "$f: checkout does not persist the workflow token"
 done
 CO_=.github/workflows/coordinator.yml
+assert_grep "docs/workflow.md" 'agent:permission' "workflow.md documents the comment a revision leaves when the App cannot push (#78)"
 assert_grep "docs/workflow.md" 'Contents: Read & write' "workflow.md lists the App's Contents permission"
 assert_grep "docs/workflow.md" 'Pull requests: Read & write' "workflow.md lists the App's pull request permission"
 # revise.yml pushes the PR branch, so it needs git to act as the App too (#39).
@@ -294,6 +295,18 @@ if grep -q "startsWith(github.event.pull_request.head.ref, 'issue-')" <<<"$rv_if
 if grep -q "vars\.AGENTS_PAUSED != 'true'" <<<"$rv_if"; then ok "job is gated by the AGENTS_PAUSED kill switch"; else bad "job is gated by the AGENTS_PAUSED kill switch"; fi
 assert_grep "$RV" '^  group:[[:space:]]*review-\$\{\{[[:space:]]*github\.event\.pull_request\.number[[:space:]]*\}\}' "concurrency group is keyed by PR number"
 assert_grep "$RV" '^  cancel-in-progress:[[:space:]]*true' "a newer push supersedes the review"
+# A review skipped by the cap is announced on the PR (#69), only on the cap-skip path.
+rv_skipstep=$(awk '/- name: Comment that the daily cap skipped the review/ { on = 1; print; next } on && /^      - name:/ { exit } on { print }' "$RV")
+if grep -q "if: steps.preflight.outputs.skip == 'true'" <<<"$rv_skipstep"; then ok "review.yml: the cap-skip comment step runs only when the preflight skipped"; else bad "review.yml: the cap-skip comment step runs only when the preflight skipped"; fi
+if grep -q 'agent-guard.sh skip-comment --number "$PR_NUMBER" --sha "$HEAD_SHA"' <<<"$rv_skipstep"; then ok "review.yml: the cap-skip step posts through agent-guard.sh skip-comment with the PR and head SHA"; else bad "review.yml: the cap-skip step posts through agent-guard.sh skip-comment with the PR and head SHA"; fi
+if grep -q 'github.event.pull_request.head.sha' <<<"$rv_skipstep" && grep -q 'vars.AGENT_DAILY_RUNS' <<<"$rv_skipstep"; then ok "review.yml: the cap-skip step gets the head SHA and AGENT_DAILY_RUNS"; else bad "review.yml: the cap-skip step gets the head SHA and AGENT_DAILY_RUNS"; fi
+# Coordinator and Revise mark a cap-skipped run with a step that runs only on that path (the guard reads it).
+for wf in "$CO" .github/workflows/revise.yml; do
+  capstep=$(awk '/- name: Daily cap skip$/ { on = 1; print; next } on && /^      - name:/ { exit } on { print }' "$wf")
+  if grep -q "if: steps.preflight.outputs.skip == 'true'" <<<"$capstep"; then ok "$wf: the Daily cap skip step runs only when the preflight skipped"; else bad "$wf: the Daily cap skip step runs only when the preflight skipped"; fi
+done
+assert_grep "$RV" '^      - name: Run the reviewer$' "review.yml: the reviewer step keeps the name the guard looks for when it discounts cap-skipped runs"
+assert_grep .github/workflows/coordinator.yml 'daily cap does count' "coordinator.yml: the concurrency comment says cancelled runs are counted"
 # review_budget_violations FILE: the reviewer's time budget (#61). The wait loop is bounded to at most
 # 720 seconds and its warning says 12 minutes; the job timeout is 30; the wait step has timeout 12 and
 # the review step 18; wait step + review step <= job timeout.
