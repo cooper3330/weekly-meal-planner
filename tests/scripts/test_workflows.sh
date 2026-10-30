@@ -128,6 +128,7 @@ for f in .github/workflows/coordinator.yml .github/workflows/review.yml .github/
   assert_grep "$f" 'persist-credentials:[[:space:]]*false' "$f: checkout does not persist the workflow token"
 done
 CO_=.github/workflows/coordinator.yml
+assert_grep "docs/workflow.md" 'agent:permission' "workflow.md documents the comment a revision leaves when the App cannot push (#78)"
 assert_grep "docs/workflow.md" 'Contents: Read & write' "workflow.md lists the App's Contents permission"
 assert_grep "docs/workflow.md" 'Pull requests: Read & write' "workflow.md lists the App's pull request permission"
 # revise.yml pushes the PR branch, so it needs git to act as the App too (#39).
