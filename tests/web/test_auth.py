@@ -106,6 +106,12 @@ def test_dev_login_alone_is_enough_and_maps_to_user_1(tmp_path: Path) -> None:
         assert c.get("/healthz").status_code == 200
 
 
+def test_different_dev_login_without_header_403(tmp_path: Path) -> None:
+    app = make_app(tmp_path, MEALPLANNER_DEV_LOGIN="dev@example.com")
+    for c in client_for(app):
+        assert c.get("/whoami").status_code == 403
+
+
 def test_dev_login_logs_warning(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     app = make_app(tmp_path, MEALPLANNER_DEV_LOGIN=OWNER)
     with caplog.at_level(logging.WARNING):
@@ -185,10 +191,10 @@ def test_cross_site_get_never_blocked(client: TestClient) -> None:
     assert r.status_code == 200
 
 
-def test_https_origin_for_same_host_allowed(client: TestClient) -> None:
-    # tailscale serve terminates TLS, so the app sees http while the browser sends https.
+def test_https_origin_for_http_request_rejected(client: TestClient) -> None:
+    # AC-4: without Sec-Fetch-Site, Origin must match the request scheme and host.
     r = client.post("/mutate", headers={**login(), "Origin": "https://localhost"})
-    assert r.status_code == 200
+    assert r.status_code == 403
 
 
 def test_evil_host_400(client: TestClient) -> None:

@@ -58,8 +58,7 @@ def _origin_matches(request: Request, origin: str) -> bool:
     host = request.headers.get("host", "")
     if not parts.netloc or parts.netloc.lower() != host.lower():
         return False
-    # `tailscale serve` terminates TLS, so the app sees http while the browser sends https.
-    return parts.scheme in (request.url.scheme, "https")
+    return parts.scheme == request.url.scheme
 
 
 async def cross_site_protection(request: Request, call_next: Next) -> Response:
