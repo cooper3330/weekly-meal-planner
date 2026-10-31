@@ -1,6 +1,7 @@
 # ADR 0008: Claude via forced tool use, pydantic validation, bounded retry, one mockable client
 - Status: Accepted
 - Date: 2026-10-24
+- Amended by: ADR 0022 (adds a second `LLMClient` implementation that calls the Claude CLI through a local bridge; the API client remains the default)
 
 ## Context
 Issue #5, decision 5: how the local app calls the Claude API. Constitution principle 5 requires schema-validated output that is retried or rejected and never rendered when invalid. Principle 7 requires model calls to be mockable so tests never touch the network. The API key comes only from the environment.
