@@ -11,6 +11,22 @@ def test_defaults_with_empty_environment() -> None:
     assert str(s.data_dir) == "data"
     assert s.model
     assert s.allowed_hosts == ()
+    assert s.owner_login is None
+    assert s.dev_login is None
+
+
+def test_logins_trimmed_and_lowercased() -> None:
+    s = load_settings(
+        {"MEALPLANNER_OWNER_LOGIN": " Owner@Example.COM ", "MEALPLANNER_DEV_LOGIN": " Dev@X.io "}
+    )
+    assert s.owner_login == "owner@example.com"
+    assert s.dev_login == "dev@x.io"
+
+
+def test_blank_logins_are_none() -> None:
+    s = load_settings({"MEALPLANNER_OWNER_LOGIN": "  ", "MEALPLANNER_DEV_LOGIN": ""})
+    assert s.owner_login is None
+    assert s.dev_login is None
 
 
 def test_each_variable_overrides_default() -> None:

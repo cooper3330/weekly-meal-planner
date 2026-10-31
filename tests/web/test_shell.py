@@ -1,4 +1,5 @@
 import re
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -12,8 +13,16 @@ VIEWPORT = '<meta name="viewport" content="width=device-width, initial-scale=1">
 
 
 @pytest.fixture
-def client() -> TestClient:
-    return TestClient(create_app(load_settings({})))
+def client(tmp_path: Path) -> Iterator[TestClient]:
+    settings = load_settings(
+        {"MEALPLANNER_DATA_DIR": str(tmp_path), "MEALPLANNER_OWNER_LOGIN": "owner@example.com"}
+    )
+    with TestClient(
+        create_app(settings),
+        base_url="http://localhost",
+        headers={"Tailscale-User-Login": "owner@example.com"},
+    ) as c:
+        yield c
 
 
 def test_home_renders(client: TestClient) -> None:
