@@ -9,6 +9,8 @@ from fastapi.staticfiles import StaticFiles
 
 from mealplanner.config import Settings
 from mealplanner.db import apply_migrations
+from mealplanner.llm.anthropic_client import AnthropicLLMClient
+from mealplanner.llm.client import LLMClient
 from mealplanner.web.routes import router
 
 SECURITY_HEADERS = {
@@ -22,7 +24,7 @@ MIGRATIONS_DIR = Path(__file__).parent / "db" / "migrations"
 DB_FILENAME = "mealplanner.sqlite3"
 
 
-def create_app(settings: Settings) -> FastAPI:
+def create_app(settings: Settings, llm_client: LLMClient | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         settings.data_dir.mkdir(parents=True, exist_ok=True)
@@ -39,6 +41,8 @@ def create_app(settings: Settings) -> FastAPI:
         lifespan=lifespan,
     )
     app.state.settings = settings
+    # Building the client never needs the API key; a missing key surfaces on generate().
+    app.state.llm_client = llm_client if llm_client is not None else AnthropicLLMClient(settings)
 
     @app.middleware("http")
     async def security_headers(
