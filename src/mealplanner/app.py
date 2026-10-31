@@ -8,9 +8,9 @@ from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
 
 from mealplanner.config import Settings
+from mealplanner.db import apply_migrations
 from mealplanner.llm.anthropic_client import AnthropicLLMClient
 from mealplanner.llm.client import LLMClient
-from mealplanner.db import apply_migrations
 from mealplanner.web.routes import router
 
 SECURITY_HEADERS = {
