@@ -1,5 +1,5 @@
 # ADR 0022: A loopback-only CLI bridge as a second backend behind the LLM client
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-10-31
 - Amends: ADR 0008 (adds a second implementation of the LLM client), ADR 0012 (adds a second loopback service)
 
@@ -8,13 +8,13 @@ Issues #112 (spec) and #113 (architecture). ADR 0008 makes the Anthropic SDK, ca
 
 Running a CLI with text supplied by a caller is a powerful capability. Doing it inside the web process, which also serves pages to the phone over Tailscale (ADR 0012), would put process execution and the CLI's credentials next to the code that handles requests. A web page open in the owner's browser can also send requests to any `localhost` port, so binding to loopback alone is not protection.
 
-Constitution principle 1 allows one outbound destination, the Claude API. The CLI talks to the same destination, so the principle is unchanged. This ADR does not amend the constitution.
+Constitution principle 1 allows one outbound destination, the Claude API. The CLI's model calls go to that destination, but the CLI can also make other calls of its own, such as telemetry, error reporting, feature-flag fetching and update checks. So the principle holds only if the bridge switches that traffic off and a test keeps it off (see Decision, "No other outbound traffic"). With that condition this ADR does not amend the constitution; if some non-API traffic turns out to be unavoidable, that needs its own ADR amending principle 1 before the bridge ships.
 
 ## Decision
 **A separate bridge process, same repository.**
 - A new package, `bridge/`, with its own entry point, runs a small FastAPI/uvicorn server. It shares the virtualenv and adds no new third-party dependency (P8).
 - `make run` starts the bridge, waits for its health check, then starts the app, and stops both if either exits or on interrupt. The supervisor is a small script in the repo; the plan defines it. A crash leaves no orphan.
-- The port and the shared secret are chosen per run and passed to both processes through the environment. They are never stored in the repository or in `.env.example` with values.
+- The port and the shared secret are chosen per run and passed to both processes through the environment (or a private file readable only by the owner; the plan chooses and shows it stays out of process listings and logs). They are never stored in the repository or in `.env.example` with values.
 
 **Strictly local access.**
 - The bridge binds to loopback only; `bridge` configuration rejects any other address at startup, with a test, as ADR 0012 does for the app.
@@ -34,16 +34,18 @@ Constitution principle 1 allows one outbound destination, the Claude API. The CL
 - A concurrency limit with a semaphore; over the limit gets 429.
 - An empty scratch directory per run as the working directory, deleted afterwards.
 - An explicit environment containing only what the CLI needs to be signed in. The bridge does not pass its own secret or the app's other settings to the child.
+- **No other outbound traffic.** The registered command's environment turns off the CLI's non-API traffic: telemetry, error reporting, feature-flag fetching where it can be disabled, and automatic updates. The plan verifies the exact variables and flags against the installed CLI's documentation. A test asserts that the registry's environment sets them, and fails if they are removed. If the CLI cannot work with some of that traffic off, the bridge does not ship until the owner accepts it in an ADR that amends principle 1.
 - The registered CLI command disables the model's tools and file and shell access, so the output is text only. This matches ADR 0008 ("the model has no tools with side effects"). The exact flags are verified against the installed CLI's documentation in the plan, and a test fails if they are removed.
 
 **The app side: one more implementation of the same protocol.**
 - `CLIBridgeLLMClient` implements `LLMClient` (ADR 0008). It sends the system prompt, messages and the output JSON schema to the bridge, receives text, parses JSON, and validates with `output.model_validate`.
+- **This reverses one rejection in ADR 0008.** ADR 0008 rejected "free-text JSON in the reply, parsed afterwards" because it causes more parse failures and gives the model no schema guidance. That holds for the API client, which keeps forced tool use. A text CLI has no forced tool use, so for this backend only, the schema is included in the prompt and the reply is parsed and validated in code. This is acceptable because the same validation and retry bound apply and invalid output is never rendered, and the cost is a possible extra CLI run.
 - It reuses `run_attempts`: schema failures are fed back as an error message and retried, at most 3 attempts in total, then `LLMOutputError`. Forced tool use, which is how `AnthropicLLMClient` gets structure, is not available over a text CLI, so validation in code carries the guarantee. Principle 5 is unchanged: invalid output is retried or rejected, never rendered.
 - Selection is `MEALPLANNER_LLM_BACKEND=api|bridge`, default `api`. The app factory injects the chosen client; feature code is unchanged. With `bridge` selected and the bridge unreachable, the app starts and reports the problem when a call is attempted, as ADR 0008 does for a missing key.
-- Error mapping: timeout, refusal, 429, connection failure and non-zero exit become `LLMUnavailableError`; a missing or rejected secret, a CLI that is not installed or not signed in, become `LLMConfigError`.
+- Error mapping: timeout, refusal, 429, connection failure and non-zero exit become `LLMUnavailableError`; a missing or rejected secret, a CLI that is not installed or not signed in, become `LLMConfigError`. No error message, log line or exception text contains the secret or the input; tests assert it for every mapped error.
 - `FakeLLMClient` remains the test double for feature code.
 
-**Audit and privacy.** The bridge logs command name, input size and SHA-256, exit status and duration. It never logs the input, the output or the secret.
+**Audit and privacy.** The bridge logs the command name, the caller, input size and SHA-256, exit status and duration. The caller is whichever token authenticated the request; with one shared secret there is one caller, recorded as a fixed label, so the field is ready for more. It never logs the input, the output or the secret.
 
 **Tests (ADR 0010).** The bridge's tests use a stub program in `tmp_path` in place of the CLI and never start the real one. They cover: the loopback-only refusal, wrong token, bad Host, `Origin` rejection, unknown command, hostile input passed through unchanged (shell metacharacters, a leading `--flag`, embedded newlines), timeout with a child process killed, output cap, concurrency limit, minimal environment, and the client's retry and error mapping against a stub bridge.
 
@@ -62,7 +64,7 @@ Constitution principle 1 allows one outbound destination, the Claude API. The CL
 - The bridge has its own paths that should be protected (the registry decides what can be executed). The plan decides whether `.github/risk-paths` and CODEOWNERS list them.
 
 ## Constitution check
-- P1 Local first: no new outbound destination; the bridge listens on loopback only and is never published.
+- P1 Local first: no outbound destination beyond Claude, provided the CLI's telemetry, error reporting, feature-flag fetching and update checks are switched off and a test keeps them off; the bridge listens on loopback only and is never published.
 - P5 Structured outputs: schema validation with bounded retry; invalid output is never rendered.
 - P7 Tests first: stub program and stub bridge; tests stay offline.
 - P8 Simple over clever: reuses FastAPI and uvicorn; one registered command; no queue or storage.
