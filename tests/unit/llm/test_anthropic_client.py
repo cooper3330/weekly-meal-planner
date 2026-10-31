@@ -66,7 +66,10 @@ class StubSDK:
 
 def make(*items: Any, key: str | None = SENTINEL) -> tuple[AnthropicLLMClient, StubSDK]:
     sdk = StubSDK(*items)
-    settings = load_settings({"MEALPLANNER_MODEL": "test-model"})
+    env = {"MEALPLANNER_MODEL": "test-model"}
+    if key is not None:
+        env["ANTHROPIC_API_KEY"] = key
+    settings = load_settings(env)
     return AnthropicLLMClient(settings, sdk_client=sdk), sdk
 
 
@@ -186,6 +189,7 @@ def test_rejected_key_maps_to_config_error() -> None:
         gen(client)
     assert len(sdk.calls) == 1
     assert SENTINEL not in str(info.value)
+    assert SENTINEL not in repr(info.value)
 
 
 def test_other_client_errors_are_not_mapped() -> None:
