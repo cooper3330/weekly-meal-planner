@@ -162,7 +162,9 @@ def test_foreign_keys_enforced(tmp_path: Path) -> None:
 
 def test_startup_creates_data_dir_and_migrates(tmp_path: Path) -> None:
     data = tmp_path / "missing" / "data"
-    settings = load_settings({"MEALPLANNER_DATA_DIR": str(data)})
+    settings = load_settings(
+        {"MEALPLANNER_DATA_DIR": str(data), "MEALPLANNER_OWNER_LOGIN": "owner@example.com"}
+    )
     with TestClient(create_app(settings)):
         pass
     db = data / "mealplanner.sqlite3"
@@ -177,6 +179,8 @@ def test_startup_fails_on_bad_migration(tmp_path: Path, monkeypatch: pytest.Monk
 
     bad = make_dir(tmp_path, {"0001_bad.sql": "NOT SQL;"})
     monkeypatch.setattr(app_mod, "MIGRATIONS_DIR", bad)
-    settings = load_settings({"MEALPLANNER_DATA_DIR": str(tmp_path / "d")})
+    settings = load_settings(
+        {"MEALPLANNER_DATA_DIR": str(tmp_path / "d"), "MEALPLANNER_OWNER_LOGIN": "o@example.com"}
+    )
     with pytest.raises(MigrationError), TestClient(create_app(settings)):
         pass
