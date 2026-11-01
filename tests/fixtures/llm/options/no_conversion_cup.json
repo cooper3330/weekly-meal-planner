@@ -1,0 +1,13 @@
+{
+  "options": [
+    {
+      "name": "Cup of rice",
+      "description": "Rice measured by volume, which the catalog cannot convert.",
+      "cook_minutes": 20,
+      "tags": [],
+      "ingredients": [
+        {"ingredient_id": "rice", "quantity": 1, "unit": "cup"}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "options": [
+    {
+      "name": "Rice bowl",
+      "description": "Rice bowl assigned to a numbered weekday.",
+      "cook_minutes": 20,
+      "tags": [],
+      "weekday": 1,
+      "ingredients": [
+        {"ingredient_id": "rice", "quantity": 200, "unit": "g"}
+      ]
+    }
+  ]
+}
