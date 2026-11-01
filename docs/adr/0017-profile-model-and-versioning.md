@@ -25,6 +25,7 @@ It has no calorie or macro targets (ADR 0001). The owner answered that diet patt
 | `preferences` | text, at most 4000 characters after trimming; line endings normalized to `\n`; may be empty | prompt only (#7): diet pattern, likes and dislikes, cuisines, anything else |
 
 - **Strict types.** Booleans, floats such as `2.5` or `2.0`, and numeric strings are rejected at the model, not coerced. The web form layer turns form strings into ints itself and reports a clear message for each field.
+- **"Shown back unchanged" (AC-1) means unchanged after normalization.** `preferences` is trimmed with line endings normalized to `\n`, and `exclusions` is de-duplicated and sorted. Tests compare the saved profile with the normalized input.
 - **No target fields.** There is no calorie, protein, carbohydrate or fat field, and `extra="forbid"` rejects any such key (AC-7).
 - **No model call in #6.** The app "reads and understands" the free text when #7 puts it verbatim into the generation prompt. The prompt marks it as the user's own words, inside clearly labelled delimiters, and treats it as preferences, not instructions. Parsing it into structured likes and dislikes with a model at save time would add an LLM call, a schema and a review step for no behavior the spec needs.
 

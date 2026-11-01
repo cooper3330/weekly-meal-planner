@@ -11,7 +11,21 @@ The nine allergens alone cannot express common hard exclusions: no pork, no beef
 
 ## Decision
 - **One fixed vocabulary of exclusion terms, owned by code.** It is a `StrEnum` named `ExclusionTerm` in `src/mealplanner/nutrition/exclusions.py`. It lives in the core `nutrition` package, not in `profile/`, so that the catalog (#7) and the profile (#6) can both import it while dependencies keep pointing one way (ADR 0011). Each term has a user-facing label and a one-line definition, shown on the profile page.
-  - **Allergens (ADR 0007, unchanged):** `milk`, `egg`, `fish`, `crustacean_shellfish`, `tree_nuts`, `peanuts`, `wheat`, `soy`, `sesame`.
+  - **Allergens (ADR 0007, unchanged):** exactly the US "Big 9" major food allergens: the eight from FALCPA plus sesame, added by the FASTER Act of 2021 (see [FARE: common allergens](https://www.foodallergy.org/living-food-allergies/food-allergy-essentials/common-allergens)). There is one term per Big 9 allergen, with nothing added or dropped:
+
+    | Term | Big 9 allergen | What it excludes |
+    |---|---|---|
+    | `milk` | Milk | Milk and dairy products (butter, cheese, cream, yogurt, whey, casein) |
+    | `egg` | Eggs | Eggs, whites and yolks, and anything made with them (mayonnaise, many pastas and baked goods) |
+    | `peanuts` | Peanuts | Peanuts and peanut products (peanut butter, peanut oil) |
+    | `tree_nuts` | Tree nuts | Walnuts, almonds, cashews, pecans, pistachios, hazelnuts, macadamias, Brazil nuts, and their butters, oils and flours |
+    | `fish` | Fish | Finned fish such as cod, salmon, bass, tuna and anchovy, and fish sauce |
+    | `crustacean_shellfish` | Crustacean shellfish | Shrimp, crab, lobster, crayfish |
+    | `wheat` | Wheat | Wheat in any form (flour, semolina, spelt, couscous, most breads and pastas, soy sauce brewed with wheat) |
+    | `soy` | Soybeans | Soybeans and soy products (tofu, edamame, soy sauce, miso, tempeh) |
+    | `sesame` | Sesame | Sesame seeds, sesame oil, tahini |
+
+    Molluscs (clams, mussels, squid) are not one of the Big 9, which covers only crustacean shellfish. "Wheat" is the allergen, not celiac disease, so it does not cover barley or rye. Both gaps are filled by the diet terms below (`mollusc_shellfish`, `gluten`), not by changing the allergen list. If the US list changes, the allergen terms change through a new ADR.
   - **Diet exclusions (new):**
 
     | Term | What it excludes |
