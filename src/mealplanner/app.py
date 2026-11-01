@@ -11,9 +11,9 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from mealplanner.config import ConfigError, Settings
 from mealplanner.db import apply_migrations, connect
-from mealplanner.web.auth import cross_site_protection, make_identity_middleware
 from mealplanner.llm.anthropic_client import AnthropicLLMClient
 from mealplanner.llm.client import LLMClient
+from mealplanner.web.auth import cross_site_protection, make_identity_middleware
 from mealplanner.web.routes import router
 
 logger = logging.getLogger(__name__)
@@ -39,7 +39,7 @@ def _write_owner_login(db_path: Path, login: str) -> None:
         conn.close()
 
 
-def create_app(settings: Settings) -> FastAPI:
+def create_app(settings: Settings, llm_client: LLMClient | None = None) -> FastAPI:
     db_path = settings.data_dir / DB_FILENAME
 
     @asynccontextmanager
@@ -69,6 +69,8 @@ def create_app(settings: Settings) -> FastAPI:
         lifespan=lifespan,
     )
     app.state.settings = settings
+    # Building the client never needs the API key; a missing key surfaces on generate().
+    app.state.llm_client = llm_client if llm_client is not None else AnthropicLLMClient(settings)
 
     # The last middleware added is the outermost: security headers, then the host check,
     # then the cross-site check, then identity.
