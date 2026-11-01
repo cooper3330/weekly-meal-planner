@@ -1,0 +1,6 @@
+{
+  "wrong_type": {"name": "Soup", "servings": "two"},
+  "missing_field": {"name": "Soup"},
+  "extra_calories": {"name": "Soup", "servings": 2, "calories": 500},
+  "not_an_object": ["Soup", 2]
+}

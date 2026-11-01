@@ -51,4 +51,25 @@ The app is Python 3.12+ managed with [uv](https://docs.astral.sh/uv/) (ADR 0004)
 3. Run all checks: `make check`. It runs ruff format, ruff lint, mypy, pytest, then the script tests, and stops at the first failure. Exit 0 means green. `make fmt` applies formatting fixes.
 4. Follow the test-first loop (ADR 0010): write the tests named in the task and run `make check` to see them fail for the right reason; commit the failing tests first; then implement until `make check` exits 0. Never weaken, skip, or delete a test to get green.
 
+## Run it on your tailnet
+
+The server listens on 127.0.0.1 only. `tailscale serve` publishes it over HTTPS to your tailnet and adds your identity (ADR 0012).
+
+1. Copy `.env.example` to `.env`. Set `MEALPLANNER_OWNER_LOGIN` to your Tailscale login (for example `you@example.com`) and `MEALPLANNER_ALLOWED_HOSTS` to this machine's ts.net name (for example `box.tailnet-name.ts.net`). Requests with any other Host header get 400.
+2. Start the app: `uv run --env-file .env python -m mealplanner` (with `PYTHONPATH=src`, as `make run` does).
+3. Publish it to your tailnet: `tailscale serve --bg 8000`. Open `https://<machine>.<tailnet>.ts.net` on your phone.
+
+Rules:
+- **Never use `tailscale funnel`.** It would publish the app to the internet. `tailscale funnel status` must show nothing.
+- **Do not set `MEALPLANNER_DEV_LOGIN` while serving.** It lets requests without an identity (for example from tagged devices) in as that login. It is for local development at `http://127.0.0.1:8000` only, and the app logs a warning when it is set.
+- **Add a Tailscale ACL** (a second layer) that limits port 443 on this machine to your own devices, for example in the tailnet policy file:
+
+  ```json
+  {"action": "accept", "src": ["you@example.com"], "dst": ["tag:mealplanner:443"]}
+  ```
+
+  Tag this machine `tag:mealplanner` (or use its name) and make sure no other rule grants access to it.
+
+Anyone whose login is not in the users table gets 403. POST, PUT, PATCH, and DELETE requests from other sites are refused.
+
 Tests run offline with no API key: an autouse fixture blocks internet sockets and removes `ANTHROPIC_API_KEY`. Copy `.env.example` to `.env` for local runs.

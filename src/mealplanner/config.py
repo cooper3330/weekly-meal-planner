@@ -3,7 +3,7 @@
 import ipaddress
 import os
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 DEFAULT_HOST = "127.0.0.1"
@@ -23,6 +23,17 @@ class Settings:
     data_dir: Path
     model: str
     allowed_hosts: tuple[str, ...]
+    # Never shown in repr, so it cannot leak through logs or tracebacks.
+    anthropic_api_key: str | None = field(default=None, repr=False, compare=False)
+    owner_login: str | None = None
+    dev_login: str | None = None
+
+
+def normalize_login(raw: str | None) -> str | None:
+    """Trim and lowercase a Tailscale login; blank becomes None."""
+    if raw is None:
+        return None
+    return raw.strip().lower() or None
 
 
 def _is_loopback(host: str) -> bool:
@@ -64,4 +75,7 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         data_dir=Path(env.get("MEALPLANNER_DATA_DIR", DEFAULT_DATA_DIR)),
         model=env.get("MEALPLANNER_MODEL", DEFAULT_MODEL),
         allowed_hosts=allowed,
+        anthropic_api_key=env.get("ANTHROPIC_API_KEY", "").strip() or None,
+        owner_login=normalize_login(env.get("MEALPLANNER_OWNER_LOGIN")),
+        dev_login=normalize_login(env.get("MEALPLANNER_DEV_LOGIN")),
     )
