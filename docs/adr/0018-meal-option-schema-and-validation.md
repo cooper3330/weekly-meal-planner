@@ -29,7 +29,7 @@ The #20 client loop is generic: it returns only the final valid value. Feature c
 1. **Exclusions (FR-4, ADR 0016).** Reject if any resolved ingredient's `allergens | diet_tags` intersects the profile's exclusions. This is set intersection over `ExclusionTerm` values, with no string matching. The reason names the term and the ingredient id.
 2. **Cook time (FR-7, ADR 0017).** Reject if `cook_minutes > max_cook_minutes`.
 3. **Quantity sanity (ADR 0007).** Each line converted to grams and divided by `servings` must be at most **1000 g per serving**.
-4. **Nutrition (FR-3, ADR 0007).** Compute per-serving calories, protein, carbohydrates and fat from the catalog. Reject unless every value is finite and non-negative and per-serving calories are in the plausibility range **150 to 2000 kcal**.
+4. **Nutrition (FR-3, ADR 0007).** Compute per-serving calories, protein, carbohydrates and fat from the catalog. Reject unless every value is finite and non-negative and per-serving calories are in the plausibility range **150 to 2500 kcal** (upper bound set by the owner in review of PR #84).
 
 The result `MealOption` holds the draft, `servings`, and the computed `Nutrition`. The only way to build a `MealOption` is through `check_option`, so an option without computed nutrition cannot exist (AC-2).
 
