@@ -206,9 +206,17 @@ def test_missing_key_raises_config_error_on_call() -> None:
     assert "ANTHROPIC_API_KEY" in str(info.value)
 
 
-def test_app_starts_without_key() -> None:
-    app = create_app(load_settings({}))
-    assert TestClient(app).get("/healthz").status_code == 200
+def _app_env(tmp_path: Path) -> dict[str, str]:
+    return {"MEALPLANNER_DATA_DIR": str(tmp_path), "MEALPLANNER_OWNER_LOGIN": "owner@example.com"}
+
+
+_OWNER = {"Tailscale-User-Login": "owner@example.com"}
+
+
+def test_app_starts_without_key(tmp_path: Path) -> None:
+    app = create_app(load_settings(_app_env(tmp_path)))
+    with TestClient(app, base_url="http://localhost", headers=_OWNER) as c:
+        assert c.get("/healthz").status_code == 200
 
 
 def test_sdk_client_created_lazily_with_two_retries(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -246,12 +254,13 @@ def test_key_not_leaked() -> None:
         assert SENTINEL not in repr(info.value)
 
 
-def test_app_uses_injected_client() -> None:
+def test_app_uses_injected_client(tmp_path: Path) -> None:
     fake = FakeLLMClient([GOOD])
-    app: FastAPI = create_app(load_settings({}), llm_client=fake)
+    app: FastAPI = create_app(load_settings(_app_env(tmp_path)), llm_client=fake)
 
     @app.get("/_probe")
     def probe(client: Annotated[LLMClient, Depends(get_llm_client)]) -> dict[str, bool]:
         return {"same": client is fake}
 
-    assert TestClient(app).get("/_probe").json() == {"same": True}
+    with TestClient(app, base_url="http://localhost", headers=_OWNER) as c:
+        assert c.get("/_probe").json() == {"same": True}
