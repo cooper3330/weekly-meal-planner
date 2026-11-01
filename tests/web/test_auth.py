@@ -101,9 +101,12 @@ def test_unknown_header_with_dev_login_still_403(tmp_path: Path) -> None:
 
 
 def test_dev_login_alone_is_enough_and_maps_to_user_1(tmp_path: Path) -> None:
-    env = {"MEALPLANNER_DATA_DIR": str(tmp_path), "MEALPLANNER_DEV_LOGIN": "Dev@Example.com"}
-    with TestClient(create_app(load_settings(env)), base_url="http://localhost") as c:
+    app = make_app(tmp_path, MEALPLANNER_OWNER_LOGIN="", MEALPLANNER_DEV_LOGIN="Dev@Example.com")
+    for c in client_for(app):
         assert c.get("/healthz").status_code == 200
+        r = c.get("/whoami")
+        assert r.status_code == 200
+        assert r.json() == {"user_id": 1}
 
 
 def test_different_dev_login_without_header_403(tmp_path: Path) -> None:
