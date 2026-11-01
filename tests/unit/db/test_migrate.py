@@ -44,7 +44,7 @@ def no_backups(backups: Path) -> bool:
 def test_fresh_db_applies_all(tmp_path: Path) -> None:
     db = tmp_path / "m.sqlite3"
     apply_migrations(db, REAL, tmp_path / "backups")
-    assert versions(db) == [1]
+    assert versions(db) == [1, 2]
     conn = connect(db)
     rows = conn.execute("SELECT id FROM users").fetchall()
     conn.close()
@@ -56,7 +56,7 @@ def test_rerun_is_noop(tmp_path: Path) -> None:
     backups = tmp_path / "backups"
     apply_migrations(db, REAL, backups)
     apply_migrations(db, REAL, backups)
-    assert versions(db) == [1]
+    assert versions(db) == [1, 2]
     conn = connect(db)
     assert conn.execute("SELECT count(*) FROM users").fetchone()[0] == 1
     conn.close()
