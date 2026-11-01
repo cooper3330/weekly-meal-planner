@@ -1,0 +1,10 @@
+id,name,aliases,fdc_id,kcal_per_100g,protein_g_per_100g,carbs_g_per_100g,fat_g_per_100g,g_per_ml,g_per_each,allergens,diet_tags
+chicken,Chicken breast,,100001,165,31,0,3.6,,,,poultry|meat
+chicken_stock,Chicken stock,,100007,10,1,1,0.2,1,,,poultry|meat
+rice,White rice,,100002,130,3,28,0.3,,,,
+egg,Egg,,100004,150,12,1,10,,50,egg,
+olive_oil,Olive oil,,100005,900,0,0,100,0.9,,,
+peanut_butter,Peanut butter,,100008,590,25,20,50,1.1,,peanuts,
+soy_sauce,Soy sauce,,100006,60,10,6,0,1.2,,soy|wheat,gluten
+fuel,Test fuel (100 kcal per 100 g),,100009,100,0,0,0,1,,,
+dense,Test dense fuel (500 kcal per 100 g),,100010,500,0,0,0,1,,,
