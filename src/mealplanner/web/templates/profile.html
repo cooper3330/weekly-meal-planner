@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Your profile{% endblock %}
+{% block content %}
+<h1>Your profile</h1>
+{% if current is none %}
+<p>You have not set up your profile yet.</p>
+<p><a class="button" href="/profile/edit">Create your profile</a></p>
+{% else %}
+{% set p = current.profile %}
+<p class="meta">Version {{ current.version }}, saved {{ current.created_at }}</p>
+<dl>
+  <dt>Allergies</dt>
+  <dd>{% if allergies %}{{ allergies | map(attribute="label") | join(", ") }}{% else %}None{% endif %}</dd>
+  <dt>Other things I never eat</dt>
+  <dd>{% if other_exclusions %}{{ other_exclusions | map(attribute="label") | join(", ") }}{% else %}None{% endif %}</dd>
+  <dt>Servings</dt>
+  <dd>{{ p.servings }}</dd>
+  <dt>Max cook time</dt>
+  <dd>{{ p.max_cook_minutes }} minutes</dd>
+  <dt>Cooking skill</dt>
+  <dd>{{ p.skill }}</dd>
+  <dt>Repeat after weeks</dt>
+  <dd>{{ p.repeat_after_weeks }}</dd>
+  <dt>Preferences</dt>
+  <dd class="preserve">{{ p.preferences if p.preferences else "None" }}</dd>
+</dl>
+<p><a class="button" href="/profile/edit">Edit</a></p>
+{% endif %}
+<p><a href="/">Home</a></p>
+{% endblock %}

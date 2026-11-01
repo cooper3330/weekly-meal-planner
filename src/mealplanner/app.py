@@ -3,6 +3,7 @@
 import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi import FastAPI, Request, Response
@@ -14,6 +15,7 @@ from mealplanner.db import apply_migrations, connect
 from mealplanner.llm.anthropic_client import AnthropicLLMClient
 from mealplanner.llm.client import LLMClient
 from mealplanner.web.auth import cross_site_protection, make_identity_middleware
+from mealplanner.web.profile import router as profile_router
 from mealplanner.web.routes import router
 
 logger = logging.getLogger(__name__)
@@ -39,7 +41,11 @@ def _write_owner_login(db_path: Path, login: str) -> None:
         conn.close()
 
 
-def create_app(settings: Settings, llm_client: LLMClient | None = None) -> FastAPI:
+def create_app(
+    settings: Settings,
+    llm_client: LLMClient | None = None,
+    clock: Callable[[], datetime] | None = None,
+) -> FastAPI:
     db_path = settings.data_dir / DB_FILENAME
 
     @asynccontextmanager
@@ -69,6 +75,9 @@ def create_app(settings: Settings, llm_client: LLMClient | None = None) -> FastA
         lifespan=lifespan,
     )
     app.state.settings = settings
+    app.state.db_path = db_path
+    # Injectable so tests are deterministic (ADR 0010); must return a timezone-aware time.
+    app.state.clock = clock if clock is not None else (lambda: datetime.now(UTC))
     # Building the client never needs the API key; a missing key surfaces on generate().
     app.state.llm_client = llm_client if llm_client is not None else AnthropicLLMClient(settings)
 
@@ -92,4 +101,5 @@ def create_app(settings: Settings, llm_client: LLMClient | None = None) -> FastA
 
     app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
     app.include_router(router)
+    app.include_router(profile_router)
     return app
