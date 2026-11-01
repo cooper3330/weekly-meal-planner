@@ -49,7 +49,7 @@ def test_no_exclusions_ticked() -> None:
     assert result.exclusions == frozenset()
 
 
-@pytest.mark.parametrize("value", ["", "abc", "0", "-2", "2.5", "1e2", "13", "٣"])
+@pytest.mark.parametrize("value", ["", "abc", "0", "-2", "2.5", "1e2", "13", "٣", "9" * 5000])
 def test_servings_rejected(value: str) -> None:
     assert errors_of(good(servings=[value])) == {"servings": SERVINGS_MSG}
 
@@ -67,7 +67,7 @@ def test_servings_trimmed_and_sign() -> None:
     assert isinstance(result, Profile) and result.servings == 4
 
 
-@pytest.mark.parametrize("value", ["", "abc", "0", "241", "30.0", "-1"])
+@pytest.mark.parametrize("value", ["", "abc", "0", "241", "30.0", "-1", "9" * 5000])
 def test_cook_minutes_rejected(value: str) -> None:
     assert errors_of(good(max_cook_minutes=[value])) == {"max_cook_minutes": COOK_MSG}
 

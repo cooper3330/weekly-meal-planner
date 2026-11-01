@@ -41,7 +41,10 @@ def _whole_number(raw: str, low: int, high: int) -> int | None:
     text = raw.strip()
     if not _WHOLE_NUMBER.fullmatch(text):
         return None
-    number = int(text)
+    try:
+        number = int(text)
+    except ValueError:  # digit string beyond Python's int conversion limit
+        return None
     return number if low <= number <= high else None
 
 
