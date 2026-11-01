@@ -60,6 +60,11 @@ jobs:
           GH_TOKEN: ${{ steps.app.outputs.token }}
         run: gh auth setup-git
 
+      - name: Install uv and Python (so the developer can run make check)
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          python-version: "3.12"
+
       - name: Install the claude CLI
         run: npm install -g "@anthropic-ai/claude-code@2.1.308"
 

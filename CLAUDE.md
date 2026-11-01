@@ -13,6 +13,7 @@ Weekly meal planner: local, Claude-based app for one user that recommends weekly
 - Build for one user first; keep user-owned data separable so adding users later is an extension, not a rewrite. Do not build accounts or tenancy now.
 - Never commit secrets. API keys come from environment variables; `.env` is gitignored.
 - Branches: `issue-<number>-<slug>`. Always create a new branch for each PR; never reuse a branch name. GitHub deletes the remote branch when its PR merges; delete the local branch too. PRs reference the issue (`Closes #N`). Never push to `main`; it is protected and every change goes through a PR.
+- Merge gate: risk-based, not "a human merges everything". CI's `check` and the reviewer agent's approval gate every PR; low-risk PRs auto-merge, and PRs that touch protected paths (`.github/risk-paths`) or carry `risk:high` wait for the owner. Only PRs into `main` are gated. See `docs/workflow.md`.
 
 ## Workflow
 See `docs/workflow.md`. Project statuses (the built-in `Status` field): Backlog -> Spec Review -> Ready -> Architecture -> Plan Review -> Implementation -> In Review -> Done. Epics are milestones.
