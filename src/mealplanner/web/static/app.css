@@ -1,0 +1,50 @@
+/* Mobile-first: designed for a 360 px wide viewport, widened with min-width queries. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  font-size: 1rem; /* 16 px minimum for body text */
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+main {
+  padding: 1rem;
+  max-width: 40rem;
+  margin: 0 auto;
+}
+
+img,
+table {
+  max-width: 100%;
+}
+
+a,
+button,
+input,
+select,
+textarea {
+  min-height: 44px; /* tap target */
+  font-size: 1rem;
+}
+
+a,
+button {
+  display: inline-flex;
+  align-items: center;
+}
+
+@media (min-width: 600px) {
+  main {
+    padding: 2rem;
+  }
+}

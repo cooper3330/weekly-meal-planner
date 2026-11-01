@@ -1,4 +1,10 @@
-.PHONY: check fmt sync
+.PHONY: check fmt sync run
+
+RUN ?= uv run python
+
+# The project is not installed (package = false), so put src/ on the import path.
+run:
+	PYTHONPATH=src $(RUN) -m mealplanner
 
 check:
 	uv run ruff format --check .
