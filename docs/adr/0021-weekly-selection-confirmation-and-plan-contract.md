@@ -8,7 +8,7 @@ Issue #8, FR-1 to FR-9 and AC-1 to AC-10. Selection sits on top of #7's slate (A
 - a nutrition summary that updates as picks change
 - a confirmation that records the plan, and a way to reopen it
 - a record of the options that were shown, picked and skipped, for #11
-- no grocery list or recipes before confirmation (constitution P4), and downstream outputs marked stale after a changed reconfirmation
+- no grocery list or recipes before confirmation (constitution P4), and downstream outputs marked stale or regenerated after a changed reconfirmation
 
 The UI is server-rendered and has to work without JavaScript (ADR 0005). Grocery lists (#9) and recipes (#10) do not exist yet, so #8 has to define the seam they will use.
 
@@ -88,7 +88,7 @@ Every confirmation appends a new snapshot; none is overwritten. #11 can then rea
 
 **Downstream contract (FR-5, AC-4, AC-6).** #9 and #10 must read the plan only through `get_confirmed_plan`:
 - `get_confirmed_plan(conn, catalog, user_id, week_start) -> ConfirmedPlan | None`
-  - It returns `None` when the week has no slate, has never been confirmed, or has been reopened. Downstream features must then generate nothing, and must show any output they already have as stale.
+  - It returns `None` when the week has no slate, has never been confirmed, or has been reopened. Downstream features must then generate nothing, and handle any output they already have through `plan_output_status` (below): show it marked stale, or withhold it entirely when the result is `UNSAFE`.
   - Otherwise it returns a `ConfirmedPlan` with:
     - `confirmation_id`, which serves as the plan revision
     - `week_start`
