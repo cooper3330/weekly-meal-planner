@@ -19,7 +19,7 @@ Constitution principle 1 allows one outbound destination, the Claude API. The CL
 **A separate bridge process, same repository.**
 - A new package, `bridge/`, with its own entry point, runs a small FastAPI/uvicorn server. It shares the virtualenv and adds no new third-party dependency (P8).
 - `make run` starts the bridge, waits for its health check, then starts the app, and stops both if either exits or on interrupt. The supervisor is a small script in the repo; the plan defines it. A crash leaves no orphan.
-- The port and the shared secret are chosen per run and passed to both processes through the environment (or a private file readable only by the owner; the plan chooses, and shows it stays out of process listings and logs). They are never stored in the repository or in `.env.example` with values.
+- The port and the shared secret are chosen per run and passed to both processes through environment variables, the owner's choice. The plan shows the secret stays out of process listings and logs. They are never stored in the repository or in `.env.example` with values.
 
 **Strictly local access.**
 - The bridge binds to loopback only; `bridge` configuration rejects any other address at startup, with a test, as ADR 0012 does for the app.
@@ -57,7 +57,7 @@ Constitution principle 1 allows one outbound destination, the Claude API. The CL
 ## Alternatives considered
 - **Keep both the SDK client and the bridge, chosen by a setting.** A fallback if the CLI route stops working, and forced tool use gives a sturdier structure guarantee. Rejected by the owner: two paths mean two sets of error handling, two structured-output strategies that can disagree, and more to test, for one user.
 - **The app spawns the CLI directly, with no second process.** The simplest option. Rejected because it puts process execution and the CLI's credentials in the process that serves requests from the phone, and gives no single place to enforce limits. The cost of the bridge is one more process to supervise; the owner chose that trade-off.
-- **A Unix domain socket instead of loopback TCP.** Browsers cannot reach it and file permissions replace the token, which is stronger. Not available on Windows, and a little less convenient to test. Left to the plan to confirm for the operating systems in use; the token and checks above are the baseline either way.
+- **A Unix domain socket instead of loopback TCP.** Browsers cannot reach it and file permissions replace the token, which is stronger. A little less convenient to test. The owner runs macOS and Linux only, so it is available; the plan decides; the token and checks above are the baseline either way.
 - **A general "run any command" endpoint.** Rejected: the registry keeps callers to data.
 
 ## Consequences
