@@ -58,12 +58,12 @@ CREATE TABLE confirmation_options (
 - Each limit is a whole number from 0 to 14. They are set per week on the selection screen; no setting or profile field is added (the same choice as ADR 0019's slate counts).
 - Picking past the limit is refused. The pick button for that meal type is disabled when it is full.
 - Lowering a limit below the current number of picks is refused, with a message to unpick first. Picks are never dropped silently.
-- Confirming with fewer picks than the limits is allowed. Confirming with zero picks in total is refused: there would be no plan to build.
+- Confirming with fewer picks than the limits is allowed, including **zero picks**. The owner chose this on PR #95 so that AC-3's "any selection" holds and limits of 0 and 0 never leave a week that cannot be confirmed. A confirmed week with no picks means *no meals are planned for that week*. `get_confirmed_plan` returns a `ConfirmedPlan` with `meals == []`, and downstream features generate nothing for it and make no model call. Every shown option is stored as `skipped`.
 
 **What can be picked.**
 - Only an active option (not replaced) of the user's own slate. A replaced option, another user's option or an unknown id gives `OptionNotFoundError` (404 on the web).
 - An option shown as unavailable cannot be picked. An option is unavailable when it fails `check_option` on read, for example after the user adds an exclusion.
-- An option that was picked and has since become unavailable stays in `selection_picks`. It is shown as "no longer fits your profile" with an Unpick button, and it is left out of the summary. **Confirm is refused while such a pick exists.** This is a safety block (P9), not a nutrition block, so AC-3 still holds.
+- An option that was picked and has since become unavailable stays in `selection_picks`. It is shown as "no longer fits your profile" with an Unpick button, and it is left out of the summary. **Confirm is refused while such a pick exists.** This is a safety block (P9), not a nutrition block, so AC-3 still holds. The user can always get out of it: unpicking the meal leaves a selection that can be confirmed, even if it is now empty.
 
 **Updates without JavaScript (AC-8).** Each pick, unpick and limit change is its own form POST. The response is a 303 redirect to `/plan#option-<id>` (or `/plan`), and the page rendered from it shows the new summary. "Immediately" therefore means the response to the action that changed the pick. A JavaScript enhancement is not needed and is not planned.
 
@@ -95,9 +95,17 @@ Every confirmation appends a new snapshot; none is overwritten. #11 can then rea
     - `meals`: the picked options, rebuilt through `check_option` against the current profile
     - `unavailable`: picked options that now fail the checks
   - Downstream features must not build anything from a plan whose `unavailable` list is non-empty. The selection page then tells the user to reopen.
-- `plan_changed_since(conn, user_id, week_start, confirmation_id) -> bool` returns `True` when there is no current confirmation, or when the current confirmation's picked set differs from the picked set of `confirmation_id`.
-  - Downstream outputs store the `confirmation_id` they were built from, and use this function to decide whether they are stale or must be regenerated (AC-6).
-  - Reopening and reconfirming the same picks therefore costs no regeneration.
+  - A `ConfirmedPlan` with `meals == []` and `unavailable == []` is a confirmed week with no meals planned. Downstream features build nothing for it, make no model call, and say that no meals are planned this week.
+- `plan_output_status(conn, catalog, user_id, week_start, confirmation_id) -> PlanOutputStatus` is the **only** check downstream features use before *showing* stored output. Downstream outputs store the `confirmation_id` they were built from and pass it in. It returns, checked in this order:
+  1. `UNSAFE` when any meal picked in confirmation `confirmation_id`, or any meal in the current plan's `unavailable` list, fails `check_option` against the current profile now. Options that have since been replaced are still re-checked from their `slate_options` row.
+  2. `STALE` when there is no current confirmation (never confirmed, or reopened), or when the current confirmation's picked set differs from the picked set of `confirmation_id`.
+  3. `CURRENT` otherwise.
+- What downstream features do with each value:
+  - `CURRENT`: show the output.
+  - `STALE`: show the output marked stale, or regenerate it from `get_confirmed_plan` when that returns a plan with an empty `unavailable` list (AC-6).
+  - `UNSAFE`: do not show the output's content at all, not even marked stale. Show only a notice that a meal no longer fits the profile and that the user should reopen the week. The whole output is withheld, not just the affected meal, because a grocery list merges the ingredients of every meal.
+- Reopening and reconfirming the same picks returns `CURRENT` and therefore costs no regeneration.
+- Case this covers: the week is confirmed, the grocery list and recipes are built, then the user adds an allergy that hits a picked meal. The confirmation is still current and the picked set is unchanged, but `plan_output_status` returns `UNSAFE`, so the recipe for the now-excluded meal is never shown.
 
 Confirming makes no model call and generates nothing. #9 and #10 own whether they generate eagerly after confirmation or on demand.
 
@@ -111,9 +119,12 @@ Confirming makes no model call and generates nothing. #9 and #10 own whether the
 - **Dropping picks silently when a limit is lowered, an option becomes unavailable, or a picked option is rerolled.** The user would lose choices without being told. Refusing with a message is explicit and costs one tap.
 - **Summing the rounded card values.** It matches what the eye adds up, but drifts from the computed values that AC-8 names, and it compounds rounding error with every meal.
 - **A version counter that bumps on every confirmation.** Downstream features would regenerate (and spend model calls) even when the picks did not change. Comparing picked sets avoids that.
+- **Refusing to confirm with zero picks.** That was the first draft. It contradicts AC-3 ("any selection … the user may confirm"), and limits of 0 and 0 would leave a week that can never be confirmed. The owner chose to allow it on PR #95.
+- **A staleness check that compares picked sets only (the first draft's `plan_changed_since`).** It misses a meal that becomes unsafe after confirmation while the picks stay the same, and downstream features would show that meal's recipe as current (P9). Folding availability into one status function gives downstream features a single call that cannot be half-used.
+- **Showing unsafe output marked stale.** A "stale" label does not stop someone cooking from a recipe that contains their allergen. Withholding the content is the safe default.
 
 ## Consequences
-- #9 and #10 each add one column holding the `confirmation_id` they were built from, and call `plan_changed_since` before showing their output.
+- #9 and #10 each add one column holding the `confirmation_id` they were built from. They call `plan_output_status` before *showing* any stored output, and withhold it when the result is `UNSAFE`. They call `get_confirmed_plan` before *building*, and build nothing when it is `None`, when `unavailable` is non-empty, or when `meals` is empty.
 - #11 reads `confirmation_options` for picked and skipped signals, and `slate_options` for replaced ones.
 - The selection page gains a POST and a page load per tap. On a local server this is fast, and it keeps the flow working without JavaScript.
 - #7's reroll gains two refusals (picked option, confirmed week). Task C makes that change after #93 lands.
@@ -122,9 +133,9 @@ Confirming makes no model call and generates nothing. #9 and #10 own whether the
 - P1 Local first: SQLite only; no outbound call.
 - P2 Nutrition transparent, no targets: every number is the code-computed value from #7's read path. The summary is a sum and a mean of those values, with no target or warning.
 - P3 Learn transparently: shown, picked and skipped options are stored as explicit rows, one snapshot per confirmation.
-- P4 The user decides: nothing is committed until the user confirms, confirming generates nothing by itself, and limits are caps rather than quotas.
+- P4 The user decides: nothing is committed until the user confirms, confirming generates nothing by itself, and limits are caps rather than quotas. Any selection can be confirmed, including an empty one (no meals planned that week).
 - P5 Structured outputs: no model output in this feature.
 - P7 Tests first: the domain functions are pure or take an explicit connection, so they are tested without HTTP.
 - P8 Simple over clever: four small tables, no new dependency, no JavaScript.
-- P9 Safe by default: an option that fails the exclusion check cannot be picked, is left out of the summary, blocks confirmation, and is reported to downstream features as unavailable.
+- P9 Safe by default: an option that fails the exclusion check cannot be picked, is left out of the summary, blocks confirmation, and is reported to downstream features as unavailable. `plan_output_status` returns `UNSAFE` when any meal in a stored output, or in the current plan, now fails the exclusion check. Downstream features then withhold that output's content, so it is not shown even marked stale.
 - P10 One user first: every table carries `user_id`, every function takes it explicitly, and tests cover a second user.
