@@ -12,6 +12,8 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from mealplanner.config import ConfigError, Settings
 from mealplanner.db import apply_migrations, connect
 from mealplanner.web.auth import cross_site_protection, make_identity_middleware
+from mealplanner.llm.anthropic_client import AnthropicLLMClient
+from mealplanner.llm.client import LLMClient
 from mealplanner.web.routes import router
 
 logger = logging.getLogger(__name__)

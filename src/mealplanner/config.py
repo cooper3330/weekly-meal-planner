@@ -3,7 +3,7 @@
 import ipaddress
 import os
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 DEFAULT_HOST = "127.0.0.1"
