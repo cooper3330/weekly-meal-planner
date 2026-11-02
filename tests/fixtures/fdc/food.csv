@@ -1,0 +1,5 @@
+"fdc_id","data_type","description","food_category_id","publication_date"
+"900003","sr_legacy_food","Rice, white, raw","20","2019-04-01"
+"900001","sr_legacy_food","Chicken, breast, raw","5","2019-04-01"
+"900002","sr_legacy_food","Oil, olive, salad or cooking","4","2019-04-01"
+"900009","sr_legacy_food","Unrequested food","9","2019-04-01"
