@@ -23,7 +23,7 @@ class BridgeSettings:
     host: str
     port: int
     token: str = field(repr=False)
-    # A snapshot, used only as the source for the registry's passthrough names.
+    # A snapshot, used as the source for the registry's passthrough names and for HOME.
     parent_env: Mapping[str, str] = field(repr=False, default_factory=dict)
 
 

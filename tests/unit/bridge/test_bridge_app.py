@@ -272,7 +272,8 @@ def test_program_not_found_503(tmp_path: Path, registry_for: Callable[..., Regis
     c = TestClient(
         create_bridge_app(settings(), registry_for(plain)), base_url=f"http://127.0.0.1:{PORT}"
     )
-    assert run(c).json() == {"error": "program_not_found"}
+    r = run(c)
+    assert (r.status_code, r.json()) == (503, {"error": "program_not_found"})
 
 
 def test_spawn_failed_body_is_fixed(tmp_path: Path, registry_for: Callable[..., Registry]) -> None:

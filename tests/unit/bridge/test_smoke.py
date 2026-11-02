@@ -1,6 +1,5 @@
 """make bridge-smoke (#117): owner-run check against the real CLI; never in make check."""
 
-import json
 import re
 from collections.abc import Callable
 from pathlib import Path
@@ -70,7 +69,7 @@ def test_smoke_missing_program_fails(
 ) -> None:
     code, out = _smoke(tmp_path, registry_for(tmp_path / "absent"), capsys, {})
     assert code == 1
-    assert json.dumps(str(tmp_path)) not in out
+    assert str(tmp_path) not in out
 
 
 def test_smoke_not_in_make_check() -> None:
