@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}This week's options{% endblock %}
+{% block content %}
+<p><a href="/">Home</a></p>
+<h1>This week's options</h1>
+{% if error %}
+<div class="error-summary" role="alert">
+  <p>{{ error }}</p>
+  {% if profile_link %}<p><a href="/profile/edit">Set up your profile</a></p>{% endif %}
+  {% if reasons %}
+  <details>
+    <summary>Why options were rejected</summary>
+    <ul>
+      {% for reason in reasons %}<li>{{ reason }}</li>{% endfor %}
+    </ul>
+  </details>
+  {% endif %}
+</div>
+{% endif %}
+{% if not has_profile %}
+{% if not profile_link %}
+<p>Set up your profile first, so the options fit your needs.</p>
+<p><a class="button" href="/profile">Go to your profile</a></p>
+{% endif %}
+{% else %}
+<p class="week">{{ week_label }}</p>
+{% if has_slate %}
+{% for heading, cards in sections %}
+<section>
+  <h2>{{ heading }}</h2>
+  {% for card in cards %}
+  {% include "_option_card.html" %}
+  {% endfor %}
+</section>
+{% endfor %}
+{% else %}
+<form method="post" action="/plan/generate">
+  <div class="field">
+    <label for="lunch_count">Lunches</label>
+    <input id="lunch_count" name="lunch_count" type="number" inputmode="numeric"
+           min="{{ min_count }}" max="{{ max_count }}" step="1" value="{{ lunch_count }}" required>
+  </div>
+  <div class="field">
+    <label for="dinner_count">Dinners</label>
+    <input id="dinner_count" name="dinner_count" type="number" inputmode="numeric"
+           min="{{ min_count }}" max="{{ max_count }}" step="1" value="{{ dinner_count }}" required>
+  </div>
+  <p class="hint">Generating can take a minute. Stay on this page.</p>
+  <button type="submit" class="generate">Generate options</button>
+</form>
+{% endif %}
+{% endif %}
+{% endblock %}
