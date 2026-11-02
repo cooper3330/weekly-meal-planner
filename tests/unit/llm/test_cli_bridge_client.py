@@ -116,7 +116,7 @@ def test_invalid_twice_then_valid() -> None:
     assert gen(client) == Meal(**GOOD)
     assert len(post.calls) == 3
     third = post.calls[2][1]["input"]
-    assert "servings" in third
+    assert "Invalid output:\nservings: " in third
     assert first in third
 
 
@@ -145,24 +145,33 @@ def test_tool_use_and_error_rendered_in_conversation() -> None:
 
 SIGN_IN = "Not logged in · Please run /login"
 
+LEAK = f"{STDOUT_SENTINEL} {TOKEN} {SYSTEM} {USER}"
+
+
+def leaky_err(status: int, kind: str = "busy") -> Reply:
+    return status, json.dumps({"error": kind, "detail": LEAK, "stdout": LEAK}).encode()
+
+
+# Every payload carries the sentinels in the exception text, error body, result and stdout.
 CASES: list[tuple[str, Any, type[Exception]]] = [
-    ("refused", ConnectionRefusedError("x"), LLMUnavailableError),
-    ("timeout", TimeoutError("x"), LLMUnavailableError),
-    ("reset", ConnectionResetError("x"), LLMUnavailableError),
-    *[(f"status{s}", err(s), LLMConfigError) for s in (401, 403, 404)],
+    ("refused", ConnectionRefusedError(LEAK), LLMUnavailableError),
+    ("timeout", TimeoutError(LEAK), LLMUnavailableError),
+    ("reset", ConnectionResetError(LEAK), LLMUnavailableError),
+    *[(f"status{s}", leaky_err(s), LLMConfigError) for s in (401, 403, 404)],
     *[
-        (f"status{s}", err(s), LLMUnavailableError)
+        (f"status{s}", leaky_err(s), LLMUnavailableError)
         for s in (413, 415, 422, 429, 500, 502, 504, 418)
     ],
-    ("503-notfound", err(503, "program_not_found"), LLMConfigError),
-    ("503-other", err(503, "other"), LLMUnavailableError),
-    ("exit1", ok("boom", exit_code=1), LLMUnavailableError),
-    ("exit1-signin", ok(SIGN_IN, exit_code=1), LLMConfigError),
-    ("is_error", ok("boom", is_error=True), LLMUnavailableError),
-    ("is_error-signin", ok(SIGN_IN, is_error=True), LLMConfigError),
-    ("garbage", ok_stdout("garbage"), LLMUnavailableError),
-    ("no-result", ok_stdout("{}"), LLMUnavailableError),
-    ("non-json-body", (200, b"<html>"), LLMUnavailableError),
+    ("503-notfound", leaky_err(503, "program_not_found"), LLMConfigError),
+    ("503-other", leaky_err(503, "other"), LLMUnavailableError),
+    ("non-json-error-body", (502, LEAK.encode()), LLMUnavailableError),
+    ("exit1", ok(LEAK, exit_code=1), LLMUnavailableError),
+    ("exit1-signin", ok(f"{SIGN_IN} {LEAK}", exit_code=1), LLMConfigError),
+    ("is_error", ok(LEAK, is_error=True), LLMUnavailableError),
+    ("is_error-signin", ok(f"{SIGN_IN} {LEAK}", is_error=True), LLMConfigError),
+    ("garbage", ok_stdout(LEAK), LLMUnavailableError),
+    ("no-result", ok_stdout(json.dumps({"x": LEAK})), LLMUnavailableError),
+    ("non-json-body", (200, LEAK.encode()), LLMUnavailableError),
 ]
 
 
@@ -181,11 +190,12 @@ def test_unavailable_message_is_fixed() -> None:
     assert str(info.value) == "The CLI bridge is unavailable (output_too_large). Try again."
 
 
-def test_hostile_error_code_not_echoed() -> None:
-    client, _ = make(err(502, "evil " + STDOUT_SENTINEL))
+@pytest.mark.parametrize("kind", ["evil " + STDOUT_SENTINEL, "well_shaped_unknown"])
+def test_hostile_error_code_not_echoed(kind: str) -> None:
+    client, _ = make(err(502, kind))
     with pytest.raises(LLMUnavailableError) as info:
         gen(client)
-    assert STDOUT_SENTINEL not in str(info.value)
+    assert str(info.value) == "The CLI bridge is unavailable (http_502). Try again."
 
 
 @pytest.mark.parametrize(("token", "port"), [(None, "9999"), (TOKEN, None), (None, None)])
@@ -197,26 +207,13 @@ def test_not_configured_is_config_error(token: str | None, port: str | None) -> 
     assert post.calls == []
 
 
-def _leak_items() -> list[Any]:
-    leaky = STDOUT_SENTINEL
-    return [
-        ConnectionRefusedError(f"{TOKEN} {USER}"),
-        TimeoutError(leaky),
-        (401, leaky.encode()),
-        err(502, leaky),
-        (503, json.dumps({"error": "program_not_found", "x": leaky}).encode()),
-        ok(leaky, exit_code=1),
-        ok(f"{SIGN_IN} {leaky}", exit_code=1),
-        ok_stdout(leaky),
-        (200, leaky.encode()),
-    ]
-
-
-@pytest.mark.parametrize("index", range(9))
-def test_errors_leak_nothing(index: int, caplog: pytest.LogCaptureFixture) -> None:
+@pytest.mark.parametrize(("label", "item", "exc_type"), CASES, ids=[c[0] for c in CASES])
+def test_errors_leak_nothing(
+    label: str, item: Any, exc_type: type[Exception], caplog: pytest.LogCaptureFixture
+) -> None:
     caplog.set_level(logging.DEBUG)
-    client, _ = make(_leak_items()[index])
-    with pytest.raises((LLMConfigError, LLMUnavailableError)) as info:
+    client, _ = make(item)
+    with pytest.raises(exc_type) as info:
         gen(client)
     _assert_clean(info.value, client, caplog)
 

@@ -28,7 +28,22 @@ NOT_CONFIGURED = "The CLI bridge is not configured. Start the app with `make run
 NOT_INSTALLED = "The Claude CLI is not installed at the path in src/bridge/commands.toml."
 NOT_SIGNED_IN = "The Claude CLI is not signed in. Run `claude` and sign in."
 _SIGN_IN = re.compile(r"(?i)(not logged in|/login|log in|sign in|authenticat|credential|oauth)")
-_KIND = re.compile(r"[a-z][a-z_]{0,31}")
+_KINDS = frozenset(
+    {
+        "forbidden_host",
+        "forbidden_origin",
+        "unauthorized",
+        "unsupported_media_type",
+        "invalid_request",
+        "unknown_command",
+        "input_too_large",
+        "busy",
+        "timeout",
+        "output_too_large",
+        "program_not_found",
+        "spawn_failed",
+    }
+)
 _FENCE = re.compile(r"\A```[A-Za-z0-9_-]*[ \t]*\n(.*?)\n?```\Z", re.DOTALL)
 
 _HEADER = (
@@ -152,7 +167,7 @@ def _loads(raw: bytes) -> Any:
 def _error_kind(raw: bytes) -> str:
     body = _loads(raw)
     kind = body.get("error") if isinstance(body, dict) else None
-    if isinstance(kind, str) and _KIND.fullmatch(kind):
+    if isinstance(kind, str) and kind in _KINDS:
         return kind
     return "unknown"
 
