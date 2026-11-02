@@ -1,4 +1,4 @@
-.PHONY: check fmt sync run
+.PHONY: check fmt sync run bridge-smoke
 
 RUN ?= uv run python
 
@@ -12,6 +12,10 @@ check:
 	uv run mypy
 	uv run pytest
 	bash tests/scripts/run.sh
+
+# Owner-run check against the real Claude CLI (#112 AC-13). Not part of `check`.
+bridge-smoke:
+	PYTHONPATH=src $(RUN) -m bridge.smoke
 
 fmt:
 	uv run ruff format .

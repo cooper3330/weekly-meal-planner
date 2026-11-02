@@ -51,6 +51,14 @@ The app is Python 3.12+ managed with [uv](https://docs.astral.sh/uv/) (ADR 0004)
 3. Run all checks: `make check`. It runs ruff format, ruff lint, mypy, pytest, then the script tests, and stops at the first failure. Exit 0 means green. `make fmt` applies formatting fixes.
 4. Follow the test-first loop (ADR 0010): write the tests named in the task and run `make check` to see them fail for the right reason; commit the failing tests first; then implement until `make check` exits 0. Never weaken, skip, or delete a test to get green.
 
+## CLI bridge
+
+The bridge (`src/bridge/`, ADR 0022) is a small loopback-only server that runs the registered `claude` command with the caller's text on standard input. `python -m bridge` needs `MEALPLANNER_BRIDGE_PORT` (1-65535) and `MEALPLANNER_BRIDGE_TOKEN` (at least 32 characters); `MEALPLANNER_BRIDGE_HOST` defaults to `127.0.0.1` and may only be `127.0.0.1` or `::1`. Anything else prints one line naming the variable and exits with status 2.
+
+- Minimum Claude CLI version: 2.1.248 (it adds `--restricted`). An older CLI rejects the flag and the run fails closed.
+- Smoke check: `make bridge-smoke` runs the real CLI once with a tiny prompt, with the bridge's minimal environment, and prints the CLI version, exit code, whether the JSON envelope parsed, `is_error`, and whether `result` was the expected object. It never prints the environment. It is not part of `make check`; run it yourself on your machine.
+- If the smoke check fails, the bridge does not ship (#112 AC-13).
+
 ## Run it on your tailnet
 
 The server listens on 127.0.0.1 only. `tailscale serve` publishes it over HTTPS to your tailnet and adds your identity (ADR 0012).
