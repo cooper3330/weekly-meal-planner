@@ -63,6 +63,21 @@ REQUIRED_ENV = [
     "CLAUDE_CODE_SKIP_PROMPT_HISTORY",
 ]
 
+# The whole --settings object: any extra key (env, permissions, ...) could loosen the run.
+EXPECTED_SETTINGS = {"disableAllHooks": True}
+
+VALUE_FLAGS = [
+    "--tools",
+    "--disallowedTools",
+    "--settings",
+    "--max-turns",
+    "--model",
+    "--output-format",
+    "--input-format",
+    "--system-prompt",
+    "--permission-mode",
+]
+
 PASSTHROUGH = {"HOME", "USER", "LOGNAME", "TMPDIR", "LANG", "LC_ALL", "CLAUDE_CONFIG_DIR"}
 
 
@@ -94,7 +109,7 @@ def test_claude_args_disable_tools_and_files(seq: tuple[str, ...]) -> None:
 def test_claude_args_settings_disable_hooks() -> None:
     args = claude().args
     i = args.index("--settings")
-    assert json.loads(args[i + 1])["disableAllHooks"] is True
+    assert json.loads(args[i + 1]) == EXPECTED_SETTINGS
 
 
 def test_claude_args_system_prompt_non_empty() -> None:
@@ -113,10 +128,16 @@ def test_claude_args_have_no_forbidden_flags(flag: str) -> None:
     assert flag not in parts
 
 
-def test_claude_args_single_permission_mode() -> None:
-    args = claude().args
-    modes = [a for a in args if a == "--permission-mode" or a.startswith("--permission-mode=")]
-    assert modes == ["--permission-mode"]
+def flag_count(args: tuple[str, ...], flag: str) -> int:
+    return sum(1 for a in args if a == flag or a.startswith(flag + "="))
+
+
+_ONCE_FLAGS = sorted({s[0] for s in REQUIRED_ARGS if s[0].startswith("--")} | set(VALUE_FLAGS))
+
+
+@pytest.mark.parametrize("flag", _ONCE_FLAGS)
+def test_claude_args_flag_appears_once(flag: str) -> None:
+    assert flag_count(claude().args, flag) == 1
 
 
 @pytest.mark.parametrize("name", REQUIRED_ENV)
@@ -314,6 +335,15 @@ def test_rejects_forbidden_mode_as_equals_value(tmp_path: Path, mode: str) -> No
 def test_rejects_repeated_permission_mode(tmp_path: Path, extra: list[str]) -> None:
     args = ["-p", "--permission-mode", "dontAsk", *extra]
     with pytest.raises(RegistryError, match="permission-mode"):
+        load_registry(write(tmp_path, toml(args=json.dumps(args))))
+
+
+@pytest.mark.parametrize("flag", VALUE_FLAGS)
+@pytest.mark.parametrize("form", ["separate", "equals"])
+def test_rejects_repeated_value_flag(tmp_path: Path, flag: str, form: str) -> None:
+    extra = [flag, "x"] if form == "separate" else [f"{flag}=x"]
+    args = ["-p", flag, "y", *extra]
+    with pytest.raises(RegistryError, match="only once"):
         load_registry(write(tmp_path, toml(args=json.dumps(args))))
 
 

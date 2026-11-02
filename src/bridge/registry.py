@@ -35,6 +35,20 @@ _FORBIDDEN_ARGS = frozenset(
         "auto",
     }
 )
+# Value flags a later occurrence could override.
+_SINGLE_USE_FLAGS = frozenset(
+    {
+        "--tools",
+        "--disallowedTools",
+        "--settings",
+        "--max-turns",
+        "--model",
+        "--output-format",
+        "--input-format",
+        "--system-prompt",
+        "--permission-mode",
+    }
+)
 _FORBIDDEN_PASSTHROUGH_PREFIXES = ("ANTHROPIC_", "MEALPLANNER_", "OTEL_")
 _FORBIDDEN_PASSTHROUGH_NAMES = frozenset({"CLAUDE_CODE_ENABLE_TELEMETRY"})
 
@@ -115,16 +129,16 @@ def _str_list(table: Mapping[str, Any], key: str, where: str) -> tuple[str, ...]
 
 
 def _check_args(args: tuple[str, ...], where: str) -> None:
-    permission_modes = 0
+    seen: set[str] = set()
     for arg in args:
         parts = arg.split("=", 1) if arg.startswith("--") else [arg]
         for part in (arg, *parts):
             if part in _FORBIDDEN_ARGS:
                 raise RegistryError(f"{where}: args contains a forbidden argument {part!r}")
-        if parts[0] == "--permission-mode":
-            permission_modes += 1
-    if permission_modes > 1:
-        raise RegistryError(f"{where}: args may contain --permission-mode only once")
+        if parts[0] in _SINGLE_USE_FLAGS:
+            if parts[0] in seen:
+                raise RegistryError(f"{where}: args may contain {parts[0]} only once")
+            seen.add(parts[0])
 
 
 def _parse_command(name: object, table: object) -> Command:
