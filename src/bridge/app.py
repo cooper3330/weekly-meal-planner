@@ -110,6 +110,7 @@ def create_bridge_app(
         try:
             size = len(body.input.encode("utf-8"))
         except UnicodeEncodeError:
+            # A lone surrogate has no byte length to audit, so this logs `rejected`, not `run`.
             return _reject(422, "invalid_request")
         if size > command.max_input_bytes:
             done("input_too_large")

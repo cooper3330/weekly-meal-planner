@@ -81,6 +81,32 @@ def test_timeout_kills_process_group(
         assert wait_gone(pid)
 
 
+def test_timeout_when_pipes_closed(tmp_path: Path, stub_registry: Callable[..., Registry]) -> None:
+    pidfile = tmp_path / "pid"
+    reg = stub_registry(
+        "import os, time\n"
+        f"open({str(pidfile)!r}, 'w').write(str(os.getpid()))\n"
+        "os.close(1)\nos.close(2)\ntime.sleep(60)\n",
+        timeout_seconds=1,
+    )
+    client = make_client(reg)
+    result: dict[str, Any] = {}
+
+    def run() -> None:
+        result["res"] = post(client)
+
+    started = time.monotonic()
+    t = threading.Thread(target=run, daemon=True)
+    t.start()
+    t.join(5)
+    assert not t.is_alive(), "request hung past the deadline"
+    assert result["res"].status_code == 504
+    assert result["res"].json() == {"error": "timeout"}
+    assert time.monotonic() - started < 3
+    assert wait_gone(int(pidfile.read_text()))
+    assert post(client).status_code != 429
+
+
 def test_grandchild_killed_after_normal_exit(
     tmp_path: Path, stub_registry: Callable[..., Registry]
 ) -> None:

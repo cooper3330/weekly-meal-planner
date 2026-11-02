@@ -45,10 +45,19 @@ def _kill_group(pgid: int) -> None:
         pass
 
 
-def _exited(pid: int) -> bool:
-    """True once the child has exited, without reaping it (so its group id stays reserved)."""
+def _exited(proc: subprocess.Popen[bytes]) -> bool:
+    """True once the child has exited; reaps it only where waitid/WNOWAIT is unavailable.
+
+    os.waitid and os.WNOWAIT are not guaranteed everywhere (notably macOS), so fall back to
+    poll(). A reap is safe: a group id stays reserved while any member lives, and the group
+    kill that follows only matters when members remain.
+    """
+    waitid = getattr(os, "waitid", None)
+    wnowait = getattr(os, "WNOWAIT", None)
+    if waitid is None or wnowait is None:
+        return proc.poll() is not None
     try:
-        return os.waitid(os.P_PID, pid, os.WEXITED | os.WNOHANG | os.WNOWAIT) is not None
+        return waitid(os.P_PID, proc.pid, os.WEXITED | os.WNOHANG | wnowait) is not None
     except ChildProcessError:
         return True
 
@@ -77,7 +86,7 @@ def _pump(proc: subprocess.Popen[bytes], data: bytes, deadline: float, max_out: 
         while any(key.data != "in" for key in sel.get_map().values()):
             if time.monotonic() >= deadline:
                 raise RunError(504, "timeout")
-            if not group_killed and _exited(proc.pid):
+            if not group_killed and _exited(proc):
                 # The leader is done. Whatever it left running must not outlive the run or hold
                 # the pipes open; reading continues until EOF.
                 _kill_group(proc.pid)
@@ -142,7 +151,11 @@ def run_command(
         except OSError:
             raise RunError(500, "spawn_failed") from None
         stdout = _pump(proc, data, started + command.timeout_seconds, command.max_output_bytes)
-        proc.wait()
+        # The pipes can close while the leader keeps running; bound this wait by the deadline.
+        try:
+            proc.wait(timeout=max(0.0, started + command.timeout_seconds - time.monotonic()))
+        except subprocess.TimeoutExpired:
+            raise RunError(504, "timeout") from None
         return RunResult(
             exit_code=proc.returncode,
             stdout=stdout.decode("utf-8", errors="replace"),
