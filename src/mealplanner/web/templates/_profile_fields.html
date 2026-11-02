@@ -1,0 +1,16 @@
+<dl>
+  <dt>Allergies</dt>
+  <dd>{% if allergies %}{{ allergies | map(attribute="label") | join(", ") }}{% else %}None{% endif %}</dd>
+  <dt>Other things I never eat</dt>
+  <dd>{% if other_exclusions %}{{ other_exclusions | map(attribute="label") | join(", ") }}{% else %}None{% endif %}</dd>
+  <dt>Servings</dt>
+  <dd>{{ p.servings }}</dd>
+  <dt>Max cook time</dt>
+  <dd>{{ p.max_cook_minutes }} minutes</dd>
+  <dt>Cooking skill</dt>
+  <dd>{{ p.skill }}</dd>
+  <dt>Repeat after weeks</dt>
+  <dd>{{ p.repeat_after_weeks }}</dd>
+  <dt>Preferences</dt>
+  <dd class="preserve">{{ p.preferences if p.preferences else "None" }}</dd>
+</dl>

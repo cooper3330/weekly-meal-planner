@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Profile history{% endblock %}
+{% block content %}
+<h1>Profile history</h1>
+{% if entries %}
+<ul>
+  {% for e in entries %}
+  <li><a href="/profile/history/{{ e.version }}">Version {{ e.version }}</a>, saved {{ e.saved }}{% if e.is_current %} (current){% endif %}</li>
+  {% endfor %}
+</ul>
+{% else %}
+<p>No history yet. Your profile has not been saved.</p>
+{% endif %}
+<p><a href="/profile">Back to your profile</a></p>
+{% endblock %}
