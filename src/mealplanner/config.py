@@ -27,6 +27,10 @@ class Settings:
     anthropic_api_key: str | None = field(default=None, repr=False, compare=False)
     owner_login: str | None = None
     dev_login: str | None = None
+    bridge_host: str = DEFAULT_HOST
+    bridge_port: int | None = None
+    # Never shown in repr or compared, like the API key.
+    bridge_token: str | None = field(default=None, repr=False, compare=False)
 
 
 def normalize_login(raw: str | None) -> str | None:
@@ -45,13 +49,13 @@ def _is_loopback(host: str) -> bool:
         return False
 
 
-def _parse_port(raw: str) -> int:
+def _parse_port(raw: str, name: str = "MEALPLANNER_PORT") -> int:
     try:
         port = int(raw)
     except ValueError:
-        raise ConfigError(f"MEALPLANNER_PORT must be an integer, got {raw!r}") from None
+        raise ConfigError(f"{name} must be an integer, got {raw!r}") from None
     if not 1 <= port <= 65535:
-        raise ConfigError(f"MEALPLANNER_PORT must be between 1 and 65535, got {port}")
+        raise ConfigError(f"{name} must be between 1 and 65535, got {port}")
     return port
 
 
@@ -69,7 +73,21 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
     allowed = tuple(
         item.strip() for item in env.get("MEALPLANNER_ALLOWED_HOSTS", "").split(",") if item.strip()
     )
+    bridge_host = env.get("MEALPLANNER_BRIDGE_HOST", DEFAULT_HOST).strip()
+    if not _is_loopback(bridge_host):
+        raise ConfigError(
+            f"MEALPLANNER_BRIDGE_HOST must be a loopback address (127.0.0.1, ::1, localhost), "
+            f"got {bridge_host!r}."
+        )
+    # A missing port or token is not an error here; it surfaces when a model call is made.
+    raw_bridge_port = env.get("MEALPLANNER_BRIDGE_PORT", "").strip()
+    bridge_port = (
+        _parse_port(raw_bridge_port, "MEALPLANNER_BRIDGE_PORT") if raw_bridge_port else None
+    )
     return Settings(
+        bridge_host=bridge_host,
+        bridge_port=bridge_port,
+        bridge_token=env.get("MEALPLANNER_BRIDGE_TOKEN", "").strip() or None,
         host=host,
         port=port,
         data_dir=Path(env.get("MEALPLANNER_DATA_DIR", DEFAULT_DATA_DIR)),
