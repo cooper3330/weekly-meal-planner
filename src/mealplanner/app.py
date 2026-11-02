@@ -11,7 +11,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from mealplanner.config import ConfigError, Settings
 from mealplanner.db import apply_migrations, connect
-from mealplanner.llm.anthropic_client import AnthropicLLMClient
+from mealplanner.llm.cli_bridge_client import CLIBridgeLLMClient
 from mealplanner.llm.client import LLMClient
 from mealplanner.web.auth import cross_site_protection, make_identity_middleware
 from mealplanner.web.routes import router
@@ -69,8 +69,8 @@ def create_app(settings: Settings, llm_client: LLMClient | None = None) -> FastA
         lifespan=lifespan,
     )
     app.state.settings = settings
-    # Building the client never needs the API key; a missing key surfaces on generate().
-    app.state.llm_client = llm_client if llm_client is not None else AnthropicLLMClient(settings)
+    # Building the client never contacts the bridge; a missing or down bridge shows on generate().
+    app.state.llm_client = llm_client if llm_client is not None else CLIBridgeLLMClient(settings)
 
     # The last middleware added is the outermost: security headers, then the host check,
     # then the cross-site check, then identity.
