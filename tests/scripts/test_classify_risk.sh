@@ -45,6 +45,14 @@ expect high docs/adr/sub/dir/x.md
 expect low x.gitignore CLAUDE.md.bak src/NOTCLAUDE.md
 expect low tests/scripts/lib.sh src/scripts/x.py
 
+echo "classify: bridge package (ADR 0022)"
+expect high src/bridge/commands.toml
+expect high src/bridge/__main__.py
+expect high src/bridge/runner.py
+expect high src/bridge/sub/x.py
+expect low src/bridgework/x.py
+expect low src/mealplanner/llm/client.py
+
 echo "classify: rules file"
 new_sandbox
 printf '# comment\n\n  \nfoo/\n**/BAR.md\nexact.txt\n' > "$T/rules"
@@ -76,9 +84,10 @@ docs/adr/
 docs/constitution.md
 docs/workflow.md
 scripts/
+src/bridge/
 src/mealplanner/config.py'
 got=$(grep -Ev '^[[:space:]]*(#|$)' "$RULES" | tr -d '\r' | LC_ALL=C sort)
-assert_eq "$got" "$(printf '%s\n' "$want" | LC_ALL=C sort)" "risk-paths holds exactly the ADR 0013 list"
+assert_eq "$got" "$(printf '%s\n' "$want" | LC_ALL=C sort)" "risk-paths holds exactly the ADR 0013 list plus src/bridge/ (ADR 0022)"
 
 # co_patterns FILE: the path pattern of each non-comment CODEOWNERS line.
 co_patterns() { grep -Ev '^[[:space:]]*(#|$)' "$1" | awk '{print $1}'; }
