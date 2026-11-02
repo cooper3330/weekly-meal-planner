@@ -1,6 +1,7 @@
 # ADR 0012: Loopback-only server behind `tailscale serve`; Tailscale identity for access control
 - Status: Accepted
 - Date: 2026-10-24
+- Amended by: ADR 0022 (a second loopback-only service, the CLI bridge, which is never published with `tailscale serve`)
 
 ## Context
 Issue #5, decision 9, Requirement 4, AC-6 and AC-8: the app runs on the user's machine and must be reachable from their phone over their Tailscale network. It must not be reachable from the public internet, and its only outbound call is to the Claude API. One user is authenticated now; adding users later should be an extension (ADR 0002).

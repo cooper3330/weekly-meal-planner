@@ -1,6 +1,7 @@
 # ADR 0008: Claude via forced tool use, pydantic validation, bounded retry, one mockable client
 - Status: Accepted
 - Date: 2026-10-24
+- Partly superseded by ADR 0022: calls go through the local CLI bridge instead of the Anthropic SDK, so the SDK client, `ANTHROPIC_API_KEY` in the app and forced tool use no longer apply. The `LLMClient` protocol, `FakeLLMClient`, validation, bounded retry and prompt rules below stay.
 
 ## Context
 Issue #5, decision 5: how the local app calls the Claude API. Constitution principle 5 requires schema-validated output that is retried or rejected and never rendered when invalid. Principle 7 requires model calls to be mockable so tests never touch the network. The API key comes only from the environment.
