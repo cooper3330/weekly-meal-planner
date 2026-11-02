@@ -558,6 +558,12 @@ for rule in 'scripts/board.sh \*' 'bash scripts/board.sh \*' 'scripts/pin-action
   assert_grep "$T/claude.args" "^Bash\\($rule\\)\$" "allows: $rule"
 done
 assert_no_grep "$T/claude.args" 'Bash\(bash scripts/\*\)' "but not every script under scripts/"
+echo "allowlist: agents can fetch the USDA SR Legacy files with one fixed script and no arguments (#128)"
+assert_grep "$T/claude.args" '^Bash\(scripts/fetch-fdc\.sh\)$' "allows scripts/fetch-fdc.sh with no arguments"
+assert_grep "$T/claude.args" '^Bash\(bash scripts/fetch-fdc\.sh\)$' "and the bash form"
+assert_no_grep "$T/claude.args" 'fetch-fdc\.sh \*' "but no rule that takes arguments"
+assert_no_grep "$T/claude.args" 'Bash\((curl|wget|unzip)' "and no curl, wget or unzip rule"
+
 assert_no_grep "$T/claude.args" 'Bash\(bash \*\)' "and no unrestricted bash"
 
 # --- coordinator.sh --revise: one revision for one item (event-driven, #39) ------------------------
