@@ -8,3 +8,5 @@ node_modules/
 data/
 .claude/settings.local.json
 .agent-tmp/
+# The packaged ingredient catalog is source, not runtime data (ADR 0007, 0020).
+!/src/mealplanner/nutrition/data/

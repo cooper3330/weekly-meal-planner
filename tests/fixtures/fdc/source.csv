@@ -1,0 +1,4 @@
+id,name,aliases,fdc_id,g_per_ml,g_per_each,allergens,diet_tags,conversion_note
+rice_white_raw,White rice (raw),white rice,900003,,,,,
+chicken_breast_raw,Chicken breast (raw),chicken breast,900001,,,,poultry|meat,
+olive_oil,Olive oil,,900002,0.92,,,,1 tbsp = 13.5 g
