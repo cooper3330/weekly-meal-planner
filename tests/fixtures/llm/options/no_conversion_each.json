@@ -1,0 +1,13 @@
+{
+  "options": [
+    {
+      "name": "Two chickens",
+      "description": "Chicken counted by piece, which the catalog cannot convert.",
+      "cook_minutes": 20,
+      "tags": [],
+      "ingredients": [
+        {"ingredient_id": "chicken", "quantity": 2, "unit": "each"}
+      ]
+    }
+  ]
+}

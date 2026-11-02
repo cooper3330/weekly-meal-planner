@@ -1,0 +1,7 @@
+id,name,aliases,fdc_id,kcal_per_100g,protein_g_per_100g,carbs_g_per_100g,fat_g_per_100g,g_per_ml,g_per_each,allergens,diet_tags,conversion_note
+chicken,Chicken breast,chicken breast|poultry cut,100001,165,31,0,3.6,,,,poultry|meat,a note
+rice,White rice,,100002,130,3,28,0.3,,,,,
+milk,Whole milk,whole milk,100003,60,3,5,3,1.03,,milk,,from label
+egg,Egg,eggs,100004,150,12,1,10,,50,egg,,
+olive_oil,Olive oil,,100005,900,0,0,100,0.9,,,,
+soy_sauce,Soy sauce,shoyu,100006,60,10,6,0,1.2,,soy|wheat,gluten,

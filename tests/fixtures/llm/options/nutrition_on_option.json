@@ -1,0 +1,14 @@
+{
+  "options": [
+    {
+      "name": "Rice bowl",
+      "description": "Rice with a made-up calorie count.",
+      "cook_minutes": 20,
+      "tags": [],
+      "calories": 450,
+      "ingredients": [
+        {"ingredient_id": "rice", "quantity": 200, "unit": "g"}
+      ]
+    }
+  ]
+}
