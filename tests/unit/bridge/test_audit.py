@@ -129,3 +129,26 @@ def test_rejected_requests_logged_without_values(
     ]
     assert wrong not in caplog.text
     assert bad_host not in caplog.text
+
+
+def test_entry_point_logging_emits_audit_line(
+    stub_registry: Callable[..., Registry], capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Shipped setup (no caplog.at_level): the audit INFO line reaches stderr."""
+    from bridge.audit import configure_audit_logging
+
+    audit = logging.getLogger("bridge.audit")
+    saved = (audit.level, audit.handlers[:], audit.propagate)
+    try:
+        configure_audit_logging()
+        configure_audit_logging()  # idempotent
+        assert audit.isEnabledFor(logging.INFO)
+        res = post(make_client(stub_registry("print('x')\n")))
+        assert res.status_code == 200
+        lines = [ln for ln in capsys.readouterr().err.splitlines() if ln.startswith("{")]
+        assert len(lines) == 1
+        assert json.loads(lines[0])["event"] == "run"
+    finally:
+        audit.setLevel(saved[0])
+        audit.handlers[:] = saved[1]
+        audit.propagate = saved[2]

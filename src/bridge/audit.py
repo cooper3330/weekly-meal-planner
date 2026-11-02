@@ -7,10 +7,26 @@ output, stderr, header values and the token never appear.
 import hashlib
 import json
 import logging
+import sys
 
 logger = logging.getLogger("bridge.audit")
 
 CALLER = "app"
+
+
+def configure_audit_logging() -> None:
+    """Send `bridge.audit` INFO lines to stderr, bare JSON. Idempotent; called by the entry point.
+
+    uvicorn's default log config touches only its own loggers, so without this the audit
+    logger would inherit root's WARNING level and drop every line.
+    """
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+    if not any(getattr(h, "_bridge_audit", False) for h in logger.handlers):
+        handler = logging.StreamHandler(sys.stderr)
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        handler._bridge_audit = True  # type: ignore[attr-defined]
+        logger.addHandler(handler)
 
 
 def log_run(

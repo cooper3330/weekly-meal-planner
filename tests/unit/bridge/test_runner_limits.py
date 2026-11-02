@@ -7,6 +7,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 
 from bridge.app import create_bridge_app
@@ -17,6 +18,14 @@ TOKEN = "k" * 40
 PORT = 8765
 AUTH = {"Authorization": f"Bearer {TOKEN}"}
 CAP = 1024
+
+
+@pytest.fixture(params=["waitid", "poll_fallback"])
+def exit_detection(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> str:
+    """Run with os.waitid, and again without it (macOS on Python 3.12 lacks waitid)."""
+    if request.param == "poll_fallback":
+        monkeypatch.delattr(os, "waitid", raising=False)
+    return str(request.param)
 
 
 def make_client(reg: Registry, **kw: Any) -> TestClient:
@@ -66,7 +75,7 @@ SPAWN_GRANDCHILD = (
 
 
 def test_timeout_kills_process_group(
-    tmp_path: Path, stub_registry: Callable[..., Registry]
+    exit_detection: str, tmp_path: Path, stub_registry: Callable[..., Registry]
 ) -> None:
     pids = tmp_path / "pids"
     reg = stub_registry(
@@ -81,7 +90,9 @@ def test_timeout_kills_process_group(
         assert wait_gone(pid)
 
 
-def test_timeout_when_pipes_closed(tmp_path: Path, stub_registry: Callable[..., Registry]) -> None:
+def test_timeout_when_pipes_closed(
+    exit_detection: str, tmp_path: Path, stub_registry: Callable[..., Registry]
+) -> None:
     pidfile = tmp_path / "pid"
     reg = stub_registry(
         "import os, time\n"
@@ -108,7 +119,7 @@ def test_timeout_when_pipes_closed(tmp_path: Path, stub_registry: Callable[..., 
 
 
 def test_grandchild_killed_after_normal_exit(
-    tmp_path: Path, stub_registry: Callable[..., Registry]
+    exit_detection: str, tmp_path: Path, stub_registry: Callable[..., Registry]
 ) -> None:
     pids = tmp_path / "pids"
     reg = stub_registry(
