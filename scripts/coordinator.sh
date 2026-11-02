@@ -188,6 +188,7 @@ ALLOWED_TOOLS=(
   "Bash(gh pr comment *)"
   "Bash(make check)" "Bash(make fmt)" "Bash(make sync)" "Bash(uv sync)" "Bash(uv run *)"
   "Bash(bash tests/scripts/*)" "Bash(scripts/pin-action.sh *)" "Bash(bash scripts/pin-action.sh *)"
+  "Bash(scripts/fetch-fdc.sh)" "Bash(bash scripts/fetch-fdc.sh)"
 )
 if [ -n "${EXTRA_ALLOWED_TOOLS:-}" ]; then
   IFS=, read -r -a extra <<<"$EXTRA_ALLOWED_TOOLS"
