@@ -14,3 +14,5 @@ scripts/
 .github/
 **/.gitignore
 src/mealplanner/config.py
+# src/bridge/ decides what program runs, with which flags and environment.
+src/bridge/

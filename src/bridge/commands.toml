@@ -1,0 +1,43 @@
+# The bridge's command registry (ADR 0022). This file decides what the bridge may run.
+# It is a protected path: changes need the owner. tests/unit/bridge/test_registry.py guards
+# the tools-off flags and the traffic-off environment; do not loosen them without an ADR.
+
+[bridge]
+max_concurrent = 2
+
+[commands.claude]
+# A leading "~/" is expanded against the bridge's HOME. No PATH search, no $VAR expansion.
+program = "~/.local/bin/claude"
+args = [
+    "-p",
+    "--restricted",
+    "--safe-mode",
+    "--settings", '{"disableAllHooks":true}',
+    "--strict-mcp-config",
+    "--tools", "",
+    "--disallowedTools", "*",
+    "--disable-slash-commands",
+    "--no-session-persistence",
+    "--permission-mode", "dontAsk",
+    "--max-turns", "1",
+    "--model", "sonnet",
+    "--output-format", "json",
+    "--input-format", "text",
+    "--system-prompt", "You produce JSON for a local meal-planning app. You have no tools. Reply with exactly one JSON object as the user message instructs, and nothing else.",
+]
+timeout_seconds = 120
+max_input_bytes = 262144
+max_output_bytes = 1048576
+passthrough_env = ["HOME", "USER", "LOGNAME", "TMPDIR", "LANG", "LC_ALL", "CLAUDE_CONFIG_DIR"]
+
+[commands.claude.env]
+PATH = "/usr/bin:/bin:/usr/sbin:/sbin"
+DISABLE_TELEMETRY = "1"
+DISABLE_ERROR_REPORTING = "1"
+DISABLE_AUTOUPDATER = "1"
+DISABLE_GROWTHBOOK = "1"
+CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1"
+DO_NOT_TRACK = "1"
+CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY = "1"
+CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL = "1"
+CLAUDE_CODE_SKIP_PROMPT_HISTORY = "1"
