@@ -1,0 +1,580 @@
+id,name,aliases,fdc_id,g_per_ml,g_per_each,allergens,diet_tags,conversion_note
+adzuki_beans_raw,"Adzuki beans, mature seeds (raw)",adzuki beans|azuki beans,173727,0.833,,,,g_per_ml: FDC portion 1 cup = 197 g
+allspice_ground,"Spices, allspice, ground",allspice,171315,0.406,,,,g_per_ml: FDC portion 1 tbsp = 6 g
+almond_butter,"Almond butter, plain, without salt",almond butter,168588,1.057,,tree_nuts,,g_per_ml: FDC portion 1 cup = 250 g
+almond_milk_unsweetened,"Almond milk, unsweetened",almond milk,174832,1.107,,tree_nuts,,g_per_ml: FDC portion 1 cup = 262 g
+almonds_blanched,"Almonds, blanched",blanched almonds|slivered almonds|sliced almonds,170568,0.613,,tree_nuts,,g_per_ml: FDC portion 1 cup = 145 g
+almonds_raw,Almonds,almonds|whole almonds,170567,0.604,,tree_nuts,,g_per_ml: FDC portion 1 cup = 143 g
+amaranth_raw,Amaranth grain (uncooked),amaranth,170682,0.816,,,,g_per_ml: FDC portion 1 cup = 193 g
+anchovy_canned_oil,"Anchovies, canned in oil, drained",anchovies|anchovy fillets,174183,,,fish,,
+anchovy_raw,European anchovy (raw),fresh anchovies,174182,,,fish,,
+anise_seed,"Spices, anise seed",anise seeds|aniseed,171316,0.453,,,,g_per_ml: FDC portion 1 tbsp = 6.7 g
+apple_juice,"Apple juice, unsweetened",apple juice,173933,1.048,,,,g_per_ml: FDC portion 1 cup = 248 g
+apple_raw,"Apples, with skin (raw)",apple|apples,171688,,182,,,"g_per_each: FDC portion 1 medium (3"" dia) = 182 g"
+applesauce_unsweetened,"Applesauce, canned, unsweetened",applesauce,171695,,,,,
+apricot_raw,Apricots (raw),apricot|apricots,171697,,,,,
+apricots_dried,"Apricots, dried",dried apricots,173941,,,,,
+arrowroot_flour,Arrowroot flour,arrowroot,170684,0.541,,,,g_per_ml: FDC portion 1 cup = 128 g
+artichoke_raw,Globe artichoke (raw),artichoke|artichokes,169205,,,,,
+arugula_raw,Arugula (raw),rocket|rucola,169387,,,,,
+asparagus_raw,Asparagus (raw),asparagus spears,168389,,,,,
+avocado_raw,"Avocados, raw, all commercial varieties",avocado|avocados,171705,,201,,,"g_per_each: FDC portion 1 avocado, NS as to Florida or California = 201 g"
+bacon_canadian,Canadian bacon,back bacon,167869,,,,pork|meat,
+bacon_raw,Bacon (raw),bacon strips|streaky bacon,168277,,,,pork|meat,
+bagel_plain,"Bagels, plain, enriched",bagel|bagels,174899,,,wheat,gluten,
+baked_beans_canned,"Baked beans, canned, plain or vegetarian",baked beans,175182,,,,,
+baking_powder,"Baking powder, double-acting",baking powder,172804,0.933,,,,g_per_ml: FDC portion 1 tsp = 4.6 g
+baking_soda,Baking soda,bicarbonate of soda|sodium bicarbonate,175040,0.933,,,,g_per_ml: FDC portion 1 tsp = 4.6 g
+bamboo_shoots_raw,Bamboo shoots (raw),bamboo shoots,169210,,,,,
+banana_raw,Bananas (raw),banana|bananas,173944,,118,,,"g_per_each: FDC portion 1 medium (7"" to 7-7/8"" long) = 118 g"
+barbecue_sauce,"Sauce, barbecue",bbq sauce|barbecue sauce,174523,1.209,,,,g_per_ml: FDC portion 0.5 cup = 143 g
+barley_flour,Barley flour or meal,barley flour,169739,0.626,,,gluten,g_per_ml: FDC portion 1 cup = 148 g
+barley_hulled_raw,"Barley, hulled",hulled barley|pot barley,170283,0.778,,,gluten,g_per_ml: FDC portion 1 cup = 184 g
+barley_pearled_raw,"Barley, pearled (raw)",pearl barley|barley,170284,0.845,,,gluten,g_per_ml: FDC portion 1 cup = 200 g
+basil_dried,"Spices, basil, dried",dried basil,171317,0.142,,,,g_per_ml: FDC portion 1 tbsp = 2.1 g
+basil_fresh,"Basil, fresh",basil|fresh basil,172232,0.101,,,,g_per_ml: FDC portion 0.25 cup = 6 g
+bass_striped_raw,Striped bass (raw),striped bass,171948,,,fish,,
+bay_leaf,"Spices, bay leaf",bay leaves|bay leaf,170917,0.122,,,,g_per_ml: FDC portion 1 tbsp = 1.8 g
+bean_sprouts_mung_raw,Mung bean sprouts (raw),bean sprouts|mung bean sprouts,169957,,,,,
+beans_green_canned,"Green snap beans, canned, drained",canned green beans,169143,,,,,
+beef_bouillon_cubes_dry,"Beef bouillon cubes, dry",beef bouillon|beef bouillon cubes|beef stock cubes,171561,,,,beef|meat,
+beef_brisket_raw,Beef brisket (raw),brisket,168664,,,,beef|meat,
+beef_broth_canned,"Soup, beef broth or bouillon canned, ready-to-serve",canned beef broth,171538,1.014,,,beef|meat,g_per_ml: FDC portion 1 cup = 240 g
+beef_chuck_roast_raw,Beef chuck roast (raw),chuck roast|pot roast,169493,,,,beef|meat,
+beef_chuck_stew_raw,Beef chuck for stew (raw),stewing beef|beef stew meat,171206,,,,beef|meat,
+beef_flank_steak_raw,Beef flank steak (raw),flank steak,169563,,,,beef|meat,
+beef_ground_80_raw,"Ground beef, 80% lean (raw)",80/20 ground beef|hamburger meat,174036,,,,beef|meat,
+beef_ground_85_raw,"Ground beef, 85% lean (raw)",85/15 ground beef|ground beef|minced beef,171796,,,,beef|meat,
+beef_ground_90_raw,"Ground beef, 90% lean (raw)",90/10 ground beef,174030,,,,beef|meat,
+beef_ground_95_raw,"Ground beef, 95% lean (raw)",95/5 ground beef,171790,,,,beef|meat,
+beef_jerky,Beef jerky,jerky,167536,,,,beef|meat,
+beef_liver_raw,Beef liver (raw),calf liver,169451,,,,beef|meat,
+beef_ribeye_raw,"Beef ribeye steak, boneless (raw)",ribeye|rib eye steak,173402,,,,beef|meat,
+beef_round_top_raw,Beef top round steak (raw),top round|london broil,169529,,,,beef|meat,
+beef_short_ribs_raw,"Beef short ribs, boneless (raw)",short ribs,170826,,,,beef|meat,
+beef_sirloin_steak_raw,Beef top sirloin steak (raw),sirloin steak|top sirloin,168726,,,,beef|meat,
+beef_stock,"Soup, stock, beef, home-prepared",beef stock|beef broth,172883,1.014,,,beef|meat,g_per_ml: FDC portion 1 cup = 240 g
+beef_tenderloin_raw,Beef tenderloin steak (raw),filet mignon|beef tenderloin,169542,,,,beef|meat,
+beer,"Alcoholic beverage, beer, regular",lager|ale,168746,1.004,,,alcohol|gluten,g_per_ml: FDC portion 1 fl oz = 29.7 g
+beets_raw,Beets (raw),beet|beetroot,169145,,,,,
+bison_ground_raw,Ground bison (raw),ground buffalo,174421,,,,meat,
+black_beans_canned,"Black turtle beans, canned",black beans|canned black beans,175188,,,,,
+black_beans_raw,"Black beans, mature seeds (raw)",dried black beans,173734,0.82,,,,g_per_ml: FDC portion 1 cup = 194 g
+blackberries_raw,Blackberries (raw),blackberry|blackberries,173946,,,,,
+blueberries_frozen,"Blueberries, frozen, unsweetened",frozen blueberries,173950,,,,,
+blueberries_raw,Blueberries (raw),blueberry|blueberries,171711,,,,,
+bok_choy_raw,"Bok choy, pak-choi (raw)",bok choy|pak choi,170390,,,,,
+brazil_nuts,"Brazil nuts, dried",brazil nuts,170569,0.562,,tree_nuts,,g_per_ml: FDC portion 1 cup = 133 g
+bread_french,"Bread, French or Vienna",french bread|baguette|sourdough bread,172675,,139,wheat,gluten,g_per_each: FDC portion 1 slice = 139 g
+bread_italian,"Bread, Italian",italian bread|ciabatta,174913,,29,wheat,gluten,g_per_each: FDC portion 1 slice = 29 g
+bread_naan,"Naan bread, plain",naan,171845,,,wheat|milk,gluten,
+bread_pita_white,"Pita bread, white, enriched",pita|pita bread|pitta,174915,,,wheat,gluten,
+bread_pumpernickel,"Bread, pumpernickel",pumpernickel,174918,,26,wheat,gluten,"g_per_each: FDC portion 1 slice, regular = 26 g"
+bread_rye,"Bread, rye",rye bread,172684,,32,wheat,gluten,"g_per_each: FDC portion 1 slice, regular = 32 g"
+bread_wheat,"Bread, wheat",wheat bread,172686,,29,wheat,gluten,g_per_each: FDC portion 1 slice = 29 g
+bread_white,"Bread, white, commercially prepared",white bread|sandwich bread|sliced bread,174924,,29,wheat,gluten,g_per_each: FDC portion 1 slice = 29 g
+bread_whole_wheat,"Bread, whole-wheat, commercially prepared",whole wheat bread|wholemeal bread|brown bread,172688,,32,wheat,gluten,g_per_each: FDC portion 1 slice = 32 g
+breadcrumbs_dry,"Bread crumbs, dry, grated, plain",breadcrumbs|bread crumbs|panko,174928,0.456,,wheat,gluten,g_per_ml: FDC portion 1 cup = 108 g
+broccoli_frozen,"Broccoli, frozen, chopped",frozen broccoli,169968,,,,,
+broccoli_raw,Broccoli (raw),broccoli florets,170379,,,,,
+brussels_sprouts_raw,Brussels sprouts (raw),brussel sprouts,170383,,,,,
+buckwheat_groats_raw,Buckwheat groats,buckwheat|kasha,170286,0.719,,,,g_per_ml: FDC portion 1 cup = 170 g
+bulgur_dry,"Bulgur, dry",bulgur|bulgur wheat|cracked wheat,170688,0.592,,wheat,gluten,g_per_ml: FDC portion 1 cup = 140 g
+butter_salted,"Butter, salted",butter|salted butter,173410,0.959,,milk,,g_per_ml: FDC portion 1 cup = 227 g
+butter_unsalted,"Butter, without salt",unsalted butter|sweet butter,173430,0.959,,milk,,g_per_ml: FDC portion 1 cup = 227 g
+buttermilk,"Buttermilk, lowfat, cultured",,170874,1.036,,milk,,g_per_ml: FDC portion 1 cup = 245 g
+cabbage_green_raw,"Cabbage, green (raw)",cabbage,169975,,,,,
+cabbage_napa_raw,"Chinese cabbage, napa (raw)",napa cabbage|chinese cabbage,169979,,,,,
+cabbage_red_raw,"Cabbage, red (raw)",red cabbage,169977,,,,,
+cabbage_savoy_raw,Savoy cabbage (raw),savoy cabbage,170388,,,,,
+cantaloupe_raw,Cantaloupe (raw),cantaloupe|melon,169092,,,,,
+capers,"Capers, canned",,172238,,,,,
+caraway_seed,"Spices, caraway seed",caraway seeds|caraway,170918,0.453,,,,g_per_ml: FDC portion 1 tbsp = 6.7 g
+cardamom_ground,"Spices, cardamom",cardamom|ground cardamom,170919,0.392,,,,g_per_ml: FDC portion 1 tbsp = 5.8 g
+carrot_raw,Carrots (raw),carrot|carrots,170393,,61,,,g_per_each: FDC portion 1 medium = 61 g
+carrots_frozen,"Carrots, frozen",frozen carrots,169983,,,,,
+cashew_butter,"Cashew butter, plain, without salt",cashew butter,170163,1.082,,tree_nuts,,g_per_ml: FDC portion 1 tbsp = 16 g
+cashews_raw,Cashew nuts (raw),cashews|cashew nuts,170162,,,tree_nuts,,
+cassava_raw,Cassava (raw),yuca|manioc,169985,,,,,
+catfish_farmed_raw,"Catfish, channel, farmed (raw)",catfish fillet,175165,,,fish,,
+cauliflower_raw,Cauliflower (raw),cauliflower florets,169986,,,,,
+celeriac_raw,Celeriac (raw),celery root,170400,,,,,
+celery_raw,Celery (raw),celery stalks,169988,,40,,,"g_per_each: FDC portion 1 stalk, medium (7-1/2"" - 8"" long) = 40 g"
+celery_seed,"Spices, celery seed",celery seeds,170920,0.44,,,,g_per_ml: FDC portion 1 tbsp = 6.5 g
+cereal_cream_of_wheat,"Cream of Wheat, regular, dry",cream of wheat|farina,173901,0.731,,wheat,gluten,g_per_ml: FDC portion 1 cup = 173 g
+chard_swiss_raw,Swiss chard (raw),chard|swiss chard,169991,,,,,
+cheese_blue,"Cheese, blue",blue cheese|gorgonzola|roquefort,172175,0.571,,milk,,g_per_ml: FDC portion 1 cup = 135 g
+cheese_brie,"Cheese, brie",brie,172177,0.609,,milk,,g_per_ml: FDC portion 1 cup = 144 g
+cheese_cheddar,"Cheese, cheddar",cheddar|cheddar cheese|sharp cheddar,173414,0.558,,milk,,g_per_ml: FDC portion 1 cup = 132 g
+cheese_colby,"Cheese, colby",colby cheese,173416,0.558,,milk,,g_per_ml: FDC portion 1 cup = 132 g
+cheese_cotija,"Cheese, mexican, queso cotija",cotija,170898,0.507,,milk,,g_per_ml: FDC portion 2 tsp = 5 g
+cheese_cottage_lowfat,"Cheese, cottage, lowfat, 2% milkfat",cottage cheese,172182,0.955,,milk,,g_per_ml: FDC portion 1 cup = 226 g
+cheese_feta,"Cheese, feta",feta|feta cheese,173420,0.634,,milk,,g_per_ml: FDC portion 1 cup = 150 g
+cheese_fontina,"Cheese, fontina",fontina,170843,0.558,,milk,,g_per_ml: FDC portion 1 cup = 132 g
+cheese_goat_soft,"Cheese, goat, soft type",goat cheese|chevre,173435,,,milk,,
+cheese_gouda,"Cheese, gouda",gouda,171241,,,milk,,
+cheese_gruyere,"Cheese, gruyere",gruyere,171242,0.558,,milk,,g_per_ml: FDC portion 1 cup = 132 g
+cheese_mexican_blend,"Cheese, Mexican blend",mexican cheese blend|taco cheese,171288,0.473,,milk,,g_per_ml: FDC portion 0.25 cup = 28 g
+cheese_monterey_jack,"Cheese, monterey",monterey jack|jack cheese,170844,0.558,,milk,,g_per_ml: FDC portion 1 cup = 132 g
+cheese_mozzarella_part_skim,"Cheese, mozzarella, low moisture, part-skim",mozzarella|shredded mozzarella|pizza cheese,171244,0.558,,milk,,g_per_ml: FDC portion 1 cup = 132 g
+cheese_mozzarella_whole,"Cheese, mozzarella, whole milk",fresh mozzarella|mozzarella ball,170845,0.473,,milk,,g_per_ml: FDC portion 1 cup = 112 g
+cheese_parmesan_grated,"Cheese, parmesan, grated",grated parmesan,171247,0.423,,milk,,g_per_ml: FDC portion 1 cup = 100 g
+cheese_parmesan_hard,"Cheese, parmesan, hard",parmesan|parmigiano reggiano|parmesan cheese,170848,,,milk,,
+cheese_provolone,"Cheese, provolone",provolone,170850,0.558,,milk,,g_per_ml: FDC portion 1 cup = 132 g
+cheese_queso_fresco,"Cheese, fresh, queso fresco",queso fresco,172223,0.516,,milk,,g_per_ml: FDC portion 1 cup = 122 g
+cheese_ricotta_part_skim,"Cheese, ricotta, part skim milk",part-skim ricotta,171248,1.048,,milk,,g_per_ml: FDC portion 0.5 cup = 124 g
+cheese_ricotta_whole,"Cheese, ricotta, whole milk",ricotta,170851,1.048,,milk,,g_per_ml: FDC portion 0.5 cup = 124 g
+cheese_romano,"Cheese, romano",pecorino romano|romano cheese,171249,,,milk,,
+cheese_sauce,"Sauce, cheese, ready-to-serve",cheese sauce,171191,1.065,,milk,,g_per_ml: FDC portion 0.25 cup = 63 g
+cheese_swiss,"Cheese, swiss",swiss cheese|emmental,171251,0.558,,milk,,g_per_ml: FDC portion 1 cup = 132 g
+cherry_sweet_raw,Sweet cherries (raw),cherries|cherry,171719,,,,,
+chervil_dried,"Spices, chervil, dried",chervil,171318,0.128,,,,g_per_ml: FDC portion 1 tbsp = 1.9 g
+chestnuts_european_raw,"Chestnuts, European (raw, peeled)",chestnuts,170575,,,tree_nuts,,
+chia_seeds,"Chia seeds, dried",chia seeds|chia,170554,,,,,
+chicken_bouillon_cubes_dry,"Chicken bouillon cubes, dry",chicken bouillon|chicken bouillon cubes|chicken stock cubes,171563,,,,poultry|meat,
+chicken_breast_raw,"Chicken breast, boneless skinless (raw)",chicken breast|boneless skinless chicken breast,171077,,,,poultry|meat,
+chicken_breast_skin_on_raw,Chicken breast with skin (raw),bone-in chicken breast,171474,,,,poultry|meat,
+chicken_broth_canned,"Soup, chicken broth, ready-to-serve",canned chicken broth|chicken broth carton,174536,1.052,,,poultry|meat,g_per_ml: FDC portion 1 cup = 249 g
+chicken_drumstick_raw,Chicken drumstick with skin (raw),chicken drumsticks,172373,,,,poultry|meat,
+chicken_ground_raw,Ground chicken (raw),minced chicken,171116,,,,poultry|meat,
+chicken_liver_raw,Chicken liver (raw),chicken livers,171060,,,,poultry|meat,
+chicken_stock,"Soup, stock, chicken, home-prepared",chicken stock|chicken broth,172884,1.014,,,poultry|meat,g_per_ml: FDC portion 1 cup = 240 g
+chicken_thigh_raw,"Chicken thigh, boneless skinless (raw)",chicken thigh|boneless chicken thighs,173627,,,,poultry|meat,
+chicken_thigh_skin_on_raw,Chicken thigh with skin (raw),bone-in chicken thigh,172385,,,,poultry|meat,
+chicken_whole_raw,"Whole chicken, meat and skin (raw)",whole chicken|roasting chicken,171447,,,,poultry|meat,
+chicken_wing_raw,Chicken wing with skin (raw),chicken wings,172390,,,,poultry|meat,
+chickpea_flour,Chickpea flour (besan),besan|gram flour|garbanzo flour,174288,0.389,,,,g_per_ml: FDC portion 1 cup = 92 g
+chickpeas_canned,"Chickpeas, canned, drained",chickpeas|garbanzo beans|canned chickpeas,173800,,,,,
+chickpeas_raw,"Chickpeas, mature seeds (raw)",dried chickpeas|garbanzo beans dry,173756,0.845,,,,g_per_ml: FDC portion 1 cup = 200 g
+chili_powder,"Spices, chili powder",chili powder,171319,0.541,,,,g_per_ml: FDC portion 1 tbsp = 8 g
+chives_raw,Chives (raw),chives,169994,,,,,
+chocolate_baking_unsweetened,"Baking chocolate, unsweetened, squares",unsweetened chocolate|baking chocolate,167568,,,,,
+chocolate_dark_70_85,"Chocolate, dark, 70-85% cacao solids",dark chocolate,170273,,,,,
+chocolate_semisweet,"Candies, semisweet chocolate",chocolate chips|semisweet chocolate|semi-sweet chocolate chips,167976,0.769,,,,g_per_ml: FDC portion 1 cup = 182 g
+cilantro_fresh,Coriander (cilantro) leaves (raw),cilantro|fresh cilantro|fresh coriander,169997,0.068,,,,g_per_ml: FDC portion 0.25 cup = 4 g
+cinnamon_ground,"Spices, cinnamon, ground",cinnamon|ground cinnamon,171320,0.527,,,,g_per_ml: FDC portion 1 tbsp = 7.8 g
+clams_raw,"Clams, mixed species (raw)",clams,174214,,,,mollusc_shellfish,
+clementine_raw,Clementines (raw),clementine|clementines,168195,,,,,
+cloves_ground,"Spices, cloves, ground",ground cloves|cloves,171321,0.44,,,,g_per_ml: FDC portion 1 tbsp = 6.5 g
+cocoa_powder_unsweetened,"Cocoa, dry powder, unsweetened",cocoa powder|cocoa|unsweetened cocoa,169593,0.364,,,,g_per_ml: FDC portion 1 cup = 86 g
+coconut_cream_raw,Coconut cream (raw),coconut cream,170580,1.014,,,,g_per_ml: FDC portion 1 cup = 240 g
+coconut_dried_unsweetened,"Coconut meat, dried (desiccated), not sweetened",shredded coconut|desiccated coconut|coconut flakes,170170,,,,,
+coconut_meat_raw,Coconut meat (raw),coconut|fresh coconut,170169,,,,,
+coconut_milk_canned,"Coconut milk, canned",coconut milk|full-fat coconut milk,170173,0.955,,,,g_per_ml: FDC portion 1 cup = 226 g
+coconut_water,Coconut water,coconut water,170174,1.014,,,,g_per_ml: FDC portion 1 cup = 240 g
+cod_atlantic_raw,Atlantic cod (raw),cod|cod fillet,171955,,,fish,,
+coffee_brewed,"Coffee, brewed with tap water",coffee|brewed coffee,171890,1.002,,,,g_per_ml: FDC portion 1 cup = 237 g
+collard_greens_raw,Collard greens (raw),collards,170406,,,,,
+coriander_leaf_dried,"Spices, coriander leaf, dried",dried cilantro,170921,0.122,,,,g_per_ml: FDC portion 1 tbsp = 1.8 g
+coriander_seed,"Spices, coriander seed",coriander|ground coriander|coriander seeds,170922,0.338,,,,g_per_ml: FDC portion 1 tbsp = 5 g
+corn_sweet_yellow_canned,"Sweet yellow corn, canned, drained",canned corn,169214,,,,,
+corn_sweet_yellow_frozen,"Sweet yellow corn kernels, frozen",frozen corn,168398,,,,,
+corn_sweet_yellow_raw,Sweet yellow corn (raw),corn|sweetcorn|corn kernels,169998,,,,,
+cornmeal_yellow,"Cornmeal, whole-grain, yellow",cornmeal|polenta|yellow cornmeal,169697,0.516,,,,g_per_ml: FDC portion 1 cup = 122 g
+cornstarch,Cornstarch,corn starch|cornflour,169698,0.541,,,,g_per_ml: FDC portion 1 cup = 128 g
+couscous_dry,"Couscous, dry",couscous,169699,0.731,,wheat,gluten,g_per_ml: FDC portion 1 cup = 173 g
+crab_alaska_king_raw,Alaska king crab (raw),king crab,175164,,,crustacean_shellfish,,
+crab_blue_canned,"Blue crab, canned",canned crab|crabmeat,171966,,,crustacean_shellfish,,
+crab_blue_raw,Blue crab (raw),blue crab,174204,,,crustacean_shellfish,,
+crab_dungeness_raw,Dungeness crab (raw),dungeness crab,171968,,,crustacean_shellfish,,
+crackers_saltine,"Crackers, saltines",saltines|saltine crackers,172746,,,wheat,gluten,
+crackers_wheat,"Crackers, wheat, regular",wheat crackers,174985,,,wheat,gluten,
+cranberries_dried,"Cranberries, dried, sweetened",dried cranberries|craisins,171723,,,,,
+cranberries_raw,Cranberries (raw),fresh cranberries,171722,,,,,
+cranberry_juice,"Cranberry juice, unsweetened",cranberry juice,168117,1.069,,,,g_per_ml: FDC portion 1 cup = 253 g
+cranberry_sauce_canned,"Cranberry sauce, canned, sweetened",cranberry sauce,173961,1.171,,,,g_per_ml: FDC portion 1 cup = 277 g
+crayfish_raw,"Crayfish, wild (raw)",crawfish,174206,,,crustacean_shellfish,,
+cream_cheese,Cream cheese,cream cheese,173418,0.981,,milk,,g_per_ml: FDC portion 1 cup = 232 g
+cream_half_and_half,"Cream, half and half",half and half|half-and-half,171255,1.023,,milk,,g_per_ml: FDC portion 1 cup = 242 g
+cream_heavy,"Cream, heavy whipping",heavy cream|whipping cream|double cream,170859,0.507,,milk,,g_per_ml: FDC portion 1 cup = 120 g
+cream_light,"Cream, light (coffee or table cream)",light cream|single cream,170857,1.014,,milk,,g_per_ml: FDC portion 1 cup = 240 g
+cream_of_tartar,"Leavening agents, cream of tartar",cream of tartar,175041,0.609,,,,g_per_ml: FDC portion 1 tsp = 3 g
+croutons_plain,"Croutons, plain",croutons,172751,,,wheat,gluten,
+cucumber_raw,Cucumber with peel (raw),cucumber|cucumbers,168409,,301,,,"g_per_each: FDC portion 1 cucumber (8-1/4"") = 301 g"
+cumin_ground,"Spices, cumin seed",cumin|ground cumin|cumin seed,170923,0.406,,,,g_per_ml: FDC portion 1 tbsp = 6 g
+curry_powder,"Spices, curry powder",curry powder,170924,0.426,,,,g_per_ml: FDC portion 1 tbsp = 6.3 g
+daikon_raw,"Daikon, white icicle radish (raw)",daikon|daikon radish,170081,,,,,
+dates_deglet_noor,"Dates, deglet noor",deglet noor dates,171726,,,,,
+dates_medjool,"Dates, medjool",medjool dates|dates,168191,,,,,
+dill_fresh,"Dill weed, fresh",dill|fresh dill,172233,0.038,,,,g_per_ml: FDC portion 1 cup = 8.9 g
+dill_seed,"Spices, dill seed",dill seeds,170925,0.446,,,,g_per_ml: FDC portion 1 tbsp = 6.6 g
+dill_weed_dried,"Spices, dill weed, dried",dried dill,171322,0.21,,,,g_per_ml: FDC portion 1 tbsp = 3.1 g
+dressing_blue_cheese,"Salad dressing, blue or roquefort cheese dressing, regular",blue cheese dressing,173562,1.036,,milk|egg,,g_per_ml: FDC portion 1 cup = 245 g
+dressing_caesar,"Salad dressing, caesar dressing, regular",caesar dressing,169055,0.993,,egg|fish|milk,,g_per_ml: FDC portion 1 cup = 235 g
+dressing_french,"Salad dressing, french dressing, commercial, regular",french dressing,171414,1.057,,,,g_per_ml: FDC portion 1 cup = 250 g
+dressing_honey_mustard,"Salad dressing, honey mustard, regular",honey mustard dressing,171043,1.014,,egg,,g_per_ml: FDC portion 2 tbsp = 30 g
+dressing_italian,"Salad dressing, italian dressing, commercial, regular",italian dressing|vinaigrette,171019,0.993,,,,g_per_ml: FDC portion 1 cup = 235 g
+dressing_ranch,"Salad dressing, ranch dressing, regular",ranch dressing|ranch,173592,1.014,,milk|egg,,g_per_ml: FDC portion 1 tablespoon = 15 g
+dressing_thousand_island,"Salad dressing, thousand island, commercial, regular",thousand island dressing,171402,1.057,,egg,,g_per_ml: FDC portion 1 cup = 250 g
+duck_breast_raw,"Duck breast, wild, meat only (raw)",duck breast,174469,,,,poultry|meat,
+duck_raw,"Duck, domesticated, meat and skin (raw)",whole duck|duck,172408,,,,poultry|meat,
+edamame_raw,"Soybeans, green (raw)",edamame|green soybeans,169282,,,soy,,
+egg_noodles_dry,"Egg noodles, dry, enriched",egg noodles,169731,,,egg|wheat,gluten,
+egg_white_raw,Egg white (raw),egg whites,172183,,33,egg,,g_per_each: FDC portion 1 large = 33 g
+egg_whole_raw,"Egg, whole (raw)",eggs|egg|whole egg,171287,,50,egg,,g_per_each: FDC portion 1 large = 50 g
+egg_yolk_raw,Egg yolk (raw),egg yolks,172184,,17,egg,,g_per_each: FDC portion 1 large = 17 g
+eggplant_raw,Eggplant (raw),aubergine|eggplant,169228,,548,,,"g_per_each: FDC portion 1 eggplant, unpeeled (approx 1-1/4 lb) = 548 g"
+enchilada_sauce,"Sauce, enchilada, red, mild",enchilada sauce,174074,0.947,,,,g_per_ml: FDC portion 0.25 cup = 56 g
+endive_raw,Endive (raw),endive|belgian endive,168412,,,,,
+english_muffin,"English muffins, plain, enriched",english muffin,175063,,,wheat,gluten,
+fava_beans_raw,"Fava beans, mature seeds (raw)",broad beans dry|dried fava beans,175205,0.634,,,,g_per_ml: FDC portion 1 cup = 150 g
+fennel_bulb_raw,Fennel bulb (raw),fennel,169385,,234,,,g_per_each: FDC portion 1 bulb = 234 g
+fennel_seed,"Spices, fennel seed",fennel seeds,171323,0.392,,,,g_per_ml: FDC portion 1 tbsp = 5.8 g
+fenugreek_seed,"Spices, fenugreek seed",fenugreek,171324,0.751,,,,g_per_ml: FDC portion 1 tbsp = 11.1 g
+figs_dried,"Figs, dried",dried figs,174665,,,,,
+figs_raw,Figs (raw),fresh figs,173021,,,,,
+fish_sauce,"Sauce, fish, ready-to-serve",fish sauce|nam pla|nuoc mam,174531,1.217,,fish,,g_per_ml: FDC portion 1 tbsp = 18 g
+fish_stock,"Soup, stock, fish, home-prepared",fish stock|fish broth,172885,0.985,,fish,,g_per_ml: FDC portion 1 cup = 233 g
+flaxseed,Flaxseed,flax seeds|linseed|ground flaxseed,169414,0.71,,,,g_per_ml: FDC portion 1 cup = 168 g
+flour_all_purpose,"Wheat flour, white, all-purpose, enriched",all-purpose flour|plain flour|flour|white flour,168894,0.528,,wheat,gluten,g_per_ml: FDC portion 1 cup = 125 g
+flour_bread,"Wheat flour, white, bread, enriched",bread flour,168896,0.579,,wheat,gluten,g_per_ml: FDC portion 1 cup = 137 g
+flour_cake,"Wheat flour, white, cake, enriched",cake flour,169723,0.579,,wheat,gluten,g_per_ml: FDC portion 1 cup = 137 g
+flour_whole_wheat,"Wheat flour, whole-grain",whole wheat flour|wholemeal flour,168893,0.507,,wheat,gluten,g_per_ml: FDC portion 1 cup = 120 g
+frankfurter_beef,"Frankfurter, beef",hot dog|beef hot dog,173862,,,,beef|meat,
+garlic_powder,"Spices, garlic powder",garlic powder,171325,0.656,,,,g_per_ml: FDC portion 1 tbsp = 9.7 g
+garlic_raw,Garlic (raw),garlic|garlic clove|garlic cloves,169230,,3,,,g_per_each: FDC portion 1 clove = 3 g
+ghee,"Butter, clarified (ghee)",clarified butter,171314,,,milk,,
+ginger_ground,"Spices, ginger, ground",ground ginger|dried ginger,170926,0.352,,,,g_per_ml: FDC portion 1 tbsp = 5.2 g
+ginger_root_raw,Ginger root (raw),ginger|fresh ginger,169231,,,,,
+grape_juice,"Grape juice, unsweetened",grape juice,173042,1.069,,,,g_per_ml: FDC portion 1 cup = 253 g
+grapefruit_raw,"Grapefruit, pink and red and white (raw)",grapefruit,173033,,,,,
+grapes_raw,"Grapes, red or green (raw)",grapes|red grapes|green grapes,174683,,,,,
+great_northern_beans_canned,"Great northern beans, canned",great northern beans,175192,,,,,
+green_beans_raw,"Green beans, snap (raw)",green beans|string beans|snap beans,169961,,,,,
+grouper_raw,"Grouper, mixed species (raw)",grouper,171962,,,fish,,
+haddock_raw,Haddock (raw),haddock fillet,171964,,,fish,,
+halibut_raw,"Halibut, Atlantic and Pacific (raw)",halibut fillet,174200,,,fish,,
+ham_cured_roasted,"Ham, cured, whole (unheated)",baked ham|cured ham,167875,,,,pork|meat,
+ham_sliced,"Ham, sliced",deli ham|sliced ham,173864,,,,pork|meat,
+hazelnuts_raw,Hazelnuts or filberts,hazelnuts|filberts,170581,0.486,,tree_nuts,,g_per_ml: FDC portion 1 cup = 115 g
+hearts_of_palm_raw,Hearts of palm (raw),hearts of palm,167714,,,,,
+hemp_seeds,"Hemp seed, hulled",hemp hearts|hemp seeds,170148,0.676,,,,g_per_ml: FDC portion 3 tbsp = 30 g
+herring_atlantic_raw,Atlantic herring (raw),herring,175116,,,fish,,
+hoisin_sauce,"Sauce, hoisin, ready-to-serve",hoisin sauce|hoisin,172886,1.082,,soy|wheat,gluten,g_per_ml: FDC portion 1 tbsp = 16 g
+honey,Honey,,169640,1.433,,,,g_per_ml: FDC portion 1 cup = 339 g
+honeydew_raw,Honeydew melon (raw),honeydew,169911,,,,,
+horseradish_prepared,"Horseradish, prepared",horseradish,173472,,,,,
+hot_pepper_sauce,"Sauce, ready-to-serve, pepper or hot",hot sauce|tabasco|cayenne pepper sauce,174527,0.954,,,,g_per_ml: FDC portion 1 tsp = 4.7 g
+hummus,"Hummus, commercial",houmous,174289,1.04,,sesame,,g_per_ml: FDC portion 1 cup = 246 g
+jalapeno_canned,"Jalapeno peppers, canned",pickled jalapenos,170080,,,,,
+jam_preserves,Jams and preserves,jam|jelly|preserves,169641,1.353,,,,g_per_ml: FDC portion 1 tbsp = 20 g
+jicama_raw,"Jicama, yambean (raw)",jicama,170073,,,,,
+kale_raw,Kale (raw),kale leaves,168421,,,,,
+kamut_raw,Kamut khorasan wheat (uncooked),kamut|khorasan wheat,169743,0.786,,wheat,gluten,g_per_ml: FDC portion 1 cup = 186 g
+ketchup,Catsup,catsup|tomato ketchup,168556,1.014,,,,g_per_ml: FDC portion 1 cup = 240 g
+kidney_beans_canned,"Kidney beans, red, canned, drained",kidney beans|canned kidney beans,174285,,,,,
+kidney_beans_red_raw,"Red kidney beans, mature seeds (raw)",dried kidney beans,173744,0.778,,,,g_per_ml: FDC portion 1 cup = 184 g
+kiwi_raw,"Kiwifruit, green (raw)",kiwi|kiwifruit,168153,,,,,
+kohlrabi_raw,Kohlrabi (raw),kohlrabi,168424,,,,,
+lamb_ground_raw,Ground lamb (raw),minced lamb,174370,,,,meat,
+lamb_leg_raw,Lamb leg (raw),leg of lamb,174311,,,,meat,
+lamb_loin_chop_raw,Lamb loin (raw),lamb chop|lamb loin chop,174319,,,,meat,
+lamb_rib_raw,"Lamb rib, rack (raw)",rack of lamb,174321,,,,meat,
+lamb_shoulder_raw,Lamb shoulder (raw),lamb shoulder,172496,,,,meat,
+lard,Lard,pork lard,171401,0.866,,,pork|meat,g_per_ml: FDC portion 1 cup = 205 g
+leek_raw,Leeks (raw),leek,169246,,89,,,g_per_each: FDC portion 1 leek = 89 g
+lemon_juice,Lemon juice (raw),lemon juice|fresh lemon juice,167747,1.031,,,,g_per_ml: FDC portion 1 cup = 244 g
+lemon_raw,"Lemons, without peel (raw)",lemon|lemons,167746,,58,,,"g_per_each: FDC portion 1 fruit (2-1/8"" dia) = 58 g"
+lemongrass_raw,Lemon grass (raw),lemongrass,168573,,,,,
+lentils_raw,Lentils (raw),lentils|brown lentils|green lentils,172420,0.812,,,,g_per_ml: FDC portion 1 cup = 192 g
+lentils_red_raw,"Lentils, pink or red (raw)",red lentils|split red lentils,174284,0.812,,,,g_per_ml: FDC portion 1 cup = 192 g
+lettuce_butterhead_raw,Butterhead lettuce (raw),boston lettuce|bibb lettuce,168429,,,,,
+lettuce_green_leaf_raw,Green leaf lettuce (raw),green leaf lettuce,169249,,,,,
+lettuce_iceberg_raw,Iceberg lettuce (raw),iceberg,169248,,,,,
+lettuce_red_leaf_raw,Red leaf lettuce (raw),red leaf lettuce,168431,,,,,
+lettuce_romaine_raw,Romaine lettuce (raw),romaine|cos lettuce,169247,,,,,
+lima_beans_raw,"Lima beans, large, mature seeds (raw)",dried lima beans|butter beans,174252,0.752,,,,g_per_ml: FDC portion 1 cup = 178 g
+lime_juice,Lime juice (raw),lime juice|fresh lime juice,168156,1.023,,,,g_per_ml: FDC portion 1 cup = 242 g
+lime_raw,Limes (raw),lime|limes,168155,,67,,,"g_per_each: FDC portion 1 fruit (2"" dia) = 67 g"
+lobster_raw,Northern lobster (raw),lobster,174208,,,crustacean_shellfish,,
+macadamia_nuts_raw,Macadamia nuts (raw),macadamias|macadamia nuts,170178,0.566,,tree_nuts,,g_per_ml: FDC portion 1 cup = 134 g
+mace_ground,"Spices, mace, ground",mace,170927,0.358,,,,g_per_ml: FDC portion 1 tbsp = 5.3 g
+mackerel_atlantic_raw,Atlantic mackerel (raw),mackerel,175119,,,fish,,
+mahi_mahi_raw,Mahi mahi (raw),dolphinfish|mahimahi,171959,,,fish,,
+mango_raw,Mangos (raw),mango|mangoes,169910,,,,,
+maple_syrup,"Syrups, maple",maple syrup,169661,1.331,,,,g_per_ml: FDC portion 1 cup = 315 g
+margarine_tub,"Margarine, regular, 80% fat, tub, with salt",margarine,172347,0.959,,milk,,g_per_ml: FDC portion 1 cup = 227 g
+marinara_sauce,"Sauce, pasta, spaghetti/marinara, ready-to-serve",marinara sauce|pasta sauce|spaghetti sauce|tomato pasta sauce,171192,1.116,,,,g_per_ml: FDC portion 1 serving 1/2 cup = 132 g
+marjoram_dried,"Spices, marjoram, dried",marjoram,170928,0.115,,,,g_per_ml: FDC portion 1 tbsp = 1.7 g
+masa_harina,"Corn flour, masa, enriched, white",masa harina|masa,169694,0.482,,,,g_per_ml: FDC portion 1 cup = 114 g
+mayonnaise,"Salad dressing, mayonnaise, regular",mayo,171009,0.93,,egg,,g_per_ml: FDC portion 1 cup = 220 g
+milk_1_percent,"Milk, lowfat, 1% milkfat",1% milk|low fat milk,170872,1.031,,milk,,g_per_ml: FDC portion 1 cup = 244 g
+milk_2_percent,"Milk, reduced fat, 2% milkfat",2% milk|reduced fat milk,171267,1.031,,milk,,g_per_ml: FDC portion 1 cup = 244 g
+milk_condensed_sweetened,"Milk, canned, condensed, sweetened",sweetened condensed milk|condensed milk,171275,1.293,,milk,,g_per_ml: FDC portion 1 cup = 306 g
+milk_evaporated,"Milk, canned, evaporated",evaporated milk,172194,1.065,,milk,,g_per_ml: FDC portion 0.5 cup = 126 g
+milk_powder_whole,"Milk, dry, whole",powdered milk|dry milk,170876,0.541,,milk,,g_per_ml: FDC portion 0.25 cup = 32 g
+milk_skim,"Milk, nonfat (skim)",skim milk|nonfat milk|fat free milk,171269,1.036,,milk,,g_per_ml: FDC portion 1 cup = 245 g
+milk_whole,"Milk, whole, 3.25% milkfat",whole milk|milk|full-fat milk,171265,1.031,,milk,,g_per_ml: FDC portion 1 cup = 244 g
+millet_raw,Millet (raw),millet,169702,0.845,,,,g_per_ml: FDC portion 1 cup = 200 g
+mint_peppermint_fresh,"Peppermint, fresh",mint|fresh mint,173474,0.108,,,,g_per_ml: FDC portion 2 tbsp = 3.2 g
+mint_spearmint_fresh,"Spearmint, fresh",spearmint,173475,0.385,,,,g_per_ml: FDC portion 2 tbsp = 11.4 g
+mirin,"Alcoholic beverage, rice (sake)",sake|rice wine|japanese rice wine,167723,0.984,,,alcohol,g_per_ml: FDC portion 1 fl oz = 29.1 g; SR Legacy has no mirin row; nutrition is FDC sake (no added sugar) so calories and carbohydrate understate sweet mirin; reviewer decision needed
+miso,Miso,miso paste|white miso|red miso,172442,1.162,,soy,gluten,g_per_ml: FDC portion 1 cup = 275 g
+mixed_nuts_dry_roasted,"Mixed nuts, dry roasted, with peanuts",mixed nuts,170585,0.554,,peanuts|tree_nuts,,g_per_ml: FDC portion 1 cup = 131 g
+molasses,Molasses,treacle,168820,1.424,,,,g_per_ml: FDC portion 1 cup = 337 g
+mung_beans_raw,"Mung beans, mature seeds (raw)",mung beans,174256,0.875,,,,g_per_ml: FDC portion 1 cup = 207 g
+mushroom_cremini_raw,Cremini mushrooms (raw),crimini|baby bella,168434,,,,,
+mushroom_enoki_raw,Enoki mushrooms (raw),enoki,169382,,,,,
+mushroom_oyster_raw,Oyster mushrooms (raw),oyster mushroom,168580,,,,,
+mushroom_portobello_raw,Portobello mushrooms (raw),portabella|portobello,169255,,,,,
+mushroom_shiitake_raw,Shiitake mushrooms (raw),shiitake,169242,,,,,
+mushroom_white_raw,White mushrooms (raw),mushroom|mushrooms|button mushrooms,169251,,18,,,g_per_each: FDC portion 1 medium = 18 g
+mushrooms_canned,"Mushrooms, canned, drained",canned mushrooms,169254,,,,,
+mussels_raw,Blue mussels (raw),mussels,174216,,,,mollusc_shellfish,
+mustard_greens_raw,Mustard greens (raw),mustard greens,169256,,,,,
+mustard_seed_ground,"Spices, mustard seed, ground",mustard powder|dry mustard|ground mustard,170929,0.426,,,,g_per_ml: FDC portion 1 tbsp = 6.3 g
+mustard_yellow,"Mustard, prepared, yellow",mustard|yellow mustard|dijon mustard,172234,1.052,,,,g_per_ml: FDC portion 1 cup = 249 g
+natto,Natto,,172443,,,soy,,
+navy_beans_raw,"Navy beans, mature seeds (raw)",navy beans|haricot beans,173745,0.879,,,,g_per_ml: FDC portion 1 cup = 208 g
+nectarine_raw,Nectarines (raw),nectarine,169914,,,,,
+nori_raw,"Seaweed, laver (raw)",nori|laver,168458,,,,,
+nutmeg_ground,"Spices, nutmeg, ground",nutmeg|ground nutmeg,171326,0.473,,,,g_per_ml: FDC portion 1 tbsp = 7 g
+oat_bran_raw,Oat bran (raw),oat bran,168872,0.397,,,,g_per_ml: FDC portion 1 cup = 94 g
+oat_flour,Oat flour,oat flour,169741,0.44,,,,g_per_ml: FDC portion 1 cup = 104 g
+oats_rolled_dry,"Oats, regular and quick, dry",rolled oats|oats|old-fashioned oats|quick oats,173904,0.342,,,,g_per_ml: FDC portion 1 cup = 81 g
+octopus_raw,"Octopus, common (raw)",octopus,174218,,,,mollusc_shellfish,
+oil_avocado,"Oil, avocado",avocado oil,173573,0.921,,,,g_per_ml: FDC portion 1 cup = 218 g
+oil_canola,"Oil, canola",canola oil|rapeseed oil,172336,0.921,,,,g_per_ml: FDC portion 1 cup = 218 g
+oil_coconut,"Oil, coconut",coconut oil,171412,0.921,,,,g_per_ml: FDC portion 1 cup = 218 g
+oil_corn,"Oil, corn, salad or cooking",corn oil,171029,0.921,,,,g_per_ml: FDC portion 1 cup = 218 g
+oil_grapeseed,"Oil, grapeseed",grapeseed oil,171028,0.921,,,,g_per_ml: FDC portion 1 cup = 218 g
+oil_olive,"Oil, olive, salad or cooking",olive oil|extra virgin olive oil|evoo,171413,0.913,,,,g_per_ml: FDC portion 1 cup = 216 g
+oil_palm,"Oil, palm",palm oil,171015,0.913,,,,g_per_ml: FDC portion 1 cup = 216 g
+oil_peanut,"Oil, peanut, salad or cooking",peanut oil|groundnut oil,171410,0.913,,peanuts,,g_per_ml: FDC portion 1 cup = 216 g
+oil_safflower,"Oil, safflower, high oleic",safflower oil,171027,0.921,,,,g_per_ml: FDC portion 1 cup = 218 g
+oil_sesame,"Oil, sesame, salad or cooking",sesame oil|toasted sesame oil,171016,0.921,,sesame,,g_per_ml: FDC portion 1 cup = 218 g
+oil_sunflower,"Oil, sunflower, linoleic",sunflower oil,171025,0.921,,,,g_per_ml: FDC portion 1 cup = 218 g
+oil_vegetable_soybean,"Oil, vegetable, soybean, refined",vegetable oil|soybean oil,172370,0.921,,soy,,g_per_ml: FDC portion 1 cup = 218 g
+oil_walnut,"Oil, walnut",walnut oil,171030,0.921,,tree_nuts,,g_per_ml: FDC portion 1 cup = 218 g
+okra_raw,Okra (raw),okra,169260,,,,,
+olives_black_canned,"Olives, ripe, canned",black olives|olives,169094,,,,,
+olives_green,"Olives, pickled, green",green olives,169096,,,,,
+onion_powder,"Spices, onion powder",onion powder,171327,0.467,,,,g_per_ml: FDC portion 1 tbsp = 6.9 g
+onion_raw,Onion (raw),onion|yellow onion|brown onion|white onion|red onion,170000,,110,,,"g_per_each: FDC portion 1 medium (2-1/2"" dia) = 110 g"
+onion_sweet_raw,Sweet onion (raw),vidalia onion,170008,,331,,,g_per_each: FDC portion 1 onion = 331 g
+orange_juice,Orange juice (raw),orange juice,169098,1.048,,,,g_per_ml: FDC portion 1 cup = 248 g
+orange_raw,Oranges (raw),orange|oranges,169097,,131,,,"g_per_each: FDC portion 1 fruit (2-5/8"" dia) = 131 g"
+oregano_dried,"Spices, oregano, dried",oregano|dried oregano,171328,0.203,,,,g_per_ml: FDC portion 1 tsp = 1 g
+oyster_sauce,"Sauce, oyster, ready-to-serve",oyster sauce,174529,1.217,,soy|wheat,gluten|mollusc_shellfish,g_per_ml: FDC portion 1 tbsp = 18 g
+oysters_pacific_raw,Pacific oysters (raw),oysters,174219,,,,mollusc_shellfish,
+papaya_raw,Papayas (raw),papaya,169926,,,,,
+paprika,"Spices, paprika",smoked paprika,171329,0.46,,,,g_per_ml: FDC portion 1 tbsp = 6.8 g
+parsley_dried,"Spices, parsley, dried",dried parsley,170930,0.108,,,,g_per_ml: FDC portion 1 tbsp = 1.6 g
+parsley_fresh,"Parsley, fresh",parsley|fresh parsley|flat-leaf parsley,170416,0.254,,,,g_per_ml: FDC portion 1 cup = 60 g
+parsnip_raw,Parsnips (raw),parsnip,170417,,,,,
+pasta_dry,"Pasta, dry, enriched",pasta|spaghetti|penne|macaroni|linguine|fettuccine|rigatoni|fusilli|orzo|noodles,169736,,,wheat,gluten,
+pasta_fresh,"Pasta, fresh-refrigerated, plain",fresh pasta,169727,,,wheat,gluten,
+pasta_gluten_free_dry,"Pasta, gluten-free, corn, dry",gluten-free pasta,168899,,,,,
+pasta_whole_wheat_dry,"Pasta, whole-wheat, dry",whole wheat pasta|whole wheat spaghetti,169738,,,wheat,gluten,
+peach_raw,"Peaches, yellow (raw)",peach|peaches,169928,,,,,
+peaches_canned_juice,"Peaches, canned in juice",canned peaches,169930,,,,,
+peanut_butter,"Peanut butter, smooth style, with salt",peanut butter|creamy peanut butter,174266,1.091,,peanuts,,g_per_ml: FDC portion 1 cup = 258 g
+peanut_sauce,"Sauce, peanut, made from peanut butter, water, soy sauce",peanut sauce|satay sauce,174070,1.217,,peanuts|soy|wheat,gluten,g_per_ml: FDC portion 1 tbsp = 18 g
+peanuts_dry_roasted,"Peanuts, dry-roasted, without salt",roasted peanuts,173806,0.617,,peanuts,,g_per_ml: FDC portion 1 cup = 146 g
+peanuts_raw,"Peanuts, all types (raw)",peanuts|raw peanuts,172430,0.617,,peanuts,,g_per_ml: FDC portion 1 cup = 146 g
+pear_raw,Pears (raw),pear|pears,169118,,,,,
+peas_green_frozen,"Green peas, frozen",frozen peas,170016,,,,,
+peas_green_raw,Green peas (raw),peas|fresh peas,170419,,,,,
+peas_snow_raw,"Edible-podded peas, snow peas (raw)",snow peas|sugar snap peas|mange tout,170010,,,,,
+pecans_raw,Pecans,pecans|pecan halves,170182,0.461,,tree_nuts,,g_per_ml: FDC portion 1 cup = 109 g
+pepper_bell_green_raw,Green bell pepper (raw),green bell pepper|green pepper|green capsicum,170427,,119,,,"g_per_each: FDC portion 1 medium (approx 2-3/4"" long, 2-1/2"" dia) = 119 g"
+pepper_bell_red_raw,Red bell pepper (raw),red bell pepper|red pepper|red capsicum,170108,,119,,,"g_per_each: FDC portion 1 medium (approx 2-3/4"" long, 2-1/2 dia.) = 119 g"
+pepper_bell_yellow_raw,Yellow bell pepper (raw),yellow bell pepper|yellow pepper,169383,,,,,
+pepper_black,"Spices, pepper, black",black pepper|ground black pepper|pepper,170931,0.467,,,,g_per_ml: FDC portion 1 tbsp = 6.9 g
+pepper_cayenne,"Spices, pepper, red or cayenne",cayenne|cayenne pepper|red pepper flakes|chili flakes,170932,0.358,,,,g_per_ml: FDC portion 1 tbsp = 5.3 g
+pepper_chili_green_raw,Hot green chili pepper (raw),green chili|green chilli,170497,,,,,
+pepper_chili_red_raw,Hot red chili pepper (raw),red chili|red chilli|fresno chile,170106,,,,,
+pepper_jalapeno_raw,Jalapeno pepper (raw),jalapeno|jalapenos,168576,,14,,,g_per_each: FDC portion 1 pepper = 14 g
+pepper_serrano_raw,Serrano pepper (raw),serrano chile,169395,,,,,
+pepper_white,"Spices, pepper, white",white pepper,170933,0.48,,,,g_per_ml: FDC portion 1 tbsp = 7.1 g
+peppers_red_roasted_canned,"Red sweet peppers, canned",roasted red peppers|jarred roasted peppers,168546,,,,,
+perch_raw,"Perch, mixed species (raw)",perch,173678,,,fish,,
+pesto,"Sauce, pesto, ready-to-serve, refrigerated",basil pesto,171579,1.065,,milk|tree_nuts,,g_per_ml: FDC portion 0.25 cup = 63 g
+pickle_relish_sweet,"Pickle relish, sweet",sweet pickle relish|relish,168561,1.036,,,,g_per_ml: FDC portion 1 cup = 245 g
+pickles_dill,Dill pickles,pickles|dill pickle|gherkins,168558,,,,,
+pine_nuts,"Pine nuts, dried",pine nuts|pignoli|pinoli,170591,0.571,,tree_nuts,,g_per_ml: FDC portion 1 cup = 135 g
+pineapple_canned_juice,"Pineapple, canned in juice, drained",canned pineapple,167767,,,,,
+pineapple_juice,"Pineapple juice, unsweetened",pineapple juice,169947,1.057,,,,g_per_ml: FDC portion 1 cup = 250 g
+pineapple_raw,Pineapple (raw),pineapple,169124,,,,,
+pinto_beans_canned,"Pinto beans, canned, drained",pinto beans|canned pinto beans,174286,,,,,
+pinto_beans_raw,"Pinto beans, mature seeds (raw)",dried pinto beans,175199,0.816,,,,g_per_ml: FDC portion 1 cup = 193 g
+pistachios_raw,Pistachio nuts (raw),pistachios,170184,0.52,,tree_nuts,,g_per_ml: FDC portion 1 cup = 123 g
+plantain_raw,"Plantains, yellow (raw)",plantain|plantains,169130,,,,,
+plum_raw,Plums (raw),plum|plums,169949,,,,,
+plum_sauce,"Sauce, plum, ready-to-serve",plum sauce,172879,1.289,,,,g_per_ml: FDC portion 1 cup = 305 g
+pollock_alaska_raw,Alaska pollock (raw),pollock,173725,,,fish,,
+pomegranate_juice,"Pomegranate juice, bottled",pomegranate juice,167787,1.052,,,,g_per_ml: FDC portion 1 cup = 249 g
+pomegranate_raw,Pomegranates (raw),pomegranate,169134,,,,,
+poppy_seeds,"Spices, poppy seed",poppy seeds,171330,0.595,,,,g_per_ml: FDC portion 1 tbsp = 8.8 g
+pork_belly_raw,Pork belly (raw),fresh pork belly,167812,,,,pork|meat,
+pork_chop_raw,"Pork loin chop, bone-in (raw)",pork chop,168242,,,,pork|meat,
+pork_ground_raw,Ground pork (raw),minced pork,168372,,,,pork|meat,
+pork_leg_raw,"Pork leg, fresh ham (raw)",fresh ham,168222,,,,pork|meat,
+pork_loin_raw,Pork loin (raw),pork loin roast|pork chops,167818,,,,pork|meat,
+pork_shoulder_raw,"Pork shoulder, Boston butt (raw)",pork butt|pulled pork meat,167849,,,,pork|meat,
+pork_spareribs_raw,Pork spareribs (raw),spare ribs|pork ribs,167853,,,,pork|meat,
+pork_tenderloin_raw,Pork tenderloin (raw),pork fillet,168312,,,,pork|meat,
+potato_red_raw,"Red potato, flesh and skin (raw)",red potatoes,170029,,213,,,"g_per_each: FDC portion 1 potato medium (2-1/4"" to 3-1/4"" dia) = 213 g"
+potato_white_raw,"White potato, flesh and skin (raw)",potato|potatoes|russet potato|white potato,170028,,213,,,"g_per_each: FDC portion 1 medium (2+-1/4"" to 3-1/4"" dia.) = 213 g"
+poultry_seasoning,"Spices, poultry seasoning",poultry seasoning,171331,0.298,,,,g_per_ml: FDC portion 1 tbsp = 4.4 g
+pumpkin_canned,"Pumpkin, canned",canned pumpkin|pumpkin puree,168450,,,,,
+pumpkin_pie_spice,"Spices, pumpkin pie spice",pumpkin pie spice,171332,0.379,,,,g_per_ml: FDC portion 1 tbsp = 5.6 g
+pumpkin_raw,Pumpkin (raw),pumpkin,168448,,,,,
+pumpkin_seeds,"Pumpkin and squash seed kernels, dried",pumpkin seeds|pepitas,170556,0.545,,,,g_per_ml: FDC portion 1 cup = 129 g
+quinoa_raw,Quinoa (uncooked),quinoa,168874,0.719,,,,g_per_ml: FDC portion 1 cup = 170 g
+rabbit_raw,"Rabbit, domesticated (raw)",rabbit,172521,,,,meat,
+radicchio_raw,Radicchio (raw),radicchio,168564,,,,,
+radish_raw,Radishes (raw),radish,169276,,,,,
+ramen_noodles_dry,"Ramen noodles, dry (chicken flavor)",ramen,171615,,,wheat,gluten|poultry|meat,
+raspberries_frozen,"Raspberries, frozen, unsweetened",frozen raspberries,168209,,,,,
+raspberries_raw,Raspberries (raw),raspberry|raspberries,167755,,,,,
+refried_beans_canned,"Refried beans, canned, vegetarian",refried beans,174296,,,,,
+rhubarb_raw,Rhubarb (raw),rhubarb,167758,,,,,
+rice_brown_long_raw,"Brown rice, long-grain (raw)",brown rice,169703,0.782,,,,g_per_ml: FDC portion 1 cup = 185 g
+rice_brown_medium_raw,"Brown rice, medium-grain (raw)",medium grain brown rice,169706,0.803,,,,g_per_ml: FDC portion 1 cup = 190 g
+rice_flour_brown,"Rice flour, brown",brown rice flour,168898,0.668,,,,g_per_ml: FDC portion 1 cup = 158 g
+rice_flour_white,"Rice flour, white",rice flour,169714,0.668,,,,g_per_ml: FDC portion 1 cup = 158 g
+rice_glutinous_raw,Glutinous (sticky) white rice (raw),sticky rice|sweet rice,168883,0.782,,,,g_per_ml: FDC portion 1 cup = 185 g
+rice_milk_unsweetened,"Rice milk, unsweetened",rice milk,171942,1.014,,,,g_per_ml: FDC portion 8 fl oz = 240 g
+rice_noodles_dry,"Rice noodles, dry",rice noodles|rice vermicelli|pad thai noodles,169742,,,,,
+rice_white_long_raw,"White rice, long-grain, enriched (raw)",white rice|rice|long grain rice|jasmine rice|basmati rice,168877,0.782,,,,g_per_ml: FDC portion 1 cup = 185 g
+rice_white_medium_raw,"White rice, medium-grain, enriched (raw)",medium grain rice,168879,0.824,,,,g_per_ml: FDC portion 1 cup = 195 g
+rice_white_short_raw,"White rice, short-grain, enriched (raw)",short grain rice|sushi rice|arborio rice|risotto rice,168881,0.845,,,,g_per_ml: FDC portion 1 cup = 200 g
+rice_wild_raw,Wild rice (raw),wild rice,169726,0.676,,,,g_per_ml: FDC portion 1 cup = 160 g
+roll_dinner,"Rolls, dinner, plain",dinner roll|bread roll,172793,,,wheat,gluten,
+roll_hamburger,"Rolls, hamburger or hotdog, plain",hamburger bun|hot dog bun|burger bun,172796,,,wheat,gluten,
+roll_hard,"Rolls, hard (includes kaiser)",kaiser roll|hard roll,175031,,,wheat,gluten,
+rosemary_dried,"Spices, rosemary, dried",dried rosemary,171333,0.223,,,,g_per_ml: FDC portion 1 tbsp = 3.3 g
+rosemary_fresh,"Rosemary, fresh",fresh rosemary,173473,0.115,,,,g_per_ml: FDC portion 1 tbsp = 1.7 g
+rutabaga_raw,Rutabagas (raw),rutabaga|swede,168454,,,,,
+rye_flour,"Rye flour, medium",rye flour,168886,0.431,,,gluten,g_per_ml: FDC portion 1 cup = 102 g
+rye_grain,Rye grain,rye berries,168884,0.714,,,gluten,g_per_ml: FDC portion 1 cup = 169 g
+saffron,"Spices, saffron",,170934,0.142,,,,g_per_ml: FDC portion 1 tbsp = 2.1 g
+sage_ground,"Spices, sage, ground",sage|ground sage|dried sage,170935,0.135,,,,g_per_ml: FDC portion 1 tbsp = 2 g
+salmon_atlantic_farmed_raw,"Atlantic salmon, farmed (raw)",salmon|salmon fillet|atlantic salmon,175167,,,fish,,
+salmon_atlantic_wild_raw,"Atlantic salmon, wild (raw)",wild salmon,173686,,,fish,,
+salmon_chinook_raw,Chinook salmon (raw),king salmon,173688,,,fish,,
+salmon_coho_wild_raw,"Coho salmon, wild (raw)",coho salmon,175136,,,fish,,
+salmon_pink_canned,"Pink salmon, canned, drained solids",canned salmon,175175,,,fish,,
+salmon_smoked,"Smoked salmon, chinook (lox)",lox|smoked salmon,171985,,,fish,,
+salmon_sockeye_raw,Sockeye salmon (raw),sockeye,173691,,,fish,,
+salsa,"Sauce, salsa, ready-to-serve",tomato salsa,174524,1.099,,,,g_per_ml: FDC portion 0.5 cup = 130 g
+salsa_verde,"Sauce, salsa, verde, ready-to-serve",green salsa|salsa verde,171824,1.014,,,,g_per_ml: FDC portion 2 Tbsp = 30 g
+salt_table,"Salt, table",salt|table salt,173468,1.234,,,,g_per_ml: FDC portion 1 cup = 292 g
+sardine_canned_oil,"Sardines, Atlantic, canned in oil, drained",sardines|canned sardines,175139,,,fish,,
+sauerkraut,"Sauerkraut, canned",,169279,,,,,
+sausage_chorizo,Chorizo,chorizo sausage,173859,,,,pork|meat,
+sausage_italian_raw,"Italian sausage, pork, mild (raw)",italian sausage,171631,,,,pork|meat,
+sausage_pepperoni,"Pepperoni, beef and pork",pepperoni,174575,,,,pork|beef|meat,
+sausage_salami,"Salami, Italian, pork",salami,174603,,,,pork|meat,
+sausage_turkey_raw,Turkey sausage (raw),turkey sausage,174617,,,,poultry|meat,
+savory_ground,"Spices, savory, ground",savory,170936,0.298,,,,g_per_ml: FDC portion 1 tbsp = 4.4 g
+scallion_raw,"Spring onions, scallions (raw)",green onion|green onions|scallions|spring onion,170005,,15,,,"g_per_each: FDC portion 1 medium (4-1/8"" long) = 15 g"
+scallops_raw,"Scallops, mixed species (raw)",scallops,174220,,,,mollusc_shellfish,
+sea_bass_raw,"Sea bass, mixed species (raw)",sea bass,175142,,,fish,,
+semolina_enriched,"Semolina, enriched",semolina|semolina flour,169715,0.706,,wheat,gluten,g_per_ml: FDC portion 1 cup = 167 g
+sesame_seeds,"Sesame seeds, whole, dried",sesame seeds|sesame,170150,0.609,,sesame,,g_per_ml: FDC portion 1 cup = 144 g
+sesame_seeds_toasted,"Sesame seeds, whole, roasted and toasted",toasted sesame seeds,170151,,,sesame,,
+shallot_raw,Shallots (raw),shallot,170499,,,,,
+shortening_vegetable,"Shortening, vegetable, household",vegetable shortening|crisco,173584,0.866,,,,g_per_ml: FDC portion 1 cup = 205 g
+shrimp_raw,"Shrimp, mixed species (raw)",shrimp|prawns,175179,,,crustacean_shellfish,,
+snapper_raw,"Snapper, mixed species (raw)",red snapper,173698,,,fish,,
+soba_noodles_dry,"Soba noodles (Japanese), dry",soba|buckwheat noodles,168906,,,wheat,gluten,
+somen_noodles_dry,"Somen noodles (Japanese), dry",somen,168908,,,wheat,gluten,
+sorghum_raw,Sorghum grain,sorghum,169716,0.812,,,,g_per_ml: FDC portion 1 cup = 192 g
+sour_cream,"Sour cream, cultured",sour cream|soured cream,171257,0.972,,milk,,g_per_ml: FDC portion 1 cup = 230 g
+soy_flour_defatted,"Soy flour, defatted",soy flour,174275,0.444,,soy,,g_per_ml: FDC portion 1 cup = 105 g
+soy_sauce,Soy sauce made from soy and wheat (shoyu),soy sauce|shoyu|light soy sauce|dark soy sauce,174277,1.078,,soy|wheat,gluten,g_per_ml: FDC portion 1 cup = 255 g
+soybeans_raw,"Soybeans, mature seeds (raw)",dried soybeans,174270,0.786,,soy,,g_per_ml: FDC portion 1 cup = 186 g
+soymilk_unsweetened,"Soymilk, original and vanilla, unfortified",soy milk|soymilk,172446,1.027,,soy,,g_per_ml: FDC portion 1 cup = 243 g
+spelt_raw,Spelt (uncooked),spelt|spelt berries,169745,0.735,,wheat,gluten,g_per_ml: FDC portion 1 cup = 174 g
+spinach_frozen,"Spinach, frozen, chopped or leaf",frozen spinach,169287,,,,,
+spinach_raw,Spinach (raw),baby spinach|fresh spinach,168462,,,,,
+spirits_80_proof,"Alcoholic beverage, distilled, all (gin, rum, vodka, whiskey) 80 proof",vodka|rum|whiskey|whisky|gin|brandy,174815,0.94,,,alcohol,g_per_ml: FDC portion 1 fl oz = 27.8 g
+split_peas_raw,"Split peas, green (raw)",split peas|dried peas,172428,0.828,,,,g_per_ml: FDC portion 1 cup = 196 g
+squash_acorn_raw,Acorn squash (raw),acorn squash,168472,,,,,
+squash_butternut_raw,Butternut squash (raw),butternut squash,169295,,,,,
+squash_spaghetti_raw,Spaghetti squash (raw),spaghetti squash,169298,,,,,
+squash_yellow_raw,Yellow summer squash (raw),yellow squash|summer squash,168464,,,,,
+squid_raw,"Squid, mixed species (raw)",calamari,174223,,,,mollusc_shellfish,
+sriracha,"Sauce, hot chile, sriracha",sriracha sauce,171186,1.319,,,,g_per_ml: FDC portion 1 tsp = 6.5 g
+strawberries_frozen,"Strawberries, frozen, unsweetened",frozen strawberries,168173,,,,,
+strawberries_raw,Strawberries (raw),strawberry|strawberries,167762,,,,,
+sugar_brown,"Sugars, brown",brown sugar,168833,0.93,,,,g_per_ml: FDC portion 1 cup = 220 g
+sugar_powdered,"Sugars, powdered",powdered sugar|icing sugar|confectioners sugar,169656,0.507,,,,g_per_ml: FDC portion 1 cup = 120 g
+sugar_white,"Sugars, granulated",sugar|white sugar|granulated sugar|caster sugar,169655,0.845,,,,g_per_ml: FDC portion 1 cup = 200 g
+sunflower_seed_butter,"Sunflower seed butter, without salt",sunflower butter,170155,1.082,,,,g_per_ml: FDC portion 1 tbsp = 16 g
+sunflower_seeds,"Sunflower seed kernels, dried",sunflower seeds|sunflower kernels,170562,0.592,,,,g_per_ml: FDC portion 1 cup = 140 g
+sweet_and_sour_sauce,"Sauce, sweet and sour, ready-to-serve",sweet and sour sauce,174066,1.183,,,,g_per_ml: FDC portion 2 Tbsp = 35 g
+sweet_potato_raw,Sweet potato (raw),sweet potatoes|yam,168482,,130,,,"g_per_each: FDC portion 1 sweetpotato, 5"" long = 130 g"
+swordfish_raw,Swordfish (raw),swordfish steak,173703,,,fish,,
+taco_shells,"Taco shells, baked",taco shell,172800,,,,,
+tahini,"Tahini, sesame butter from roasted and toasted kernels",sesame paste|sesame butter,170189,1.014,,sesame,,g_per_ml: FDC portion 1 tbsp = 15 g
+tamari,Soy sauce made from soy (tamari),tamari soy sauce,174278,1.217,,soy,,g_per_ml: FDC portion 1 tbsp = 18 g
+tangerine_raw,"Tangerines, mandarin oranges (raw)",tangerine|mandarin|mandarin orange,169105,,,,,
+tapioca_pearl_dry,"Tapioca, pearl, dry",tapioca pearls,169717,0.642,,,,g_per_ml: FDC portion 1 cup = 152 g
+tarragon_dried,"Spices, tarragon, dried",dried tarragon,170937,0.122,,,,g_per_ml: FDC portion 1 tbsp = 1.8 g
+tartar_sauce,"Sauce, tartar, ready-to-serve",tartar sauce,171826,1.014,,egg,,g_per_ml: FDC portion 2 tablespoon = 30 g
+teff_raw,Teff (uncooked),teff,169747,0.816,,,,g_per_ml: FDC portion 1 cup = 193 g
+tempeh,Tempeh,,174272,,,soy,,
+teriyaki_sauce,"Sauce, teriyaki, ready-to-serve",teriyaki sauce,171167,1.217,,soy|wheat,gluten,g_per_ml: FDC portion 1 cup = 288 g
+thyme_dried,"Spices, thyme, dried",dried thyme,170938,0.183,,,,g_per_ml: FDC portion 1 tbsp = 2.7 g
+thyme_fresh,"Thyme, fresh",fresh thyme,173470,0.162,,,,g_per_ml: FDC portion 1 tsp = 0.8 g
+tilapia_raw,Tilapia (raw),tilapia fillet,175176,,,fish,,
+tofu_firm_raw,"Tofu, firm, prepared with calcium sulfate (raw)",firm tofu|tofu|extra firm tofu,172475,,,soy,,
+tofu_fried,"Tofu, fried",fried tofu|tofu puffs,172451,,,soy,,
+tofu_regular_raw,"Tofu, regular, prepared with calcium sulfate (raw)",soft tofu|regular tofu,172476,,,soy,,
+tomatillo_raw,Tomatillos (raw),tomatillo,168566,,,,,
+tomato_crushed_canned,"Tomatoes, crushed, canned",crushed tomatoes|canned tomatoes|diced tomatoes,170501,1.023,,,,g_per_ml: FDC portion 0.5 cup = 121 g
+tomato_green_raw,Green tomatoes (raw),green tomato,170456,,,,,
+tomato_paste,"Tomato paste, canned",tomato paste|tomato puree,170459,1.116,,,,g_per_ml: FDC portion 0.25 cup = 66 g
+tomato_puree_canned,"Tomato puree, canned",pureed tomatoes,170460,1.057,,,,g_per_ml: FDC portion 1 cup = 250 g
+tomato_raw,"Tomatoes, red, ripe (raw)",tomato|tomatoes|fresh tomato,170457,,123,,,"g_per_each: FDC portion 1 medium whole (2-3/5"" dia) = 123 g"
+tomato_sauce_canned,"Tomato sauce, canned",tomato sauce|passata,169074,1.036,,,,g_per_ml: FDC portion 1 cup = 245 g
+tomato_sun_dried,Sun-dried tomatoes,sundried tomatoes,168567,,,,,
+tortilla_corn,"Tortillas, corn",corn tortilla|corn tortillas,175036,,,,,
+tortilla_flour,"Tortillas, flour, refrigerated",flour tortilla|flour tortillas|wrap,175037,,,wheat,gluten,
+tortilla_whole_wheat,"Tortillas, whole wheat",whole wheat tortilla,174081,,,wheat,gluten,
+trout_rainbow_farmed_raw,"Rainbow trout, farmed (raw)",trout|rainbow trout,173717,,,fish,,
+tuna_bluefin_raw,Bluefin tuna (raw),bluefin tuna,173706,,,fish,,
+tuna_canned_oil,"Tuna, light, canned in oil, drained",tuna in oil,173708,,,fish,,
+tuna_canned_water,"Tuna, light, canned in water, drained",canned tuna|tuna in water,173709,,,fish,,
+tuna_white_canned_water,"Tuna, white, canned in water, drained",albacore tuna,175158,,,fish,,
+tuna_yellowfin_raw,Yellowfin tuna (raw),ahi tuna|tuna steak,175159,,,fish,,
+turkey_bacon,Turkey bacon,,174592,,,,poultry|meat,
+turkey_breast_raw,"Turkey breast, meat only (raw)",turkey breast,174515,,,,poultry|meat,
+turkey_ground_93_raw,"Ground turkey, 93% lean (raw)",lean ground turkey,172850,,,,poultry|meat,
+turkey_ground_raw,Ground turkey (raw),minced turkey,171505,,,,poultry|meat,
+turkey_thigh_raw,"Turkey thigh, meat only (raw)",turkey thigh,174518,,,,poultry|meat,
+turmeric_ground,"Spices, turmeric, ground",turmeric|ground turmeric,172231,0.636,,,,g_per_ml: FDC portion 1 tbsp = 9.4 g
+turnip_raw,Turnips (raw),turnip,170465,,,,,
+vanilla_extract,Vanilla extract,vanilla|vanilla extract,173471,0.879,,,alcohol,g_per_ml: FDC portion 1 cup = 208 g
+veal_ground_raw,Ground veal (raw),minced veal,175290,,,,beef|meat,
+veal_leg_raw,"Veal leg, top round (raw)",veal cutlet|veal scallopini,175268,,,,beef|meat,
+vegetable_broth,"Soup, vegetable broth, ready to serve",vegetable broth|vegetable stock,171583,0.934,,,,g_per_ml: FDC portion 1 cup = 221 g
+venison_raw,"Venison, deer (raw)",deer meat,173855,,,,meat,
+vinegar_balsamic,"Vinegar, balsamic",balsamic vinegar,172241,1.078,,,,g_per_ml: FDC portion 1 cup = 255 g
+vinegar_cider,"Vinegar, cider",apple cider vinegar|cider vinegar,173469,1.01,,,,g_per_ml: FDC portion 1 cup = 239 g
+vinegar_distilled,"Vinegar, distilled",white vinegar|distilled white vinegar,172237,1.006,,,,g_per_ml: FDC portion 1 cup = 238 g
+vinegar_red_wine,"Vinegar, red wine",red wine vinegar,172240,1.01,,,,g_per_ml: FDC portion 1 cup = 239 g
+vital_wheat_gluten,Vital wheat gluten,seitan flour,168147,,,wheat,gluten,
+wakame_raw,"Seaweed, wakame (raw)",wakame,170496,,,,,
+walnuts_english,"Walnuts, English",walnuts|walnut halves,170187,0.495,,tree_nuts,,g_per_ml: FDC portion 1 cup = 117 g
+wasabi_prepared,Wasabi,wasabi paste|wasabi,171831,1.353,,,,g_per_ml: FDC portion 1 tablespoon = 20 g
+water,"Water, tap, drinking",tap water,173647,1.001,,,,g_per_ml: FDC portion 1 fl oz = 29.6 g
+watercress_raw,Watercress (raw),watercress,170068,,,,,
+watermelon_raw,Watermelon (raw),watermelon,167765,,,,,
+wheat_bran,"Wheat bran, crude",wheat bran,169722,0.245,,wheat,gluten,g_per_ml: FDC portion 1 cup = 58 g
+wheat_germ,"Wheat germ, crude",wheat germ,168892,0.486,,wheat,gluten,g_per_ml: FDC portion 1 cup = 115 g
+white_beans_canned,"White beans, canned",cannellini beans|white beans|canned white beans,175204,,,,,
+white_beans_raw,"White beans, mature seeds (raw)",dried white beans|cannellini beans dry,175202,0.854,,,,g_per_ml: FDC portion 1 cup = 202 g
+wine_cooking,"Alcoholic beverage, wine, cooking",cooking wine,169070,0.994,,,alcohol,g_per_ml: FDC portion 1 tsp = 4.9 g
+wine_red,"Alcoholic beverage, wine, table, red",red wine,173190,0.994,,,alcohol,g_per_ml: FDC portion 1 fl oz = 29.4 g
+wine_white,"Alcoholic beverage, wine, table, white",white wine|dry white wine,174837,0.994,,,alcohol,g_per_ml: FDC portion 1 fl oz = 29.4 g
+worcestershire_sauce,"Sauce, worcestershire",worcestershire sauce|worcestershire,171610,1.162,,fish,,g_per_ml: FDC portion 1 cup = 275 g
+yeast_active_dry,"Yeast, baker's, active dry",dry yeast|active dry yeast,175043,0.812,,,,g_per_ml: FDC portion 1 tbsp = 12 g
+yogurt_greek_plain_low_fat,"Yogurt, Greek, plain, lowfat",low fat greek yogurt|nonfat greek yogurt,170903,,,milk,,
+yogurt_greek_plain_whole,"Yogurt, Greek, plain, whole",greek yogurt|plain greek yogurt,171304,,,milk,,
+yogurt_plain_low_fat,"Yogurt, plain, low fat",low fat yogurt|lowfat plain yogurt,170886,1.036,,milk,,g_per_ml: FDC portion 1 cup = 245 g
+yogurt_plain_whole,"Yogurt, plain, whole milk",plain yogurt|yogurt|natural yogurt,171284,1.036,,milk,,g_per_ml: FDC portion 1 cup = 245 g
+zucchini_raw,Zucchini with skin (raw),zucchini|courgette,169291,,196,,,g_per_each: FDC portion 1 medium = 196 g
