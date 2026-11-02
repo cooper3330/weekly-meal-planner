@@ -105,7 +105,18 @@ def test_claude_args_system_prompt_non_empty() -> None:
 
 @pytest.mark.parametrize("flag", FORBIDDEN_ARGS)
 def test_claude_args_have_no_forbidden_flags(flag: str) -> None:
-    assert flag not in claude().args
+    parts: list[str] = []
+    for arg in claude().args:
+        parts.append(arg)
+        if arg.startswith("--") and "=" in arg:
+            parts.extend(arg.split("=", 1))
+    assert flag not in parts
+
+
+def test_claude_args_single_permission_mode() -> None:
+    args = claude().args
+    modes = [a for a in args if a == "--permission-mode" or a.startswith("--permission-mode=")]
+    assert modes == ["--permission-mode"]
 
 
 @pytest.mark.parametrize("name", REQUIRED_ENV)
@@ -285,6 +296,25 @@ def test_rejects_forbidden_args(tmp_path: Path, flag: str) -> None:
 def test_rejects_forbidden_arg_with_equals(tmp_path: Path) -> None:
     with pytest.raises(RegistryError, match="args"):
         load_registry(write(tmp_path, toml(args=json.dumps(["-p", "--mcp-config=x.json"]))))
+
+
+@pytest.mark.parametrize("mode", ["bypassPermissions", "acceptEdits", "auto"])
+def test_rejects_forbidden_mode_as_equals_value(tmp_path: Path, mode: str) -> None:
+    with pytest.raises(RegistryError, match="args"):
+        load_registry(write(tmp_path, toml(args=json.dumps(["-p", f"--permission-mode={mode}"]))))
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        ["--permission-mode", "dontAsk"],
+        ["--permission-mode=dontAsk"],
+    ],
+)
+def test_rejects_repeated_permission_mode(tmp_path: Path, extra: list[str]) -> None:
+    args = ["-p", "--permission-mode", "dontAsk", *extra]
+    with pytest.raises(RegistryError, match="permission-mode"):
+        load_registry(write(tmp_path, toml(args=json.dumps(args))))
 
 
 def test_rejects_non_string_args(tmp_path: Path) -> None:

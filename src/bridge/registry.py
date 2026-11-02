@@ -115,10 +115,16 @@ def _str_list(table: Mapping[str, Any], key: str, where: str) -> tuple[str, ...]
 
 
 def _check_args(args: tuple[str, ...], where: str) -> None:
+    permission_modes = 0
     for arg in args:
-        flag = arg.split("=", 1)[0] if arg.startswith("--") else arg
-        if arg in _FORBIDDEN_ARGS or flag in _FORBIDDEN_ARGS:
-            raise RegistryError(f"{where}: args contains a forbidden argument {flag!r}")
+        parts = arg.split("=", 1) if arg.startswith("--") else [arg]
+        for part in (arg, *parts):
+            if part in _FORBIDDEN_ARGS:
+                raise RegistryError(f"{where}: args contains a forbidden argument {part!r}")
+        if parts[0] == "--permission-mode":
+            permission_modes += 1
+    if permission_modes > 1:
+        raise RegistryError(f"{where}: args may contain --permission-mode only once")
 
 
 def _parse_command(name: object, table: object) -> Command:
