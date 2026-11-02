@@ -3,6 +3,8 @@
 import re
 from pathlib import Path
 
+import pytest
+
 from mealplanner.nutrition import build_catalog
 from mealplanner.nutrition.catalog import CatalogRow, load_catalog
 from mealplanner.nutrition.exclusions import ExclusionTerm as T
@@ -157,7 +159,7 @@ KNOWN_COMPOSITES: dict[str, set[T]] = {
     "fish_sauce": {T.fish},
     "mirin": {T.alcohol},
     "pesto": {T.milk, T.tree_nuts},
-    "mayonnaise": {T.egg},
+    "mayonnaise": {T.egg, T.soy},
     "bread_white": {T.wheat, T.gluten},
     "pasta_dry": {T.wheat, T.gluten},
     "couscous_dry": {T.wheat, T.gluten},
@@ -173,6 +175,13 @@ KNOWN_COMPOSITES: dict[str, set[T]] = {
     "bacon_raw": {T.pork, T.meat},
     "wine_red": {T.alcohol},
     "beer": {T.alcohol, T.gluten},
+    "pasta_fresh": {T.egg, T.wheat, T.gluten},
+    # Soybean oil is tagged soy by default (ADR 0016, P9), with the products made from it.
+    "oil_vegetable_soybean": {T.soy},
+    "shortening_vegetable": {T.soy},
+    "margarine_tub": {T.soy, T.milk},
+    "dressing_ranch": {T.soy},
+    "dressing_caesar": {T.soy},
 }
 
 
@@ -239,6 +248,26 @@ def test_liquid_names_have_g_per_ml() -> None:
     for row in ROWS:
         if LIQUID_WORDS.search(PACKING_MEDIUM.sub("", row.name)):
             assert row.g_per_ml is not None, f"{row.id} ({row.name}) needs g_per_ml"
+
+
+# Liquids as recipes measure them: a cup weighs roughly a cup of water.
+LIQUID_DENSITY_WORDS = re.compile(
+    r"\b(oil|milk|cream(?! of)|stock|broth|vinegar|juice|water)\b", re.I
+)
+
+
+def test_liquid_g_per_ml_is_plausible() -> None:
+    for row in ROWS:
+        name = PACKING_MEDIUM.sub("", row.name)
+        # Cheeses ("whole milk") and dry products are not liquids despite the word.
+        if row.name.startswith("Cheese") or re.search(r"\b(dry|dried|powder)\b", name, re.I):
+            continue
+        if row.g_per_ml is not None and LIQUID_DENSITY_WORDS.search(name):
+            assert 0.8 <= row.g_per_ml <= 1.5, f"{row.id} g_per_ml {row.g_per_ml} is not liquid"
+
+
+def test_heavy_cream_uses_the_fluid_cup() -> None:
+    assert BY_ID["cream_heavy"].g_per_ml == pytest.approx(238 / 236.588, abs=0.001)
 
 
 # Ids that may deliberately share one FDC food (none yet).

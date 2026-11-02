@@ -105,18 +105,18 @@ cereal_cream_of_wheat,"Cream of Wheat, regular, dry",cream of wheat|farina,17390
 chard_swiss_raw,Swiss chard (raw),chard|swiss chard,169991,,,,,
 cheese_blue,"Cheese, blue",blue cheese|gorgonzola|roquefort,172175,0.571,,milk,,"g_per_ml: FDC portion 1 cup, crumbled, not packed = 135 g"
 cheese_brie,"Cheese, brie",brie,172177,0.609,,milk,,"g_per_ml: FDC portion 1 cup, sliced = 144 g"
-cheese_cheddar,"Cheese, cheddar",cheddar|cheddar cheese|sharp cheddar,173414,0.558,,milk,,"g_per_ml: FDC portion 1 cup, diced = 132 g"
-cheese_colby,"Cheese, colby",colby cheese,173416,0.558,,milk,,"g_per_ml: FDC portion 1 cup, diced = 132 g"
+cheese_cheddar,"Cheese, cheddar",cheddar|cheddar cheese|sharp cheddar,173414,0.478,,milk,,"g_per_ml: FDC portion 1 cup, shredded = 113 g"
+cheese_colby,"Cheese, colby",colby cheese,173416,0.478,,milk,,"g_per_ml: FDC portion 1 cup, shredded = 113 g"
 cheese_cotija,"Cheese, mexican, queso cotija",cotija,170898,0.507,,milk,,g_per_ml: FDC portion 2 tsp = 5 g
 cheese_cottage_lowfat,"Cheese, cottage, lowfat, 2% milkfat",cottage cheese,172182,0.955,,milk,,g_per_ml: FDC portion 1 cup (not packed) = 226 g
 cheese_feta,"Cheese, feta",feta|feta cheese,173420,0.634,,milk,,"g_per_ml: FDC portion 1 cup, crumbled = 150 g"
-cheese_fontina,"Cheese, fontina",fontina,170843,0.558,,milk,,"g_per_ml: FDC portion 1 cup, diced = 132 g"
+cheese_fontina,"Cheese, fontina",fontina,170843,0.456,,milk,,"g_per_ml: FDC portion 1 cup, shredded = 108 g"
 cheese_goat_soft,"Cheese, goat, soft type",goat cheese|chevre,173435,,,milk,,
 cheese_gouda,"Cheese, gouda",gouda,171241,,,milk,,
-cheese_gruyere,"Cheese, gruyere",gruyere,171242,0.558,,milk,,"g_per_ml: FDC portion 1 cup, diced = 132 g"
+cheese_gruyere,"Cheese, gruyere",gruyere,171242,0.456,,milk,,"g_per_ml: FDC portion 1 cup, shredded = 108 g"
 cheese_mexican_blend,"Cheese, Mexican blend",mexican cheese blend|taco cheese,171288,0.473,,milk,,g_per_ml: FDC portion 0.25 cup shredded = 28 g
-cheese_monterey_jack,"Cheese, monterey",monterey jack|jack cheese,170844,0.558,,milk,,"g_per_ml: FDC portion 1 cup, diced = 132 g"
-cheese_mozzarella_part_skim,"Cheese, mozzarella, low moisture, part-skim",mozzarella|shredded mozzarella|pizza cheese,171244,0.558,,milk,,"g_per_ml: FDC portion 1 cup, diced = 132 g"
+cheese_monterey_jack,"Cheese, monterey",monterey jack|jack cheese,170844,0.478,,milk,,"g_per_ml: FDC portion 1 cup, shredded = 113 g"
+cheese_mozzarella_part_skim,"Cheese, mozzarella, low moisture, part-skim",mozzarella|shredded mozzarella|pizza cheese,171244,0.478,,milk,,"g_per_ml: FDC portion 1 cup, shredded = 113 g"
 cheese_mozzarella_whole,"Cheese, mozzarella, whole milk",fresh mozzarella|mozzarella ball,170845,0.473,,milk,,"g_per_ml: FDC portion 1 cup, shredded = 112 g"
 cheese_parmesan_grated,"Cheese, parmesan, grated",grated parmesan,171247,0.423,,milk,,g_per_ml: FDC portion 1 cup = 100 g
 cheese_parmesan_hard,"Cheese, parmesan, hard",parmesan|parmigiano reggiano|parmesan cheese,170848,,,milk,,
@@ -126,7 +126,7 @@ cheese_ricotta_part_skim,"Cheese, ricotta, part skim milk",part-skim ricotta,171
 cheese_ricotta_whole,"Cheese, ricotta, whole milk",ricotta,170851,1.048,,milk,,g_per_ml: FDC portion 0.5 cup = 124 g
 cheese_romano,"Cheese, romano",pecorino romano|romano cheese,171249,,,milk,,
 cheese_sauce,"Sauce, cheese, ready-to-serve",cheese sauce,171191,1.065,,milk,,g_per_ml: FDC portion 0.25 cup = 63 g
-cheese_swiss,"Cheese, swiss",swiss cheese|emmental,171251,0.558,,milk,,"g_per_ml: FDC portion 1 cup, diced = 132 g"
+cheese_swiss,"Cheese, swiss",swiss cheese|emmental,171251,0.456,,milk,,"g_per_ml: FDC portion 1 cup, shredded = 108 g"
 cherry_sweet_raw,Sweet cherries (raw),cherries|cherry,171719,,,,,
 chervil_dried,"Spices, chervil, dried",chervil,171318,0.128,,,,g_per_ml: FDC portion 1 tbsp = 1.9 g
 chestnuts_european_raw,"Chestnuts, European (raw, peeled)",chestnuts,170575,,,tree_nuts,,
@@ -186,7 +186,7 @@ cranberry_sauce_canned,"Cranberry sauce, canned, sweetened",cranberry sauce,1739
 crayfish_raw,"Crayfish, wild (raw)",crawfish,174206,,,crustacean_shellfish,,
 cream_cheese,Cream cheese,cream cheese,173418,0.981,,milk,,g_per_ml: FDC portion 1 cup = 232 g
 cream_half_and_half,"Cream, half and half",half and half|half-and-half,171255,1.023,,milk,,g_per_ml: FDC portion 1 cup = 242 g
-cream_heavy,"Cream, heavy whipping",heavy cream|whipping cream|double cream,170859,0.507,,milk,,"g_per_ml: FDC portion 1 cup, whipped = 120 g"
+cream_heavy,"Cream, heavy whipping",heavy cream|whipping cream|double cream,170859,1.006,,milk,,"g_per_ml: FDC portion 1 cup, fluid = 238 g (not the whipped cup)"
 cream_light,"Cream, light (coffee or table cream)",light cream|single cream,170857,1.014,,milk,,g_per_ml: FDC portion 1 cup = 240 g
 cream_of_tartar,"Leavening agents, cream of tartar",cream of tartar,175041,0.609,,,,g_per_ml: FDC portion 1 tsp = 3 g
 croutons_plain,"Croutons, plain",croutons,172751,,,wheat,gluten,
@@ -199,13 +199,13 @@ dates_medjool,"Dates, medjool",medjool dates|dates,168191,,,,,
 dill_fresh,"Dill weed, fresh",dill|fresh dill,172233,0.038,,,,g_per_ml: FDC portion 1 cup sprigs = 8.9 g
 dill_seed,"Spices, dill seed",dill seeds,170925,0.446,,,,g_per_ml: FDC portion 1 tbsp = 6.6 g
 dill_weed_dried,"Spices, dill weed, dried",dried dill,171322,0.21,,,,g_per_ml: FDC portion 1 tbsp = 3.1 g
-dressing_blue_cheese,"Salad dressing, blue or roquefort cheese dressing, regular",blue cheese dressing,173562,1.036,,milk|egg,,g_per_ml: FDC portion 1 cup = 245 g
-dressing_caesar,"Salad dressing, caesar dressing, regular",caesar dressing,169055,0.993,,egg|fish|milk,,g_per_ml: FDC portion 1 cup = 235 g
-dressing_french,"Salad dressing, french dressing, commercial, regular",french dressing,171414,1.057,,,,g_per_ml: FDC portion 1 cup = 250 g
-dressing_honey_mustard,"Salad dressing, honey mustard, regular",honey mustard dressing,171043,1.014,,egg,,g_per_ml: FDC portion 2 tbsp = 30 g
-dressing_italian,"Salad dressing, italian dressing, commercial, regular",italian dressing|vinaigrette,171019,0.993,,,,g_per_ml: FDC portion 1 cup = 235 g
-dressing_ranch,"Salad dressing, ranch dressing, regular",ranch dressing|ranch,173592,1.014,,milk|egg,,g_per_ml: FDC portion 1 tablespoon = 15 g
-dressing_thousand_island,"Salad dressing, thousand island, commercial, regular",thousand island dressing,171402,1.057,,egg,,g_per_ml: FDC portion 1 cup = 250 g
+dressing_blue_cheese,"Salad dressing, blue or roquefort cheese dressing, regular",blue cheese dressing,173562,1.036,,milk|egg|soy,,"g_per_ml: FDC portion 1 cup = 245 g; soy: soybean oil is an ingredient; tagged soy by default (ADR 0016, P9)"
+dressing_caesar,"Salad dressing, caesar dressing, regular",caesar dressing,169055,0.993,,egg|fish|milk|soy,,"g_per_ml: FDC portion 1 cup = 235 g; soy: soybean oil is an ingredient; tagged soy by default (ADR 0016, P9)"
+dressing_french,"Salad dressing, french dressing, commercial, regular",french dressing,171414,1.057,,soy,,"g_per_ml: FDC portion 1 cup = 250 g; soy: soybean oil is an ingredient; tagged soy by default (ADR 0016, P9)"
+dressing_honey_mustard,"Salad dressing, honey mustard, regular",honey mustard dressing,171043,1.014,,egg|soy,,"g_per_ml: FDC portion 2 tbsp = 30 g; soy: soybean oil is an ingredient; tagged soy by default (ADR 0016, P9)"
+dressing_italian,"Salad dressing, italian dressing, commercial, regular",italian dressing|vinaigrette,171019,0.993,,soy,,"g_per_ml: FDC portion 1 cup = 235 g; soy: soybean oil is an ingredient; tagged soy by default (ADR 0016, P9)"
+dressing_ranch,"Salad dressing, ranch dressing, regular",ranch dressing|ranch,173592,1.014,,milk|egg|soy,,"g_per_ml: FDC portion 1 tablespoon = 15 g; soy: soybean oil is an ingredient; tagged soy by default (ADR 0016, P9)"
+dressing_thousand_island,"Salad dressing, thousand island, commercial, regular",thousand island dressing,171402,1.057,,egg|soy,,"g_per_ml: FDC portion 1 cup = 250 g; soy: soybean oil is an ingredient; tagged soy by default (ADR 0016, P9)"
 duck_breast_raw,"Duck breast, wild, meat only (raw)",duck breast,174469,,,,poultry|meat,
 duck_raw,"Duck, domesticated, meat and skin (raw)",whole duck|duck,172408,,,,poultry|meat,
 edamame_raw,"Soybeans, green (raw)",edamame|green soybeans,169282,,,soy,,
@@ -233,7 +233,7 @@ flour_whole_wheat,"Wheat flour, whole-grain",whole wheat flour|wholemeal flour,1
 frankfurter_beef,"Frankfurter, beef",hot dog|beef hot dog,173862,,,,beef|meat,
 garlic_powder,"Spices, garlic powder",garlic powder,171325,0.656,,,,g_per_ml: FDC portion 1 tbsp = 9.7 g
 garlic_raw,Garlic (raw),garlic|garlic clove|garlic cloves,169230,,3,,,g_per_each: FDC portion 1 clove = 3 g
-ghee,"Butter, clarified (ghee)",clarified butter,171314,,,milk,,
+ghee,"Butter, clarified (ghee)",clarified butter,171314,,,milk,,no g_per_ml: FDC lists no volume portion for this food
 ginger_ground,"Spices, ginger, ground",ground ginger|dried ginger,170926,0.352,,,,g_per_ml: FDC portion 1 tbsp = 5.2 g
 ginger_root_raw,Ginger root (raw),ginger|fresh ginger,169231,,,,,
 grape_juice,"Grape juice, unsweetened",grape juice,173042,1.069,,,,g_per_ml: FDC portion 1 cup = 253 g
@@ -293,11 +293,11 @@ mackerel_atlantic_raw,Atlantic mackerel (raw),mackerel,175119,,,fish,,
 mahi_mahi_raw,Mahi mahi (raw),dolphinfish|mahimahi,171959,,,fish,,
 mango_raw,Mangos (raw),mango|mangoes,169910,,,,,
 maple_syrup,"Syrups, maple",maple syrup,169661,1.331,,,,g_per_ml: FDC portion 1 cup = 315 g
-margarine_tub,"Margarine, regular, 80% fat, tub, with salt",margarine,172347,0.959,,milk,,g_per_ml: FDC portion 1 cup = 227 g
+margarine_tub,"Margarine, regular, 80% fat, tub, with salt",margarine,172347,0.959,,milk|soy,,"g_per_ml: FDC portion 1 cup = 227 g; soy: soybean oil is an ingredient; tagged soy by default (ADR 0016, P9)"
 marinara_sauce,"Sauce, pasta, spaghetti/marinara, ready-to-serve",marinara sauce|pasta sauce|spaghetti sauce|tomato pasta sauce,171192,1.116,,,,g_per_ml: FDC portion 1 serving 1/2 cup = 132 g
 marjoram_dried,"Spices, marjoram, dried",marjoram,170928,0.115,,,,g_per_ml: FDC portion 1 tbsp = 1.7 g
 masa_harina,"Corn flour, masa, enriched, white",masa harina|masa,169694,0.482,,,,g_per_ml: FDC portion 1 cup = 114 g
-mayonnaise,"Salad dressing, mayonnaise, regular",mayo,171009,0.93,,egg,,g_per_ml: FDC portion 1 cup = 220 g
+mayonnaise,"Salad dressing, mayonnaise, regular",mayo,171009,0.93,,egg|soy,,"g_per_ml: FDC portion 1 cup = 220 g; soy: soybean oil is an ingredient; tagged soy by default (ADR 0016, P9)"
 milk_1_percent,"Milk, lowfat, 1% milkfat",1% milk|low fat milk,170872,1.031,,milk,,g_per_ml: FDC portion 1 cup = 244 g
 milk_2_percent,"Milk, reduced fat, 2% milkfat",2% milk|reduced fat milk,171267,1.031,,milk,,g_per_ml: FDC portion 1 cup = 244 g
 milk_condensed_sweetened,"Milk, canned, condensed, sweetened",sweetened condensed milk|condensed milk,171275,1.293,,milk,,g_per_ml: FDC portion 1 cup = 306 g
@@ -344,7 +344,7 @@ oil_peanut,"Oil, peanut, salad or cooking",peanut oil|groundnut oil,171410,0.913
 oil_safflower,"Oil, safflower, high oleic",safflower oil,171027,0.921,,,,g_per_ml: FDC portion 1 cup = 218 g
 oil_sesame,"Oil, sesame, salad or cooking",sesame oil|toasted sesame oil,171016,0.921,,sesame,,g_per_ml: FDC portion 1 cup = 218 g
 oil_sunflower,"Oil, sunflower, linoleic",sunflower oil,171025,0.921,,,,g_per_ml: FDC portion 1 cup = 218 g
-oil_vegetable_soybean,"Oil, vegetable, soybean, refined",vegetable oil|soybean oil,172370,0.921,,,,g_per_ml: FDC portion 1 cup = 218 g
+oil_vegetable_soybean,"Oil, vegetable, soybean, refined",vegetable oil|soybean oil,172370,0.921,,soy,,"g_per_ml: FDC portion 1 cup = 218 g; soy: soybean oil is an ingredient; tagged soy by default (ADR 0016, P9)"
 oil_walnut,"Oil, walnut",walnut oil,171030,0.921,,tree_nuts,,g_per_ml: FDC portion 1 cup = 218 g
 okra_raw,Okra (raw),okra,169260,,,,,
 olives_black_canned,"Olives, ripe, canned",black olives|olives,169094,,,,,
@@ -363,7 +363,7 @@ parsley_dried,"Spices, parsley, dried",dried parsley,170930,0.108,,,,g_per_ml: F
 parsley_fresh,"Parsley, fresh",parsley|fresh parsley|flat-leaf parsley,170416,0.254,,,,g_per_ml: FDC portion 1 cup chopped = 60 g
 parsnip_raw,Parsnips (raw),parsnip,170417,,,,,
 pasta_dry,"Pasta, dry, enriched",pasta|spaghetti|penne|macaroni|linguine|fettuccine|rigatoni|fusilli|orzo|noodles,169736,,,wheat,gluten,
-pasta_fresh,"Pasta, fresh-refrigerated, plain",fresh pasta,169727,,,wheat,gluten,
+pasta_fresh,"Pasta, fresh-refrigerated, plain",fresh pasta,169727,,,egg|wheat,gluten,egg: FDC cholesterol 73 mg/100 g shows egg in the recipe
 pasta_gluten_free_dry,"Pasta, gluten-free, corn, dry",gluten-free pasta,168899,,,,,
 pasta_whole_wheat_dry,"Pasta, whole-wheat, dry",whole wheat pasta|whole wheat spaghetti,169738,,,wheat,gluten,
 peach_raw,"Peaches, yellow (raw)",peach|peaches,169928,,,,,
@@ -476,7 +476,7 @@ semolina_enriched,"Semolina, enriched",semolina|semolina flour,169715,0.706,,whe
 sesame_seeds,"Sesame seeds, whole, dried",sesame seeds|sesame,170150,0.609,,sesame,,g_per_ml: FDC portion 1 cup = 144 g
 sesame_seeds_toasted,"Sesame seeds, whole, roasted and toasted",toasted sesame seeds,170151,,,sesame,,
 shallot_raw,Shallots (raw),shallot,170499,,,,,
-shortening_vegetable,"Shortening, vegetable, household",vegetable shortening|crisco,173584,0.866,,,,g_per_ml: FDC portion 1 cup = 205 g
+shortening_vegetable,"Shortening, vegetable, household",vegetable shortening|crisco,173584,0.866,,soy,,"g_per_ml: FDC portion 1 cup = 205 g; soy: soybean oil is an ingredient; tagged soy by default (ADR 0016, P9)"
 shrimp_raw,"Shrimp, mixed species (raw)",shrimp|prawns,175179,,,crustacean_shellfish,,
 snapper_raw,"Snapper, mixed species (raw)",red snapper,173698,,,fish,,
 soba_noodles_dry,"Soba noodles (Japanese), dry",soba|buckwheat noodles,168906,,,wheat,gluten,
@@ -573,8 +573,8 @@ wine_red,"Alcoholic beverage, wine, table, red",red wine,173190,0.994,,,alcohol,
 wine_white,"Alcoholic beverage, wine, table, white",white wine|dry white wine,174837,0.994,,,alcohol,g_per_ml: FDC portion 1 fl oz = 29.4 g
 worcestershire_sauce,"Sauce, worcestershire",worcestershire sauce|worcestershire,171610,1.162,,fish,,g_per_ml: FDC portion 1 cup = 275 g
 yeast_active_dry,"Yeast, baker's, active dry",dry yeast|active dry yeast,175043,0.812,,,,g_per_ml: FDC portion 1 tbsp = 12 g
-yogurt_greek_plain_low_fat,"Yogurt, Greek, plain, lowfat",low fat greek yogurt|nonfat greek yogurt,170903,,,milk,,
-yogurt_greek_plain_whole,"Yogurt, Greek, plain, whole",greek yogurt|plain greek yogurt,171304,,,milk,,
+yogurt_greek_plain_low_fat,"Yogurt, Greek, plain, lowfat",low fat greek yogurt|nonfat greek yogurt,170903,,,milk,,no g_per_ml: FDC lists no volume portion for this food
+yogurt_greek_plain_whole,"Yogurt, Greek, plain, whole",greek yogurt|plain greek yogurt,171304,,,milk,,no g_per_ml: FDC lists no volume portion for this food
 yogurt_plain_low_fat,"Yogurt, plain, low fat",low fat yogurt|lowfat plain yogurt,170886,1.036,,milk,,g_per_ml: FDC portion 1 cup (8 fl oz) = 245 g
 yogurt_plain_whole,"Yogurt, plain, whole milk",plain yogurt|yogurt|natural yogurt,171284,1.036,,milk,,g_per_ml: FDC portion 1 cup (8 fl oz) = 245 g
 zucchini_raw,Zucchini with skin (raw),zucchini|courgette,169291,,196,,,g_per_each: FDC portion 1 medium = 196 g
