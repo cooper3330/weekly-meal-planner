@@ -31,3 +31,4 @@ Do these once after setting up `tailscale serve`, and again after changing the s
 ## Flows
 
 1. **Home page** (`/`): loads, shows the heading and intro text, no horizontal scroll at 360 px.
+2. **Profile** (`/profile`, `/profile/edit`): create the profile, edit one field, see it saved, then submit 0 servings and see the error. Check: the exclusion checkboxes and labels are easy to tap, the number inputs bring up a numeric keypad, the error summary and the message by Servings show, and the other typed values and ticked boxes are kept. No horizontal scroll at 360 px.

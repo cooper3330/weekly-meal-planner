@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Edit your profile{% endblock %}
+{% macro error(name) %}{% if errors.get(name) %}<p class="field-error" id="{{ name }}-error">{{ errors[name] }}</p>{% endif %}{% endmacro %}
+{% macro checkboxes(terms) %}
+{% for term in terms %}
+<div class="check">
+  <input type="checkbox" id="excl-{{ term.value }}" name="exclusions" value="{{ term.value }}"{% if term.value in values.exclusions %} checked{% endif %}>
+  <label for="excl-{{ term.value }}"><strong>{{ term.label }}</strong><br><span class="hint">{{ term.definition }}</span></label>
+</div>
+{% endfor %}
+{% endmacro %}
+{% block content %}
+<h1>{% block heading %}Edit your profile{% endblock %}</h1>
+{% if errors %}
+<div class="error-summary" role="alert">
+  <p><strong>Please fix the errors below. Nothing was saved.</strong></p>
+  <ul>
+    {% for message in errors.values() %}<li>{{ message }}</li>{% endfor %}
+  </ul>
+</div>
+{% endif %}
+<form method="post" action="/profile">
+  <fieldset>
+    <legend>Allergies</legend>
+    {{ checkboxes(allergens) }}
+  </fieldset>
+  <fieldset>
+    <legend>Other things I never eat</legend>
+    {{ checkboxes(diet_terms) }}
+  </fieldset>
+  {{ error("exclusions") }}
+
+  <div class="field">
+    <label for="servings">Servings</label>
+    <input type="number" id="servings" name="servings" min="1" max="12" step="1" inputmode="numeric" value="{{ values.servings }}">
+    {{ error("servings") }}
+  </div>
+  <div class="field">
+    <label for="max_cook_minutes">Max cook time (minutes)</label>
+    <input type="number" id="max_cook_minutes" name="max_cook_minutes" min="1" max="240" step="1" inputmode="numeric" value="{{ values.max_cook_minutes }}">
+    {{ error("max_cook_minutes") }}
+  </div>
+  <div class="field">
+    <label for="skill">Cooking skill</label>
+    <select id="skill" name="skill">
+      {% for s in skills %}<option value="{{ s }}"{% if values.skill == s %} selected{% endif %}>{{ s }}</option>{% endfor %}
+    </select>
+    {{ error("skill") }}
+  </div>
+  <div class="field">
+    <label for="repeat_after_weeks">Repeat after weeks</label>
+    <input type="number" id="repeat_after_weeks" name="repeat_after_weeks" min="0" max="12" step="1" inputmode="numeric" value="{{ values.repeat_after_weeks }}">
+    {{ error("repeat_after_weeks") }}
+  </div>
+  <div class="field">
+    <label for="preferences">Preferences (at most {{ preferences_max }} characters)</label>
+    <p class="hint" id="preferences-hint">This text guides suggestions but is not enforced. Anything you must never eat should be ticked above, for example "vegetarian: tick meat, fish, crustacean shellfish and mollusc shellfish".</p>
+    <textarea id="preferences" name="preferences" rows="8" aria-describedby="preferences-hint">{{ values.preferences }}</textarea>
+    {{ error("preferences") }}
+  </div>
+  {{ error("form") }}
+  <p><button type="submit">Save profile</button></p>
+</form>
+<p><a href="/profile">Cancel</a></p>
+{% endblock %}
