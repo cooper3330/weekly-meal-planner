@@ -6,6 +6,7 @@ Error messages name the variable, never its value (the token and the host must n
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from pathlib import Path
 
 HOST_VAR = "MEALPLANNER_BRIDGE_HOST"
 PORT_VAR = "MEALPLANNER_BRIDGE_PORT"
@@ -25,6 +26,15 @@ class BridgeSettings:
     token: str = field(repr=False)
     # A snapshot, used as the source for the registry's passthrough names and for HOME.
     parent_env: Mapping[str, str] = field(repr=False, default_factory=dict)
+
+    @property
+    def home(self) -> str:
+        """The bridge's HOME: from the snapshot, else the account's home directory."""
+        return resolve_home(self.parent_env)
+
+
+def resolve_home(parent_env: Mapping[str, str]) -> str:
+    return parent_env.get("HOME") or str(Path.home())
 
 
 def load_parent_env(env: Mapping[str, str] | None = None) -> dict[str, str]:

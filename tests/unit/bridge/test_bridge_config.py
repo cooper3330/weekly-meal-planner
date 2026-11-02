@@ -99,3 +99,9 @@ def test_main_refuses_non_loopback_host() -> None:
     assert TOKEN not in out
     assert "0.0.0.0" not in out
     assert "MEALPLANNER_BRIDGE_HOST" in out
+
+
+def test_home_from_snapshot_else_account_home(monkeypatch: pytest.MonkeyPatch) -> None:
+    assert load_bridge_settings(env(HOME="/somewhere/home")).home == "/somewhere/home"
+    monkeypatch.setattr(Path, "home", lambda: Path("/account/home"))
+    assert load_bridge_settings(env()).home == "/account/home"

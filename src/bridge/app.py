@@ -8,7 +8,6 @@ they never carry the token, the input or any process output.
 
 import hmac
 from collections.abc import Awaitable, Callable
-from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Request, Response
@@ -51,7 +50,7 @@ def create_bridge_app(
     allowed_hosts = _allowed_hosts(settings)
     expected_auth = f"Bearer {settings.token}".encode()
     body_cap = max(c.max_input_bytes for c in registry.commands.values()) + BODY_OVERHEAD_BYTES
-    home = settings.parent_env.get("HOME") or str(Path.home())
+    home = settings.home
 
     @app.middleware("http")
     async def access_checks(

@@ -11,7 +11,7 @@ import tempfile
 from collections.abc import Mapping
 from pathlib import Path
 
-from bridge.config import load_parent_env
+from bridge.config import load_parent_env, resolve_home
 from bridge.registry import Registry, build_child_env, load_registry
 from bridge.runner import RunError, run_command
 
@@ -78,7 +78,7 @@ def run_smoke(registry: Registry, *, home: str, parent_env: Mapping[str, str]) -
 
 def main() -> int:
     parent_env = load_parent_env()
-    home = parent_env.get("HOME") or str(Path.home())
+    home = resolve_home(parent_env)
     return run_smoke(load_registry(REGISTRY_PATH), home=home, parent_env=parent_env)
 
 
