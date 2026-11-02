@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Profile version {{ version.version }}{% endblock %}
+{% block content %}
+<h1>Profile version {{ version.version }}</h1>
+<p class="meta">Saved {{ saved }}. Shown read-only.
+{% if is_current %}This is the current version.{% else %}The current version is Version {{ current_version }}.{% endif %}</p>
+{% set p = version.profile %}
+{% include "_profile_fields.html" %}
+<p><a href="/profile/history">Back to history</a></p>
+<p><a href="/profile">Your profile</a></p>
+{% endblock %}
