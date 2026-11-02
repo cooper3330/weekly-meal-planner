@@ -1,0 +1,14 @@
+{
+  "options": [
+    {
+      "name": "Gochujang chicken",
+      "description": "Spicy glazed chicken.",
+      "cook_minutes": 25,
+      "tags": [],
+      "ingredients": [
+        {"ingredient_id": "chicken", "quantity": 300, "unit": "g"},
+        {"ingredient_id": "gochujang", "quantity": 2, "unit": "tbsp"}
+      ]
+    }
+  ]
+}
