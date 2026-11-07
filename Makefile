@@ -4,7 +4,7 @@ RUN ?= uv run python
 
 # The project is not installed (package = false), so put src/ on the import path.
 run:
-	PYTHONPATH=src $(RUN) -m mealplanner
+	PYTHONPATH=src $(RUN) -m bridge.supervisor
 
 check:
 	uv run ruff format --check .
