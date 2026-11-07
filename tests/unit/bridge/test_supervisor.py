@@ -442,7 +442,9 @@ def free_port() -> int:
 
 
 def start_real(
-    tmp_path: Path, seen: list[str] | None = None
+    tmp_path: Path,
+    seen: list[str] | None = None,
+    pin: tuple[int, str] | None = None,
 ) -> tuple[subprocess.Popen[str], int, int]:
     env = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
     env.update(
@@ -451,8 +453,25 @@ def start_real(
         MEALPLANNER_PORT=str(free_port()),
         MEALPLANNER_DEV_LOGIN="dev@example.com",
     )
+    cmd = [sys.executable, "-m", "bridge.supervisor"]
+    if pin is not None:
+        # Same real BRIDGE_ARGV/APP_ARGV, but a known port and token, so the test can look for them.
+        script = tmp_path / "run_real.py"
+        script.write_text(
+            textwrap.dedent(
+                f"""
+                import sys
+                from bridge import supervisor
+
+                supervisor.pick_free_port = lambda: {pin[0]}
+                supervisor.new_token = lambda: {pin[1]!r}
+                sys.exit(supervisor.main())
+                """
+            )
+        )
+        cmd = [sys.executable, str(script)]
     proc = subprocess.Popen(
-        [sys.executable, "-m", "bridge.supervisor"],
+        cmd,
         env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -491,12 +510,10 @@ def test_supervisor_sigkill_leaves_no_orphan(tmp_path: Path) -> None:
 
 def test_real_run_never_prints_token_or_bridge_port(tmp_path: Path) -> None:
     seen: list[str] = []
-    proc, bridge_pid, app_pid = start_real(tmp_path, seen)
+    port = str(free_port())
+    token = "pinned-token-for-leak-check-0123456789"
+    proc, bridge_pid, app_pid = start_real(tmp_path, seen, pin=(int(port), token))
     try:
-        environ = Path(f"/proc/{bridge_pid}/environ").read_bytes().split(b"\0")
-        values = dict(item.decode().split("=", 1) for item in environ if b"=" in item)
-        port = values["MEALPLANNER_BRIDGE_PORT"]
-        token = values["MEALPLANNER_BRIDGE_TOKEN"]
         proc.send_signal(signal.SIGTERM)
         out, err = proc.communicate(timeout=15)
         everything = "".join(seen) + out + err

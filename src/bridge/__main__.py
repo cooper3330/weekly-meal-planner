@@ -22,7 +22,7 @@ class _DropStartupBanner(logging.Filter):
     """Drop uvicorn's "Uvicorn running on http://host:port" line: the port stays unprinted."""
 
     def filter(self, record: logging.LogRecord) -> bool:
-        return "running on" not in record.getMessage()
+        return not record.getMessage().startswith("Uvicorn running on")
 
 
 def _log_config() -> dict[str, Any]:
