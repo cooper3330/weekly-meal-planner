@@ -59,6 +59,18 @@ The bridge (`src/bridge/`, ADR 0022) is a small loopback-only server that runs t
 - Smoke check: `make bridge-smoke` runs the real CLI once with a tiny prompt, with the bridge's minimal environment, and prints the CLI version, exit code, whether the JSON envelope parsed, `is_error`, and whether `result` was the expected object. It never prints the environment. It is not part of `make check`; run it yourself on your machine.
 - If the smoke check fails, the bridge does not ship (#112 AC-13).
 
+### `make run`
+
+`make run` starts `python -m bridge.supervisor`. It always starts the bridge first (whatever `MEALPLANNER_LLM_BACKEND` says; starting the bridge does not need the Claude CLI), polls `GET /healthz` every 100 ms for up to 15 s, then starts the app and prints one line with both process ids.
+
+- The port is a free one chosen per run and the token comes from `secrets.token_urlsafe(32)`. Both reach the bridge and the app only through their environment (`MEALPLANNER_BRIDGE_HOST`, `MEALPLANNER_BRIDGE_PORT`, `MEALPLANNER_BRIDGE_TOKEN`). They are never printed, logged, written to a file or put on a command line. The bridge's environment has `ANTHROPIC_API_KEY` removed.
+- Both children run in their own process group. On Ctrl-C, SIGTERM or SIGHUP, or when either child exits, the supervisor sends SIGTERM to each group, waits up to 5 s, then SIGKILL. Exit status: 130 on Ctrl-C, 128 plus the signal number for other signals, otherwise the status of the child that exited first (1 if it exited with 0).
+- If the supervisor itself is killed (even with SIGKILL), both children stop: each started with `--lifeline-stdin` reads its standard input until the pipe closes, then terminates itself.
+- If the port is taken between being chosen and the bridge binding it, the supervisor exits 1 with one line; run again.
+- Supported on macOS and Linux.
+
+Before merging the PR that introduced the supervisor, the owner checks it with the real, signed-in CLI: run `make bridge-smoke`, then `MEALPLANNER_LLM_BACKEND=bridge make run`. If the smoke check fails with the traffic switches off, the bridge does not ship.
+
 ## Run it on your tailnet
 
 The server listens on 127.0.0.1 only. `tailscale serve` publishes it over HTTPS to your tailnet and adds your identity (ADR 0012).
