@@ -168,7 +168,7 @@ def test_bridge_exits_during_startup(stub: Path, stub_env: dict[str, str], tmp_p
         lambda: False,
         health_timeout=5.0,
     )
-    assert rc != 0
+    assert rc == 1
     assert not (tmp_path / "app.pid").exists()
 
 
@@ -342,6 +342,7 @@ def test_secret_not_exposed(stub: Path, stub_env: dict[str, str], tmp_path: Path
         proc.send_signal(signal.SIGTERM)
         out, err = proc.communicate(timeout=10)
         assert token not in out + err
+        assert port not in out + err
         assert re.search(r"\d+", out)  # the pids line is there
     finally:
         proc.kill()
@@ -354,10 +355,17 @@ def test_pids_line_printed_once_both_are_up(
     proc = run_supervise_script(tmp_path, stub, stub_env)
     try:
         assert wait_for(lambda: (tmp_path / "app.pid").exists())
-        time.sleep(0.3)
+        assert proc.stdout is not None
+        deadline = time.monotonic() + 8
+        first = ""
+        while not first and time.monotonic() < deadline:
+            if select.select([proc.stdout], [], [], 0.1)[0]:
+                first = proc.stdout.readline()
+        assert first, "no pids line"
         proc.send_signal(signal.SIGTERM)
-        out, _ = proc.communicate(timeout=10)
-        lines = out.strip().splitlines()
+        rest, _ = proc.communicate(timeout=10)
+        assert rest.strip() == ""  # printed once, nothing after it
+        lines = first.strip().splitlines()
         assert len(lines) == 1
         assert str(pid_of(tmp_path, "bridge")) in lines[0]
         assert str(pid_of(tmp_path, "app")) in lines[0]
@@ -433,7 +441,9 @@ def free_port() -> int:
         return int(s.getsockname()[1])
 
 
-def start_real(tmp_path: Path) -> tuple[subprocess.Popen[str], int, int]:
+def start_real(
+    tmp_path: Path, seen: list[str] | None = None
+) -> tuple[subprocess.Popen[str], int, int]:
     env = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
     env.update(
         PYTHONPATH=SRC,
@@ -449,12 +459,14 @@ def start_real(tmp_path: Path) -> tuple[subprocess.Popen[str], int, int]:
         text=True,
     )
     assert proc.stdout is not None
-    deadline = time.monotonic() + 25
+    deadline = time.monotonic() + 10
     while time.monotonic() < deadline:
         ready, _, _ = select.select([proc.stdout], [], [], 1)
         if not ready:
             continue
         line = proc.stdout.readline()  # the bridge's access log shares this stream
+        if seen is not None:
+            seen.append(line)
         found = re.fullmatch(r"bridge pid (\d+), app pid (\d+)\s*", line)
         if found:
             return proc, int(found[1]), int(found[2])
@@ -477,10 +489,34 @@ def test_supervisor_sigkill_leaves_no_orphan(tmp_path: Path) -> None:
         proc.communicate()
 
 
+def test_real_run_never_prints_token_or_bridge_port(tmp_path: Path) -> None:
+    seen: list[str] = []
+    proc, bridge_pid, app_pid = start_real(tmp_path, seen)
+    try:
+        environ = Path(f"/proc/{bridge_pid}/environ").read_bytes().split(b"\0")
+        values = dict(item.decode().split("=", 1) for item in environ if b"=" in item)
+        port = values["MEALPLANNER_BRIDGE_PORT"]
+        token = values["MEALPLANNER_BRIDGE_TOKEN"]
+        proc.send_signal(signal.SIGTERM)
+        out, err = proc.communicate(timeout=15)
+        everything = "".join(seen) + out + err
+        assert "bridge pid" in everything
+        assert token not in everything
+        assert not re.search(rf"(?<!\d){port}(?!\d)", everything)
+    finally:
+        for pid in (bridge_pid, app_pid):
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        proc.kill()
+        proc.communicate()
+
+
 def test_real_run_kill_bridge_stops_app(tmp_path: Path) -> None:
     proc, bridge_pid, app_pid = start_real(tmp_path)
     try:
-        time.sleep(0.5)
+        # start_real returns only once the pids line is out, i.e. both children are up.
         os.kill(bridge_pid, signal.SIGKILL)
         proc.wait(timeout=15)
         assert proc.returncode != 0
