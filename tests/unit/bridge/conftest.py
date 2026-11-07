@@ -32,16 +32,19 @@ def write_registry(
     env: Mapping[str, str] | None = None,
     passthrough: Sequence[str] = (),
     max_input_bytes: int = 1000,
+    timeout_seconds: int = 10,
+    max_output_bytes: int = 100000,
+    max_concurrent: int = 2,
 ) -> Registry:
     lines = [
         "[bridge]",
-        "max_concurrent = 2",
+        f"max_concurrent = {max_concurrent}",
         "[commands.stub]",
         f"program = {json.dumps(str(program))}",
         f"args = {json.dumps(list(args))}",
-        "timeout_seconds = 10",
+        f"timeout_seconds = {timeout_seconds}",
         f"max_input_bytes = {max_input_bytes}",
-        "max_output_bytes = 100000",
+        f"max_output_bytes = {max_output_bytes}",
         f"passthrough_env = {json.dumps(list(passthrough))}",
         "[commands.stub.env]",
     ]
