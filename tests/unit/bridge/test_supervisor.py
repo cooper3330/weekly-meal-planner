@@ -530,6 +530,32 @@ def test_real_run_never_prints_token_or_bridge_port(tmp_path: Path) -> None:
         proc.communicate()
 
 
+def test_real_run_without_login_reports_config_error_and_stops(tmp_path: Path) -> None:
+    # Owner check found this: the real app refuses to start with no login configured (ADR 0012).
+    # The supervisor must then stop the bridge and exit with the app's status, reason shown.
+    env = {
+        k: v
+        for k, v in os.environ.items()
+        if k not in ("ANTHROPIC_API_KEY", "MEALPLANNER_OWNER_LOGIN", "MEALPLANNER_DEV_LOGIN")
+    }
+    env.update(
+        PYTHONPATH=SRC,
+        MEALPLANNER_DATA_DIR=str(tmp_path / "data"),
+        MEALPLANNER_PORT=str(free_port()),
+    )
+    proc = subprocess.run(
+        [sys.executable, "-m", "bridge.supervisor"],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert proc.returncode == 3
+    assert "ConfigError" in proc.stderr
+    assert "MEALPLANNER_OWNER_LOGIN" in proc.stderr
+    assert "app exited with status 3; stopping" in proc.stderr
+
+
 def test_real_run_kill_bridge_stops_app(tmp_path: Path) -> None:
     proc, bridge_pid, app_pid = start_real(tmp_path)
     try:

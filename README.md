@@ -69,7 +69,9 @@ The bridge (`src/bridge/`, ADR 0022) is a small loopback-only server that runs t
 - If the port is taken between being chosen and the bridge binding it, the supervisor exits 1 with one line; run again.
 - Supported on macOS and Linux.
 
-Before merging the PR that introduced the supervisor, the owner checks it with the real, signed-in CLI: run `make bridge-smoke`, then `MEALPLANNER_LLM_BACKEND=bridge make run`. If the smoke check fails with the traffic switches off, the bridge does not ship.
+`make run` needs a login configured for the app: `MEALPLANNER_OWNER_LOGIN=<tailscale login>`, or `MEALPLANNER_DEV_LOGIN=<login>` for local use (for example `MEALPLANNER_DEV_LOGIN=you@example.com make run`). Without one the app exits with status 3 (`ConfigError`), and the supervisor stops the bridge and exits 3.
+
+Before merging the PR that introduced the supervisor, the owner checks it with the real, signed-in CLI: run `make bridge-smoke`, then `MEALPLANNER_DEV_LOGIN=you@example.com make run`. If the smoke check fails with the traffic switches off, the bridge does not ship.
 
 ## Run it on your tailnet
 
