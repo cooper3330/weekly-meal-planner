@@ -251,16 +251,18 @@ def test_exception_in_probe_still_tears_down(
 
 
 def run_supervise_script(tmp_path: Path, stub: Path, env: dict[str, str]) -> subprocess.Popen[str]:
-    """Run `supervise` with stub children in a subprocess so signals can be sent to it."""
+    """Run the real `main()` with stub children and an always-healthy probe, in a subprocess."""
     script = tmp_path / "run_supervise.py"
     script.write_text(
         textwrap.dedent(
             f"""
-            import os, sys
-            from bridge.supervisor import supervise
+            import sys
+            from bridge import supervisor
 
-            sys.exit(supervise([{str(stub)!r}, "bridge"], [{str(stub)!r}, "app"],
-                               dict(os.environ), lambda: True))
+            supervisor.BRIDGE_ARGV = [{str(stub)!r}, "bridge"]
+            supervisor.APP_ARGV = [{str(stub)!r}, "app"]
+            supervisor.make_probe = lambda host, port, token: (lambda: True)
+            sys.exit(supervisor.main())
             """
         )
     )
@@ -274,11 +276,23 @@ def run_supervise_script(tmp_path: Path, stub: Path, env: dict[str, str]) -> sub
     )
 
 
-@pytest.mark.parametrize(
-    ("sig", "expected"),
-    [(signal.SIGTERM, 143), (signal.SIGHUP, 129), (signal.SIGINT, 130)],
-)
-def test_signal_to_supervisor_stops_both(
+def test_sigterm_to_supervisor_stops_both(
+    stub: Path, stub_env: dict[str, str], tmp_path: Path
+) -> None:
+    check_signal_stops_both(stub, stub_env, tmp_path, signal.SIGTERM, 143)
+
+
+def test_sigint_returns_130(stub: Path, stub_env: dict[str, str], tmp_path: Path) -> None:
+    check_signal_stops_both(stub, stub_env, tmp_path, signal.SIGINT, 130)
+
+
+def test_sighup_to_supervisor_stops_both(
+    stub: Path, stub_env: dict[str, str], tmp_path: Path
+) -> None:
+    check_signal_stops_both(stub, stub_env, tmp_path, signal.SIGHUP, 129)
+
+
+def check_signal_stops_both(
     stub: Path, stub_env: dict[str, str], tmp_path: Path, sig: signal.Signals, expected: int
 ) -> None:
     proc = run_supervise_script(tmp_path, stub, stub_env)
@@ -297,35 +311,37 @@ def test_signal_to_supervisor_stops_both(
 
 
 def test_secret_not_exposed(stub: Path, stub_env: dict[str, str], tmp_path: Path) -> None:
-    token = "S3cretTokenValue_" + "x" * 30
-    env = {
-        **stub_env,
-        "MEALPLANNER_BRIDGE_TOKEN": token,
-        "MEALPLANNER_BRIDGE_PORT": "4321",
-        "MEALPLANNER_BRIDGE_HOST": "127.0.0.1",
-        "ANTHROPIC_API_KEY": "sk-ant-test-key",
-    }
+    # main() generates the port and token itself; the stubs reveal them through their environment.
+    env = {**stub_env, "ANTHROPIC_API_KEY": "sk-ant-test-key"}
+    for var in ("MEALPLANNER_BRIDGE_TOKEN", "MEALPLANNER_BRIDGE_PORT", "MEALPLANNER_BRIDGE_HOST"):
+        env.pop(var, None)
     proc = run_supervise_script(tmp_path, stub, env)
     try:
         assert wait_for(
             lambda: (tmp_path / "app.env").exists() and (tmp_path / "bridge.env").exists()
         )
-        for name in ("bridge", "app"):
-            pid = pid_of(tmp_path, name)
-            args = subprocess.run(
-                ["ps", "-o", "args=", "-p", str(pid)], capture_output=True, text=True
-            ).stdout
-            assert token not in args
-            child_env = json.loads((tmp_path / f"{name}.env").read_text())
-            assert child_env["MEALPLANNER_BRIDGE_TOKEN"] == token
-            assert child_env["MEALPLANNER_BRIDGE_PORT"] == "4321"
         bridge_env = json.loads((tmp_path / "bridge.env").read_text())
+        app_env = json.loads((tmp_path / "app.env").read_text())
+        token = bridge_env["MEALPLANNER_BRIDGE_TOKEN"]
+        port = bridge_env["MEALPLANNER_BRIDGE_PORT"]
+        assert len(token) >= 32
+        for child_env in (bridge_env, app_env):
+            assert child_env["MEALPLANNER_BRIDGE_HOST"] == "127.0.0.1"
+            assert child_env["MEALPLANNER_BRIDGE_TOKEN"] == token
+            assert child_env["MEALPLANNER_BRIDGE_PORT"] == port
+        for name in ("bridge", "app"):
+            args = subprocess.run(
+                ["ps", "-o", "args=", "-p", str(pid_of(tmp_path, name))],
+                capture_output=True,
+                text=True,
+            ).stdout
+            assert args.strip()
+            assert token not in args
         assert "ANTHROPIC_API_KEY" not in bridge_env
+        assert app_env["ANTHROPIC_API_KEY"] == "sk-ant-test-key"
         proc.send_signal(signal.SIGTERM)
         out, err = proc.communicate(timeout=10)
-        assert token not in out
-        assert token not in err
-        assert "4321" not in out + err
+        assert token not in out + err
         assert re.search(r"\d+", out)  # the pids line is there
     finally:
         proc.kill()

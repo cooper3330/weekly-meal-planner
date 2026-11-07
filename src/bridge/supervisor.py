@@ -27,6 +27,10 @@ SIGNALS = tuple(s for s in (signal.SIGINT, signal.SIGTERM, getattr(signal, "SIGH
 
 Probe = Callable[[], bool]
 
+# The real commands `main()` wires up (module-level so tests can point them at stubs).
+BRIDGE_ARGV = [sys.executable, "-m", "bridge", "--lifeline-stdin"]
+APP_ARGV = [sys.executable, "-m", "mealplanner", "--lifeline-stdin"]
+
 
 def pick_free_port() -> int:
     """Bind 127.0.0.1:0 to learn a free port, then release it for the bridge."""
@@ -186,12 +190,7 @@ def main() -> int:
     env[HOST_VAR] = HOST
     env[PORT_VAR] = str(port)
     env[TOKEN_VAR] = token
-    return supervise(
-        [sys.executable, "-m", "bridge", "--lifeline-stdin"],
-        [sys.executable, "-m", "mealplanner", "--lifeline-stdin"],
-        env,
-        make_probe(HOST, port, token),
-    )
+    return supervise(BRIDGE_ARGV, APP_ARGV, env, make_probe(HOST, port, token))
 
 
 if __name__ == "__main__":
