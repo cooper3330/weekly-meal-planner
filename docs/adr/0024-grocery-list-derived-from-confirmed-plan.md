@@ -1,6 +1,7 @@
 # ADR 0024: The grocery list is computed in code from the confirmed plan on every read; it is not stored, and no model call is made
 - Status: Accepted
 - Date: 2026-11-07
+- Amends: ADR 0021 (#9 derives its output on read, so it stores no `confirmation_id` and does not call `plan_output_status`)
 
 ## Context
 Issue #9, FR-1 to FR-7 and AC-1 to AC-8. The owner wants a printable HTML page opened from the app. ADR 0021 makes `get_confirmed_plan` the only input for downstream features. Its Consequences assume a stored output with a `confirmation_id` column that is checked through `plan_output_status`, and it leaves each feature to decide between building eagerly and on demand.
