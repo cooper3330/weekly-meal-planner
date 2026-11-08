@@ -5,7 +5,7 @@
 ## Context
 Issue #10, FR-1 to FR-8 and AC-1 to AC-7. A recipe must agree with three things the user has already seen or will use: the meal's ingredients and quantities, the grocery list (#9, ADR 0024), and the per-serving calories and macros shown at selection (#8, ADR 0021). The meal's ingredients are already structured: catalog ids, quantities and closed units written for `slate_options.servings` (ADRs 0007 and 0018). Nutrition is computed on read by `check_option` and never stored (ADR 0019). ADR 0021 makes `get_confirmed_plan` the only input for building downstream output, and says the whole output is withheld when a planned meal no longer fits the profile. ADR 0008 asks each feature to define its bounded replacement policy for schema-valid output that fails domain checks. ADR 0022 sends every model call through the CLI bridge, which can take tens of seconds per call.
 
-The spec's answers say: steps are not varied by skill level, and the owner would like recipes visible during selection. That last point conflicts with FR-1 and constitution P4 and is an open question on #10; this ADR does not decide it (see Consequences).
+The spec's answers say: steps are not varied by skill level, and the owner would like recipes visible during selection. That last point conflicted with FR-1 and constitution P4. The owner chose an on-demand preview per option (option B on #10), and ADR 0026 records it. This ADR covers the confirmed week's recipes; ADR 0026 reuses its table, generator, checks and builder for previews.
 
 ## Decision
 **The model writes steps only.** Everything else on a recipe comes from code:
@@ -77,7 +77,7 @@ CREATE TABLE recipes (
 - A non-empty `unavailable` list gives *meal no longer fits*: every recipe is withheld, not only the affected one, and the page asks the user to reopen the week (ADR 0021's `UNSAFE` rule).
 - Empty `meals` gives *no meals planned*.
 - Otherwise each planned meal is a `Recipe`, or *missing*, or *no longer fits* when its stored steps fail `check_recipe` against today's exclusions (the steps are then hidden and a Regenerate button is shown).
-- Stored recipes of meals that are not in the current plan are never shown.
+- Stored recipes of meals that are not in the current plan are never shown on this page. A recipe stored by a preview (ADR 0026) is shown here once its meal is planned, and it is shown on the preview page only while its option is active and available.
 
 Because nothing shown is built from a stored confirmation, `recipes` has no `confirmation_id` column and the page does not call `plan_output_status`. This deviates from ADR 0021's Consequences in the same way ADR 0024 does for #9, and gives the same safety: output exists only for the current plan, and it is withheld whenever that plan has a meal that no longer fits.
 
@@ -101,14 +101,14 @@ Because nothing shown is built from a stored confirmation, `recipes` has no `con
 - Generating a week of 10 recipes is about 10 bridge calls in the usual case, run one after another in one request, which can take several minutes. The page says so. Each success is stored at once, so a timeout or a failed meal costs only the gaps, and pressing the button again fills them. A background job is a later change if this is too slow.
 - The prose check depends on catalog aliases. A common food named in a step under an unlisted name is not caught; adding aliases to the catalog improves it. Tests cover the masking of the meal's own ingredients.
 - The amount ban rejects some natural phrasing ("add half the rice" is fine, "add 1 cup of the rice" and "crack 3 eggs" are not), which costs a retry with a clear message. Spelled-out counts ("crack two eggs") are not caught and would read wrong after a servings change; the prompt forbids them, and the ingredient list stays correct.
-- **If the owner allows recipes during selection** (open question on #10), the same `recipes` table and `generate_recipe` serve a per-option preview, because recipes are keyed by slate option. That would need an ADR amending constitution P4 and a change to ADR 0021's "no recipe content while open" rule; this ADR does not make it.
+- **Recipes during selection** (the owner chose option B on #10) are ADR 0026. The same `recipes` table and `generate_recipe_steps` serve a per-option preview, because recipes are keyed by slate option. A previewed meal that is then picked and confirmed needs no further call, because `generate_missing_recipes` skips a stored recipe that passes `check_recipe`.
 - A new package `src/mealplanner/recipes/` sits beside `planning/` and `grocery/` (ADR 0011). It depends on `planning` (for `MealOption` and `get_confirmed_plan`), never the reverse.
 
 ## Constitution check
 - P1 Local first: SQLite only; the only outbound call is the Claude API through the bridge (ADR 0022).
 - P2 Nutrition transparent, no targets: the numbers are `check_option`'s code-computed values; the model cannot supply any; nothing is compared to a target.
 - P3 Learn transparently: not affected; recipes add no preference signal.
-- P4 The user decides: recipes are built only from a confirmed plan, and confirming still generates nothing by itself.
+- P4 The user decides (as amended by ADR 0026): the week's recipes are built only from a confirmed plan, and confirming still generates nothing by itself. Before confirmation, a recipe exists only for an option the user asked to preview (ADR 0026).
 - P5 Structured outputs: `extra="forbid"` schema with per-meal validators, bounded retries, and a bounded replacement policy; invalid or rejected output is never stored or shown.
 - P7 Tests first: every call goes through `LLMClient`, so `FakeLLMClient` covers generation, retries and adversarial output offline.
 - P8 Simple over clever: one table, one package, no new dependency, no JavaScript, no background job.

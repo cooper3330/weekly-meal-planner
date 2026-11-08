@@ -1,5 +1,5 @@
 # ADR 0021: Weekly selection keeps draft picks per slate, appends a snapshot on each confirmation, and exposes the confirmed plan as the only input for downstream features
-- Status: Accepted
+- Status: Accepted. Amended by ADR 0026, which allows a recipe preview for one option, on request, while the week is open.
 - Date: 2026-10-30
 
 ## Context
