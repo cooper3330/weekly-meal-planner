@@ -154,10 +154,15 @@ uv_violations() {
   sha=$(sed -n "${uvl}p" "$f" | sed -E 's/.*setup-uv@([0-9a-f]{40}).*/\1/')
   [ "$sha" = "$want" ] || echo "setup-uv is not the pin ci.yml uses"
   sed -n "$uvl,$((uvl + 3))p" "$f" | grep -Eq 'python-version:[[:space:]]*"?3\.12"?' || echo "setup-uv does not select Python 3.12"
+  # An agent job installs uv but never runs it before the job ends, so the action's default cache has nothing to
+  # save and its post step fails the whole run ("Cache path ... does not exist on disk"). Turn the cache off.
+  sed -n "$uvl,$((uvl + 4))p" "$f" | grep -Eq 'enable-cache:[[:space:]]*"?false"?' || echo "setup-uv leaves its cache on (its post step then fails the run)"
   if [ -n "$runl" ] && [ "$uvl" -gt "$runl" ]; then echo "uv is installed after the coordinator runs"; fi
 }
 echo "workflows: the uv checker bites on a fixture that runs an agent without uv"
 if [ -n "$(uv_violations "$FIX/workflows/no-uv.yml")" ]; then ok "reported as a violation"; else bad "reported as a violation"; fi
+echo "workflows: the uv checker bites on a fixture that leaves the setup-uv cache on"
+if [ -n "$(uv_violations "$FIX/workflows/uv-cache-on.yml")" ]; then ok "reported as a violation"; else bad "reported as a violation"; fi
 echo "workflows: every workflow that can run an agent installs uv (#89)"
 for f in .github/workflows/*.yml; do
   v=$(uv_violations "$f")
