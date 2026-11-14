@@ -1,0 +1,21 @@
+name: uv cache on
+# Fixture: installs uv with its default cache. The agent job never runs uv before the post step, so the
+# cache save fails ("Cache path ... does not exist on disk") and turns the whole run red.
+on:
+  workflow_dispatch:
+jobs:
+  agent:
+    if: vars.AGENTS_PAUSED != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install uv and Python (so the developer can run make check)
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          python-version: "3.12"
+      - run: scripts/coordinator.sh --once
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          AGENT_DAILY_RUNS: ${{ vars.AGENT_DAILY_RUNS }}
