@@ -5,6 +5,13 @@
 ## Context
 Issue #10, FR-1 to FR-8 and AC-1 to AC-7. A recipe must agree with three things the user has already seen or will use: the meal's ingredients and quantities, the grocery list (#9, ADR 0024), and the per-serving calories and macros shown at selection (#8, ADR 0021). The meal's ingredients are already structured: catalog ids, quantities and closed units written for `slate_options.servings` (ADRs 0007 and 0018). Nutrition is computed on read by `check_option` and never stored (ADR 0019). ADR 0021 makes `get_confirmed_plan` the only input for building downstream output, and says the whole output is withheld when a planned meal no longer fits the profile. ADR 0008 asks each feature to define its bounded replacement policy for schema-valid output that fails domain checks. ADR 0022 sends every model call through the CLI bridge, which can take tens of seconds per call.
 
+**Unmerged dependency.** ADR 0024 (#9's grocery list) is in PR #138, which has not merged. This ADR relies on it for three things, and states each one here so that it stands on its own:
+- the scaling factor `profile.servings / option.servings`, applied to every ingredient line
+- the grocery list derived on read from `get_confirmed_plan`, with no `confirmation_id` and no `plan_output_status` call
+- print and export as a printable HTML page
+
+If the owner changes any of these in ADR 0024, this ADR needs the same change.
+
 The spec's answers say: steps are not varied by skill level, and the owner would like recipes visible during selection. That last point conflicted with FR-1 and constitution P4. The owner chose an on-demand preview per option (option B on #10), and ADR 0026 records it. This ADR covers the confirmed week's recipes; ADR 0026 reuses its table, generator, checks and builder for previews.
 
 ## Decision
@@ -35,7 +42,7 @@ So AC-2 and AC-3 hold by construction: there is no second copy of an ingredient 
   1. Each `ingredient_ids` entry must be one of the meal's own ingredient ids. Otherwise: `ingredient '<id>' is not in this meal; use only the meal's ingredients`. The id is the model's text, so it is passed through `repr()` and cut to 64 characters, as in ADR 0018.
   2. Every meal ingredient appears in at least one step's `ingredient_ids`. Otherwise: `ingredient '<id>' is never used in a step`.
   3. `prep_minutes` is at most the meal's `cook_minutes`.
-- **No amounts in step text.** A step that contains a number followed by a mass or volume unit (`g`, `gram(s)`, `kg`, `ml`, `l`, `litre(s)`/`liter(s)`, `tsp`, `teaspoon(s)`, `tbsp`, `tablespoon(s)`, `cup(s)`, `oz`, `ounce(s)`, `lb(s)`, `pound(s)`), including fractions such as `1/2 cup` and `½ cup`, fails validation with `step <n> states an amount; refer to ingredients by name only`. So does a number directly followed by one of the meal's own ingredient names or aliases (`crack 3 eggs`, `dice 2 onions`), because a count is an amount too. Times, temperatures and sizes (`20 minutes`, `200 °C`, `400 F`, `2 cm pieces`) are allowed. Spelled-out numbers ("two eggs") are not parsed; see Consequences. Steps are written once for the meal's stored servings, and amounts in prose would be wrong as soon as the profile's servings change. The ingredient list carries the amounts.
+- **No amounts in step text.** A step that contains a number followed by a mass or volume unit (`g`, `gram(s)`, `kg`, `ml`, `l`, `litre(s)`/`liter(s)`, `tsp`, `teaspoon(s)`, `tbsp`, `tablespoon(s)`, `cup(s)`, `oz`, `ounce(s)`, `lb(s)`, `pound(s)`), including fractions such as `1/2 cup` and `½ cup`, fails validation with `step <n> states an amount; refer to ingredients by name only`. So does a number directly followed by one of the meal's own ingredient names or aliases (`crack 3 eggs`, `dice 2 onions`), because a count is an amount too. Unit words match only as whole words, so `2 large onions` is not read as `2 l`. Times, temperatures and sizes (`20 minutes`, `200 °C`, `400 F`, `2 cm pieces`) are allowed. Spelled-out numbers ("two eggs") are not parsed; see Consequences. Steps are written once for the meal's stored servings, and amounts in prose would be wrong as soon as the profile's servings change. The ingredient list carries the amounts.
 - Schema failures are retried inside the ADR 0008 loop: at most 3 attempts per call, then `LLMOutputError`.
 
 **Domain check** (`src/mealplanner/recipes/checks.py`): `check_recipe(draft, *, meal, catalog, exclusions) -> RecipeSteps | Rejection`, a pure function that runs on every schema-valid draft and again on every read.
@@ -90,7 +97,7 @@ Because nothing shown is built from a stored confirmation, `recipes` has no `con
 - **Amounts inside the steps.** Familiar from cookbooks, but they would go wrong whenever servings change, and checking them against the list means parsing prose. Rejected; the ingredient list carries every amount.
 - **Store recipes per confirmation, with `confirmation_id` and `plan_output_status`.** Reopening and reconfirming would orphan every recipe or need copying, although a meal's recipe does not depend on the confirmation. Keying by meal and deriving the page from the current plan is simpler and equally safe.
 - **One batch call for the whole week.** Fewer calls, but one bad recipe makes the whole batch retry, the output is long, and FR-7 needs a per-meal call anyway.
-- **All-or-nothing storage of the week's recipes**, as slates do. A slate must be complete to be shown (ADR 0010); recipes are independent, and losing nine good recipes because the tenth failed wastes calls.
+- **All-or-nothing storage of the week's recipes**, as slates do. A slate must be complete to be shown (ADR 0019, "All or nothing"); recipes are independent, and losing nine good recipes because the tenth failed wastes calls.
 - **Generating in a background job or in parallel.** Faster for a large week, but adds a worker or thread coordination for one user, and the bridge limits concurrency (ADR 0022). Sequential within one request is the boring first step; see Consequences.
 - **A per-skill level of step detail.** The owner chose normal steps for everyone for now.
 - **Withholding only the unsafe meal's recipe.** More convenient, but ADR 0021 withholds the whole output, and the grocery list does the same. Kept consistent.
@@ -110,6 +117,7 @@ Because nothing shown is built from a stored confirmation, `recipes` has no `con
 - P3 Learn transparently: not affected; recipes add no preference signal.
 - P4 The user decides (as amended by ADR 0026): the week's recipes are built only from a confirmed plan, and confirming still generates nothing by itself. Before confirmation, a recipe exists only for an option the user asked to preview (ADR 0026).
 - P5 Structured outputs: `extra="forbid"` schema with per-meal validators, bounded retries, and a bounded replacement policy; invalid or rejected output is never stored or shown.
+- P6 Spec before code: every decision here maps to #10's FR-1 to FR-8 and AC-1 to AC-7, and each task (#149, #150, #151) lists the ACs it covers. No code is written before this ADR and the plan on #10.
 - P7 Tests first: every call goes through `LLMClient`, so `FakeLLMClient` covers generation, retries and adversarial output offline.
 - P8 Simple over clever: one table, one package, no new dependency, no JavaScript, no background job.
 - P9 Safe by default: exclusions are enforced by the meal's own check on every read, by the referenced-id check, and by the prose check; recipes are withheld whenever a planned meal no longer fits.
