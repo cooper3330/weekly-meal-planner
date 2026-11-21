@@ -1,16 +1,17 @@
 # ADR 0025: A recipe is the planned meal's own data plus model-written steps; code checks the steps, stores them per meal, and shows them only through the confirmed plan
 - Status: Proposed
 - Date: 2026-11-07
+- Amends: ADR 0021 (#10 derives its output on read, so it stores no `confirmation_id` and does not call `plan_output_status`)
 
 ## Context
 Issue #10, FR-1 to FR-8 and AC-1 to AC-7. A recipe must agree with three things the user has already seen or will use: the meal's ingredients and quantities, the grocery list (#9, ADR 0024), and the per-serving calories and macros shown at selection (#8, ADR 0021). The meal's ingredients are already structured: catalog ids, quantities and closed units written for `slate_options.servings` (ADRs 0007 and 0018). Nutrition is computed on read by `check_option` and never stored (ADR 0019). ADR 0021 makes `get_confirmed_plan` the only input for building downstream output, and says the whole output is withheld when a planned meal no longer fits the profile. ADR 0008 asks each feature to define its bounded replacement policy for schema-valid output that fails domain checks. ADR 0022 sends every model call through the CLI bridge, which can take tens of seconds per call.
 
-**Unmerged dependency.** ADR 0024 (#9's grocery list) is in PR #138, which has not merged. This ADR relies on it for three things, and states each one here so that it stands on its own:
-- the scaling factor `profile.servings / option.servings`, applied to every ingredient line
-- the grocery list derived on read from `get_confirmed_plan`, with no `confirmation_id` and no `plan_output_status` call
-- print and export as a printable HTML page
+**Dependency on ADR 0024.** ADR 0024 (#9's grocery list, Accepted, merged in PR #138) is what AC-2's "present on the grocery list" depends on. This ADR relies on it for three things, and states each one here so that it stands on its own:
+- the scaling factor `profile.servings / meal.servings`, applied to every ingredient line, where `meal.servings` is `MealOption.servings`, the stored `slate_options.servings` the quantities were written for (ADR 0024 lines 11, 33 and 78)
+- the grocery list derived on read from `get_confirmed_plan`, with no `confirmation_id` and no `plan_output_status` call (ADR 0024 line 21)
+- print and export as a printable HTML page with `@media print` rules and no JavaScript (ADR 0024 line 64)
 
-If the owner changes any of these in ADR 0024, this ADR needs the same change.
+If any of these changes in a later ADR that amends ADR 0024, this ADR needs the same change.
 
 The spec's answers say: steps are not varied by skill level, and the owner would like recipes visible during selection. That last point conflicted with FR-1 and constitution P4. The owner chose an on-demand preview per option (option B on #10), and ADR 0026 records it. This ADR covers the confirmed week's recipes; ADR 0026 reuses its table, generator, checks and builder for previews.
 
@@ -21,7 +22,7 @@ The spec's answers say: steps are not varied by skill level, and the owner would
 |---|---|
 | title | the meal's `name` |
 | servings | the current profile's `servings` |
-| ingredients, quantities, units | the meal's ingredient lines, each quantity multiplied by `profile.servings / option.servings` (the same factor as ADR 0024) |
+| ingredients, quantities, units | the meal's ingredient lines, each quantity multiplied by `profile.servings / meal.servings` (the same factor as ADR 0024) |
 | per-serving kcal, protein, carbohydrates, fat | `MealOption.nutrition` from `get_confirmed_plan`, which is `check_option`'s value; per-serving values do not change with scaling |
 | total time | the meal's `cook_minutes`, the time shown at selection and already checked against `max_cook_minutes` |
 | prep time | the model's `prep_minutes` |
