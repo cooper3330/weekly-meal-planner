@@ -1,5 +1,5 @@
 # ADR 0021: Weekly selection keeps draft picks per slate, appends a snapshot on each confirmation, and exposes the confirmed plan as the only input for downstream features
-- Status: Accepted
+- Status: Accepted. Amended by ADR 0026, which allows a recipe preview for one option, on request, while the week is open. ADR 0025 departs from the Consequences for #10: recipes derive from the current plan on read, so they store no `confirmation_id` and do not call `plan_output_status`.
 - Date: 2026-10-30
 - Amended by: ADR 0024 (#9's grocery list is derived on read from `get_confirmed_plan`, so it stores no `confirmation_id` column and does not call `plan_output_status`; the Consequences below still apply to #10 unless its own ADR decides otherwise)
 
