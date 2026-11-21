@@ -1,0 +1,580 @@
+id,aisle,pack_quantity,pack_unit,pack_label
+adzuki_beans_raw,pasta_rice_grains,454,g,1 lb bag
+allspice_ground,baking_spices,57,g,2 oz jar
+almond_butter,canned_jarred,454,g,16 oz jar
+almond_milk_unsweetened,beverages,1893,ml,1/2 gallon carton
+almonds_blanched,snacks_nuts_dried_fruit,454,g,16 oz bag
+almonds_raw,snacks_nuts_dried_fruit,454,g,16 oz bag
+amaranth_raw,pasta_rice_grains,454,g,1 lb bag
+anchovy_canned_oil,canned_jarred,56,g,2 oz tin
+anchovy_raw,meat_seafood,1,lb,1 lb pack
+anise_seed,baking_spices,57,g,2 oz jar
+apple_juice,beverages,1420,ml,48 fl oz bottle
+apple_raw,produce,1,lb,1 lb
+applesauce_unsweetened,canned_jarred,680,g,24 oz jar
+apricot_raw,produce,1,lb,1 lb
+apricots_dried,snacks_nuts_dried_fruit,227,g,8 oz bag
+arrowroot_flour,baking_spices,2,lb,2 lb bag
+artichoke_raw,produce,1,lb,1 lb
+arugula_raw,produce,1,lb,1 lb
+asparagus_raw,produce,1,lb,1 lb
+avocado_raw,produce,1,lb,1 lb
+bacon_canadian,meat_seafood,340,g,12 oz pack
+bacon_raw,meat_seafood,340,g,12 oz pack
+bagel_plain,bakery,454,g,1 lb pack
+baked_beans_canned,canned_jarred,454,g,16 oz can
+baking_powder,baking_spices,227,g,8 oz can
+baking_soda,baking_spices,454,g,1 lb box
+bamboo_shoots_raw,produce,1,lb,1 lb
+banana_raw,produce,1,lb,1 lb
+barbecue_sauce,oils_condiments_sauces,355,ml,12 fl oz bottle
+barley_flour,baking_spices,2,lb,2 lb bag
+barley_hulled_raw,pasta_rice_grains,454,g,1 lb bag
+barley_pearled_raw,pasta_rice_grains,454,g,1 lb bag
+basil_dried,baking_spices,57,g,2 oz jar
+basil_fresh,produce,28,g,1 oz bunch
+bass_striped_raw,meat_seafood,1,lb,1 lb pack
+bay_leaf,baking_spices,57,g,2 oz jar
+bean_sprouts_mung_raw,produce,1,lb,1 lb
+beans_green_canned,canned_jarred,411,g,14.5 oz can
+beef_bouillon_cubes_dry,canned_jarred,99,g,3.5 oz jar of cubes
+beef_brisket_raw,meat_seafood,1,lb,1 lb pack
+beef_broth_canned,canned_jarred,946,ml,32 fl oz carton
+beef_chuck_roast_raw,meat_seafood,1,lb,1 lb pack
+beef_chuck_stew_raw,meat_seafood,1,lb,1 lb pack
+beef_flank_steak_raw,meat_seafood,1,lb,1 lb pack
+beef_ground_80_raw,meat_seafood,1,lb,1 lb pack
+beef_ground_85_raw,meat_seafood,1,lb,1 lb pack
+beef_ground_90_raw,meat_seafood,1,lb,1 lb pack
+beef_ground_95_raw,meat_seafood,1,lb,1 lb pack
+beef_jerky,snacks_nuts_dried_fruit,85,g,3 oz bag
+beef_liver_raw,meat_seafood,1,lb,1 lb pack
+beef_ribeye_raw,meat_seafood,1,lb,1 lb pack
+beef_round_top_raw,meat_seafood,1,lb,1 lb pack
+beef_short_ribs_raw,meat_seafood,1,lb,1 lb pack
+beef_sirloin_steak_raw,meat_seafood,1,lb,1 lb pack
+beef_stock,canned_jarred,946,ml,32 fl oz carton
+beef_tenderloin_raw,meat_seafood,1,lb,1 lb pack
+beer,beverages,355,ml,12 fl oz bottle
+beets_raw,produce,1,lb,1 lb
+bison_ground_raw,meat_seafood,1,lb,1 lb pack
+black_beans_canned,canned_jarred,425,g,15 oz can
+black_beans_raw,pasta_rice_grains,454,g,1 lb bag
+blackberries_raw,produce,1,lb,1 lb
+blueberries_frozen,frozen,340,g,12 oz bag
+blueberries_raw,produce,1,lb,1 lb
+bok_choy_raw,produce,1,lb,1 lb
+brazil_nuts,snacks_nuts_dried_fruit,227,g,8 oz bag
+bread_french,bakery,567,g,20 oz loaf
+bread_italian,bakery,567,g,20 oz loaf
+bread_naan,international,255,g,4 count pack
+bread_pita_white,bakery,340,g,6 count pack
+bread_pumpernickel,bakery,567,g,20 oz loaf
+bread_rye,bakery,567,g,20 oz loaf
+bread_wheat,bakery,567,g,20 oz loaf
+bread_white,bakery,567,g,20 oz loaf
+bread_whole_wheat,bakery,567,g,20 oz loaf
+breadcrumbs_dry,baking_spices,425,g,15 oz canister
+broccoli_frozen,frozen,454,g,1 lb bag
+broccoli_raw,produce,1,lb,1 lb
+brussels_sprouts_raw,produce,1,lb,1 lb
+buckwheat_groats_raw,pasta_rice_grains,454,g,1 lb bag
+bulgur_dry,pasta_rice_grains,454,g,1 lb bag
+butter_salted,dairy_eggs,454,g,1 lb box
+butter_unsalted,dairy_eggs,454,g,1 lb box
+buttermilk,dairy_eggs,946,ml,32 fl oz carton
+cabbage_green_raw,produce,1,lb,1 lb
+cabbage_napa_raw,produce,1,lb,1 lb
+cabbage_red_raw,produce,1,lb,1 lb
+cabbage_savoy_raw,produce,1,lb,1 lb
+cantaloupe_raw,produce,1,lb,1 lb
+capers,canned_jarred,100,g,3.5 oz jar
+caraway_seed,baking_spices,57,g,2 oz jar
+cardamom_ground,baking_spices,57,g,2 oz jar
+carrot_raw,produce,1,lb,1 lb
+carrots_frozen,frozen,454,g,1 lb bag
+cashew_butter,canned_jarred,454,g,16 oz jar
+cashews_raw,snacks_nuts_dried_fruit,227,g,8 oz bag
+cassava_raw,produce,1,lb,1 lb
+catfish_farmed_raw,meat_seafood,1,lb,1 lb pack
+cauliflower_raw,produce,1,lb,1 lb
+celeriac_raw,produce,1,lb,1 lb
+celery_raw,produce,1,lb,1 lb
+celery_seed,baking_spices,57,g,2 oz jar
+cereal_cream_of_wheat,pasta_rice_grains,794,g,28 oz box
+chard_swiss_raw,produce,1,lb,1 lb
+cheese_blue,dairy_eggs,170,g,6 oz pack
+cheese_brie,dairy_eggs,227,g,8 oz block
+cheese_cheddar,dairy_eggs,227,g,8 oz block
+cheese_colby,dairy_eggs,227,g,8 oz block
+cheese_cotija,dairy_eggs,170,g,6 oz pack
+cheese_cottage_lowfat,dairy_eggs,454,g,16 oz tub
+cheese_feta,dairy_eggs,170,g,6 oz pack
+cheese_fontina,dairy_eggs,227,g,8 oz block
+cheese_goat_soft,dairy_eggs,170,g,6 oz pack
+cheese_gouda,dairy_eggs,227,g,8 oz block
+cheese_gruyere,dairy_eggs,227,g,8 oz block
+cheese_mexican_blend,dairy_eggs,227,g,8 oz bag
+cheese_monterey_jack,dairy_eggs,227,g,8 oz block
+cheese_mozzarella_part_skim,dairy_eggs,227,g,8 oz block
+cheese_mozzarella_whole,dairy_eggs,227,g,8 oz block
+cheese_parmesan_grated,dairy_eggs,227,g,8 oz bag
+cheese_parmesan_hard,dairy_eggs,227,g,8 oz block
+cheese_provolone,dairy_eggs,227,g,8 oz block
+cheese_queso_fresco,dairy_eggs,170,g,6 oz pack
+cheese_ricotta_part_skim,dairy_eggs,454,g,16 oz tub
+cheese_ricotta_whole,dairy_eggs,454,g,16 oz tub
+cheese_romano,dairy_eggs,227,g,8 oz block
+cheese_sauce,oils_condiments_sauces,355,ml,12 fl oz bottle
+cheese_swiss,dairy_eggs,227,g,8 oz block
+cherry_sweet_raw,produce,1,lb,1 lb
+chervil_dried,baking_spices,57,g,2 oz jar
+chestnuts_european_raw,snacks_nuts_dried_fruit,227,g,8 oz bag
+chia_seeds,snacks_nuts_dried_fruit,340,g,12 oz bag
+chicken_bouillon_cubes_dry,canned_jarred,99,g,3.5 oz jar of cubes
+chicken_breast_raw,meat_seafood,1,lb,1 lb pack
+chicken_breast_skin_on_raw,meat_seafood,1,lb,1 lb pack
+chicken_broth_canned,canned_jarred,946,ml,32 fl oz carton
+chicken_drumstick_raw,meat_seafood,1,lb,1 lb pack
+chicken_ground_raw,meat_seafood,1,lb,1 lb pack
+chicken_liver_raw,meat_seafood,1,lb,1 lb pack
+chicken_stock,canned_jarred,946,ml,32 fl oz carton
+chicken_thigh_raw,meat_seafood,1,lb,1 lb pack
+chicken_thigh_skin_on_raw,meat_seafood,1,lb,1 lb pack
+chicken_whole_raw,meat_seafood,1,lb,1 lb pack
+chicken_wing_raw,meat_seafood,1,lb,1 lb pack
+chickpea_flour,baking_spices,2,lb,2 lb bag
+chickpeas_canned,canned_jarred,425,g,15 oz can
+chickpeas_raw,pasta_rice_grains,454,g,1 lb bag
+chili_powder,baking_spices,57,g,2 oz jar
+chives_raw,produce,1,lb,1 lb
+chocolate_baking_unsweetened,baking_spices,113,g,4 oz box
+chocolate_dark_70_85,snacks_nuts_dried_fruit,100,g,3.5 oz bar
+chocolate_semisweet,baking_spices,340,g,12 oz bag
+cilantro_fresh,produce,28,g,1 oz bunch
+cinnamon_ground,baking_spices,57,g,2 oz jar
+clams_raw,meat_seafood,1,lb,1 lb pack
+clementine_raw,produce,1,lb,1 lb
+cloves_ground,baking_spices,57,g,2 oz jar
+cocoa_powder_unsweetened,baking_spices,227,g,8 oz tin
+coconut_cream_raw,international,400,ml,13.5 fl oz can
+coconut_dried_unsweetened,baking_spices,227,g,8 oz bag
+coconut_meat_raw,produce,1,lb,1 lb
+coconut_milk_canned,international,400,ml,13.5 fl oz can
+coconut_water,beverages,1000,ml,1 L carton
+cod_atlantic_raw,meat_seafood,1,lb,1 lb pack
+coffee_brewed,beverages,340,g,12 oz bag of beans
+collard_greens_raw,produce,1,lb,1 lb
+coriander_leaf_dried,baking_spices,57,g,2 oz jar
+coriander_seed,baking_spices,57,g,2 oz jar
+corn_sweet_yellow_canned,canned_jarred,425,g,15 oz can
+corn_sweet_yellow_frozen,frozen,454,g,1 lb bag
+corn_sweet_yellow_raw,produce,1,lb,1 lb
+cornmeal_yellow,baking_spices,680,g,24 oz bag
+cornstarch,baking_spices,454,g,16 oz box
+couscous_dry,pasta_rice_grains,454,g,1 lb box
+crab_alaska_king_raw,meat_seafood,1,lb,1 lb pack
+crab_blue_canned,canned_jarred,170,g,6 oz can
+crab_blue_raw,meat_seafood,1,lb,1 lb pack
+crab_dungeness_raw,meat_seafood,1,lb,1 lb pack
+crackers_saltine,snacks_nuts_dried_fruit,454,g,16 oz box
+crackers_wheat,snacks_nuts_dried_fruit,255,g,9 oz box
+cranberries_dried,snacks_nuts_dried_fruit,227,g,8 oz bag
+cranberries_raw,produce,1,lb,1 lb
+cranberry_juice,beverages,1420,ml,48 fl oz bottle
+cranberry_sauce_canned,canned_jarred,396,g,14 oz can
+crayfish_raw,meat_seafood,1,lb,1 lb pack
+cream_cheese,dairy_eggs,227,g,8 oz block
+cream_half_and_half,dairy_eggs,473,ml,16 fl oz carton
+cream_heavy,dairy_eggs,473,ml,16 fl oz carton
+cream_light,dairy_eggs,473,ml,16 fl oz carton
+cream_of_tartar,baking_spices,85,g,3 oz jar
+croutons_plain,bakery,142,g,5 oz bag
+cucumber_raw,produce,1,lb,1 lb
+cumin_ground,baking_spices,57,g,2 oz jar
+curry_powder,baking_spices,57,g,2 oz jar
+daikon_raw,produce,1,lb,1 lb
+dates_deglet_noor,snacks_nuts_dried_fruit,227,g,8 oz bag
+dates_medjool,snacks_nuts_dried_fruit,227,g,8 oz bag
+dill_fresh,produce,28,g,1 oz bunch
+dill_seed,baking_spices,57,g,2 oz jar
+dill_weed_dried,baking_spices,28,g,1 oz jar
+dressing_blue_cheese,oils_condiments_sauces,355,ml,12 fl oz bottle
+dressing_caesar,oils_condiments_sauces,355,ml,12 fl oz bottle
+dressing_french,oils_condiments_sauces,355,ml,12 fl oz bottle
+dressing_honey_mustard,oils_condiments_sauces,355,ml,12 fl oz bottle
+dressing_italian,oils_condiments_sauces,355,ml,12 fl oz bottle
+dressing_ranch,oils_condiments_sauces,355,ml,12 fl oz bottle
+dressing_thousand_island,oils_condiments_sauces,355,ml,12 fl oz bottle
+duck_breast_raw,meat_seafood,1,lb,1 lb pack
+duck_raw,meat_seafood,1,lb,1 lb pack
+edamame_raw,produce,1,lb,1 lb
+egg_noodles_dry,pasta_rice_grains,340,g,12 oz bag
+egg_white_raw,dairy_eggs,454,g,16 oz carton
+egg_whole_raw,dairy_eggs,12,each,1 dozen
+egg_yolk_raw,dairy_eggs,12,each,1 dozen
+eggplant_raw,produce,1,lb,1 lb
+enchilada_sauce,international,283,g,10 oz can
+endive_raw,produce,1,lb,1 lb
+english_muffin,bakery,454,g,1 lb pack
+fava_beans_raw,pasta_rice_grains,454,g,1 lb bag
+fennel_bulb_raw,produce,1,lb,1 lb
+fennel_seed,baking_spices,57,g,2 oz jar
+fenugreek_seed,baking_spices,57,g,2 oz jar
+figs_dried,snacks_nuts_dried_fruit,227,g,8 oz bag
+figs_raw,produce,1,lb,1 lb
+fish_sauce,international,200,ml,6.8 fl oz bottle
+fish_stock,canned_jarred,946,ml,32 fl oz carton
+flaxseed,snacks_nuts_dried_fruit,454,g,1 lb bag
+flour_all_purpose,baking_spices,2,lb,2 lb bag
+flour_bread,baking_spices,2,lb,2 lb bag
+flour_cake,baking_spices,2,lb,2 lb bag
+flour_whole_wheat,baking_spices,2,lb,2 lb bag
+frankfurter_beef,meat_seafood,340,g,12 oz pack
+garlic_powder,baking_spices,57,g,2 oz jar
+garlic_raw,produce,1,lb,1 lb
+ghee,oils_condiments_sauces,227,g,8 oz jar
+ginger_ground,baking_spices,57,g,2 oz jar
+ginger_root_raw,produce,1,lb,1 lb
+grape_juice,beverages,1420,ml,48 fl oz bottle
+grapefruit_raw,produce,1,lb,1 lb
+grapes_raw,produce,1,lb,1 lb
+great_northern_beans_canned,canned_jarred,425,g,15 oz can
+green_beans_raw,produce,1,lb,1 lb
+grouper_raw,meat_seafood,1,lb,1 lb pack
+haddock_raw,meat_seafood,1,lb,1 lb pack
+halibut_raw,meat_seafood,1,lb,1 lb pack
+ham_cured_roasted,meat_seafood,2,lb,2 lb ham
+ham_sliced,meat_seafood,340,g,12 oz pack
+hazelnuts_raw,snacks_nuts_dried_fruit,227,g,8 oz bag
+hearts_of_palm_raw,produce,1,lb,1 lb
+hemp_seeds,snacks_nuts_dried_fruit,227,g,8 oz bag
+herring_atlantic_raw,meat_seafood,1,lb,1 lb pack
+hoisin_sauce,international,255,g,9 oz jar
+honey,baking_spices,340,g,12 oz bottle
+honeydew_raw,produce,1,lb,1 lb
+horseradish_prepared,oils_condiments_sauces,142,g,5 oz jar
+hot_pepper_sauce,oils_condiments_sauces,355,ml,12 fl oz bottle
+hummus,dairy_eggs,283,g,10 oz tub
+jalapeno_canned,canned_jarred,340,g,12 oz jar
+jam_preserves,canned_jarred,340,g,12 oz jar
+jicama_raw,produce,1,lb,1 lb
+kale_raw,produce,1,lb,1 lb
+kamut_raw,pasta_rice_grains,454,g,1 lb bag
+ketchup,oils_condiments_sauces,355,ml,12 fl oz bottle
+kidney_beans_canned,canned_jarred,425,g,15 oz can
+kidney_beans_red_raw,pasta_rice_grains,454,g,1 lb bag
+kiwi_raw,produce,1,lb,1 lb
+kohlrabi_raw,produce,1,lb,1 lb
+lamb_ground_raw,meat_seafood,1,lb,1 lb pack
+lamb_leg_raw,meat_seafood,1,lb,1 lb pack
+lamb_loin_chop_raw,meat_seafood,1,lb,1 lb pack
+lamb_rib_raw,meat_seafood,1,lb,1 lb pack
+lamb_shoulder_raw,meat_seafood,1,lb,1 lb pack
+lard,oils_condiments_sauces,454,g,1 lb tub
+leek_raw,produce,1,lb,1 lb
+lemon_juice,produce,118,ml,4 fl oz bottle
+lemon_raw,produce,1,lb,1 lb
+lemongrass_raw,produce,1,lb,1 lb
+lentils_raw,pasta_rice_grains,454,g,1 lb bag
+lentils_red_raw,pasta_rice_grains,454,g,1 lb bag
+lettuce_butterhead_raw,produce,1,lb,1 lb
+lettuce_green_leaf_raw,produce,1,lb,1 lb
+lettuce_iceberg_raw,produce,1,lb,1 lb
+lettuce_red_leaf_raw,produce,1,lb,1 lb
+lettuce_romaine_raw,produce,1,lb,1 lb
+lima_beans_raw,pasta_rice_grains,454,g,1 lb bag
+lime_juice,produce,118,ml,4 fl oz bottle
+lime_raw,produce,1,lb,1 lb
+lobster_raw,meat_seafood,1,lb,1 lb pack
+macadamia_nuts_raw,snacks_nuts_dried_fruit,227,g,8 oz bag
+mace_ground,baking_spices,57,g,2 oz jar
+mackerel_atlantic_raw,meat_seafood,1,lb,1 lb pack
+mahi_mahi_raw,meat_seafood,1,lb,1 lb pack
+mango_raw,produce,1,lb,1 lb
+maple_syrup,baking_spices,355,ml,12 fl oz bottle
+margarine_tub,dairy_eggs,454,g,1 lb tub
+marinara_sauce,canned_jarred,680,g,24 oz jar
+marjoram_dried,baking_spices,57,g,2 oz jar
+masa_harina,international,1,kg,2.2 lb bag
+mayonnaise,oils_condiments_sauces,355,ml,12 fl oz bottle
+milk_1_percent,dairy_eggs,1893,ml,1/2 gallon carton
+milk_2_percent,dairy_eggs,1893,ml,1/2 gallon carton
+milk_condensed_sweetened,canned_jarred,397,g,14 oz can
+milk_evaporated,canned_jarred,354,ml,12 fl oz can
+milk_powder_whole,dairy_eggs,340,g,12 oz canister
+milk_skim,dairy_eggs,1893,ml,1/2 gallon carton
+milk_whole,dairy_eggs,1893,ml,1/2 gallon carton
+millet_raw,pasta_rice_grains,454,g,1 lb bag
+mint_peppermint_fresh,produce,28,g,1 oz bunch
+mint_spearmint_fresh,produce,28,g,1 oz bunch
+mirin,international,296,ml,10 fl oz bottle
+miso,international,454,g,16 oz tub
+mixed_nuts_dry_roasted,snacks_nuts_dried_fruit,454,g,16 oz bag
+molasses,baking_spices,355,ml,12 fl oz bottle
+mung_beans_raw,pasta_rice_grains,454,g,1 lb bag
+mushroom_cremini_raw,produce,1,lb,1 lb
+mushroom_enoki_raw,produce,1,lb,1 lb
+mushroom_oyster_raw,produce,1,lb,1 lb
+mushroom_portobello_raw,produce,1,lb,1 lb
+mushroom_shiitake_raw,produce,1,lb,1 lb
+mushroom_white_raw,produce,1,lb,1 lb
+mushrooms_canned,canned_jarred,113,g,4 oz can
+mussels_raw,meat_seafood,1,lb,1 lb pack
+mustard_greens_raw,produce,1,lb,1 lb
+mustard_seed_ground,baking_spices,57,g,2 oz jar
+mustard_yellow,oils_condiments_sauces,355,ml,12 fl oz bottle
+natto,international,270,g,3 pack cups
+navy_beans_raw,pasta_rice_grains,454,g,1 lb bag
+nectarine_raw,produce,1,lb,1 lb
+nori_raw,produce,1,lb,1 lb
+nutmeg_ground,baking_spices,57,g,2 oz jar
+oat_bran_raw,pasta_rice_grains,454,g,1 lb bag
+oat_flour,baking_spices,2,lb,2 lb bag
+oats_rolled_dry,pasta_rice_grains,510,g,18 oz canister
+octopus_raw,meat_seafood,1,lb,1 lb pack
+oil_avocado,oils_condiments_sauces,500,ml,16.9 fl oz bottle
+oil_canola,oils_condiments_sauces,500,ml,16.9 fl oz bottle
+oil_coconut,oils_condiments_sauces,500,ml,16.9 fl oz bottle
+oil_corn,oils_condiments_sauces,500,ml,16.9 fl oz bottle
+oil_grapeseed,oils_condiments_sauces,500,ml,16.9 fl oz bottle
+oil_olive,oils_condiments_sauces,500,ml,16.9 fl oz bottle
+oil_palm,oils_condiments_sauces,500,ml,16.9 fl oz bottle
+oil_peanut,oils_condiments_sauces,500,ml,16.9 fl oz bottle
+oil_safflower,oils_condiments_sauces,500,ml,16.9 fl oz bottle
+oil_sesame,oils_condiments_sauces,500,ml,16.9 fl oz bottle
+oil_sunflower,oils_condiments_sauces,500,ml,16.9 fl oz bottle
+oil_vegetable_soybean,oils_condiments_sauces,500,ml,16.9 fl oz bottle
+oil_walnut,oils_condiments_sauces,500,ml,16.9 fl oz bottle
+okra_raw,produce,1,lb,1 lb
+olives_black_canned,canned_jarred,170,g,6 oz can
+olives_green,canned_jarred,283,g,10 oz jar
+onion_powder,baking_spices,57,g,2 oz jar
+onion_raw,produce,1,lb,1 lb
+onion_sweet_raw,produce,1,lb,1 lb
+orange_juice,beverages,1420,ml,48 fl oz bottle
+orange_raw,produce,1,lb,1 lb
+oregano_dried,baking_spices,57,g,2 oz jar
+oyster_sauce,international,255,ml,8.5 fl oz bottle
+oysters_pacific_raw,meat_seafood,1,lb,1 lb pack
+papaya_raw,produce,1,lb,1 lb
+paprika,baking_spices,57,g,2 oz jar
+parsley_dried,baking_spices,57,g,2 oz jar
+parsley_fresh,produce,28,g,1 oz bunch
+parsnip_raw,produce,1,lb,1 lb
+pasta_dry,pasta_rice_grains,454,g,1 lb box
+pasta_fresh,dairy_eggs,227,g,9 oz pack
+pasta_gluten_free_dry,pasta_rice_grains,340,g,12 oz box
+pasta_whole_wheat_dry,pasta_rice_grains,454,g,1 lb box
+peach_raw,produce,1,lb,1 lb
+peaches_canned_juice,canned_jarred,425,g,15 oz can
+peanut_butter,canned_jarred,454,g,16 oz jar
+peanut_sauce,international,283,g,10 oz jar
+peanuts_dry_roasted,snacks_nuts_dried_fruit,454,g,16 oz bag
+peanuts_raw,snacks_nuts_dried_fruit,454,g,16 oz bag
+pear_raw,produce,1,lb,1 lb
+peas_green_frozen,frozen,454,g,1 lb bag
+peas_green_raw,produce,1,lb,1 lb
+peas_snow_raw,produce,1,lb,1 lb
+pecans_raw,snacks_nuts_dried_fruit,227,g,8 oz bag
+pepper_bell_green_raw,produce,1,lb,1 lb
+pepper_bell_red_raw,produce,1,lb,1 lb
+pepper_bell_yellow_raw,produce,1,lb,1 lb
+pepper_black,baking_spices,57,g,2 oz jar
+pepper_cayenne,baking_spices,57,g,2 oz jar
+pepper_chili_green_raw,produce,1,lb,1 lb
+pepper_chili_red_raw,produce,1,lb,1 lb
+pepper_jalapeno_raw,produce,1,lb,1 lb
+pepper_serrano_raw,produce,1,lb,1 lb
+pepper_white,baking_spices,57,g,2 oz jar
+peppers_red_roasted_canned,canned_jarred,340,g,12 oz jar
+perch_raw,meat_seafood,1,lb,1 lb pack
+pesto,dairy_eggs,190,g,6.7 oz tub
+pickle_relish_sweet,oils_condiments_sauces,296,ml,10 fl oz jar
+pickles_dill,canned_jarred,907,g,32 oz jar
+pine_nuts,snacks_nuts_dried_fruit,227,g,8 oz bag
+pineapple_canned_juice,canned_jarred,567,g,20 oz can
+pineapple_juice,beverages,1420,ml,48 fl oz bottle
+pineapple_raw,produce,1,lb,1 lb
+pinto_beans_canned,canned_jarred,425,g,15 oz can
+pinto_beans_raw,pasta_rice_grains,454,g,1 lb bag
+pistachios_raw,snacks_nuts_dried_fruit,227,g,8 oz bag
+plantain_raw,produce,1,lb,1 lb
+plum_raw,produce,1,lb,1 lb
+plum_sauce,international,255,g,9 oz jar
+pollock_alaska_raw,meat_seafood,1,lb,1 lb pack
+pomegranate_juice,beverages,1420,ml,48 fl oz bottle
+pomegranate_raw,produce,1,lb,1 lb
+poppy_seeds,baking_spices,85,g,3 oz jar
+pork_belly_raw,meat_seafood,1,lb,1 lb pack
+pork_chop_raw,meat_seafood,1,lb,1 lb pack
+pork_ground_raw,meat_seafood,1,lb,1 lb pack
+pork_leg_raw,meat_seafood,1,lb,1 lb pack
+pork_loin_raw,meat_seafood,1,lb,1 lb pack
+pork_shoulder_raw,meat_seafood,1,lb,1 lb pack
+pork_spareribs_raw,meat_seafood,1,lb,1 lb pack
+pork_tenderloin_raw,meat_seafood,1,lb,1 lb pack
+potato_red_raw,produce,1,lb,1 lb
+potato_white_raw,produce,1,lb,1 lb
+poultry_seasoning,baking_spices,57,g,2 oz jar
+pumpkin_canned,produce,1,lb,1 lb
+pumpkin_pie_spice,baking_spices,57,g,2 oz jar
+pumpkin_raw,produce,1,lb,1 lb
+pumpkin_seeds,snacks_nuts_dried_fruit,227,g,8 oz bag
+quinoa_raw,pasta_rice_grains,454,g,1 lb bag
+rabbit_raw,meat_seafood,1,lb,1 lb pack
+radicchio_raw,produce,1,lb,1 lb
+radish_raw,produce,1,lb,1 lb
+ramen_noodles_dry,international,85,g,3 oz pack
+raspberries_frozen,frozen,340,g,12 oz bag
+raspberries_raw,produce,1,lb,1 lb
+refried_beans_canned,canned_jarred,454,g,16 oz can
+rhubarb_raw,produce,1,lb,1 lb
+rice_brown_long_raw,pasta_rice_grains,2,lb,2 lb bag
+rice_brown_medium_raw,pasta_rice_grains,2,lb,2 lb bag
+rice_flour_brown,baking_spices,2,lb,2 lb bag
+rice_flour_white,baking_spices,2,lb,2 lb bag
+rice_glutinous_raw,pasta_rice_grains,2,lb,2 lb bag
+rice_milk_unsweetened,beverages,1893,ml,1/2 gallon carton
+rice_noodles_dry,international,227,g,8 oz pack
+rice_white_long_raw,pasta_rice_grains,2,lb,2 lb bag
+rice_white_medium_raw,pasta_rice_grains,2,lb,2 lb bag
+rice_white_short_raw,pasta_rice_grains,2,lb,2 lb bag
+rice_wild_raw,pasta_rice_grains,2,lb,2 lb bag
+roll_dinner,bakery,454,g,1 lb pack
+roll_hamburger,bakery,454,g,1 lb pack
+roll_hard,bakery,454,g,1 lb pack
+rosemary_dried,baking_spices,57,g,2 oz jar
+rosemary_fresh,produce,28,g,1 oz bunch
+rutabaga_raw,produce,1,lb,1 lb
+rye_flour,baking_spices,2,lb,2 lb bag
+rye_grain,pasta_rice_grains,454,g,1 lb bag
+saffron,baking_spices,1,g,1 g tin
+sage_ground,baking_spices,57,g,2 oz jar
+salmon_atlantic_farmed_raw,meat_seafood,1,lb,1 lb pack
+salmon_atlantic_wild_raw,meat_seafood,1,lb,1 lb pack
+salmon_chinook_raw,meat_seafood,1,lb,1 lb pack
+salmon_coho_wild_raw,meat_seafood,1,lb,1 lb pack
+salmon_pink_canned,canned_jarred,213,g,7.5 oz can
+salmon_smoked,meat_seafood,1,lb,1 lb pack
+salmon_sockeye_raw,meat_seafood,1,lb,1 lb pack
+salsa,canned_jarred,453,g,16 oz jar
+salsa_verde,canned_jarred,453,g,16 oz jar
+salt_table,baking_spices,737,g,26 oz canister
+sardine_canned_oil,canned_jarred,106,g,3.75 oz can
+sauerkraut,canned_jarred,794,g,28 oz jar
+sausage_chorizo,meat_seafood,340,g,12 oz pack
+sausage_italian_raw,meat_seafood,340,g,12 oz pack
+sausage_pepperoni,meat_seafood,340,g,12 oz pack
+sausage_salami,meat_seafood,340,g,12 oz pack
+sausage_turkey_raw,meat_seafood,340,g,12 oz pack
+savory_ground,baking_spices,57,g,2 oz jar
+scallion_raw,produce,1,lb,1 lb
+scallops_raw,meat_seafood,1,lb,1 lb pack
+sea_bass_raw,meat_seafood,1,lb,1 lb pack
+semolina_enriched,pasta_rice_grains,454,g,1 lb bag
+sesame_seeds,baking_spices,227,g,8 oz bag
+sesame_seeds_toasted,baking_spices,227,g,8 oz bag
+shallot_raw,produce,1,lb,1 lb
+shortening_vegetable,oils_condiments_sauces,454,g,1 lb tub
+shrimp_raw,meat_seafood,1,lb,1 lb pack
+snapper_raw,meat_seafood,1,lb,1 lb pack
+soba_noodles_dry,international,227,g,8 oz pack
+somen_noodles_dry,international,340,g,12 oz pack
+sorghum_raw,pasta_rice_grains,454,g,1 lb bag
+sour_cream,dairy_eggs,454,g,16 oz tub
+soy_flour_defatted,baking_spices,2,lb,2 lb bag
+soy_sauce,international,296,ml,10 fl oz bottle
+soybeans_raw,pasta_rice_grains,454,g,1 lb bag
+soymilk_unsweetened,beverages,1893,ml,1/2 gallon carton
+spelt_raw,pasta_rice_grains,454,g,1 lb bag
+spinach_frozen,frozen,454,g,1 lb bag
+spinach_raw,produce,1,lb,1 lb
+spirits_80_proof,beverages,750,ml,750 ml bottle
+split_peas_raw,pasta_rice_grains,454,g,1 lb bag
+squash_acorn_raw,produce,1,lb,1 lb
+squash_butternut_raw,produce,1,lb,1 lb
+squash_spaghetti_raw,produce,1,lb,1 lb
+squash_yellow_raw,produce,1,lb,1 lb
+squid_raw,meat_seafood,1,lb,1 lb pack
+sriracha,international,482,ml,17 fl oz bottle
+strawberries_frozen,frozen,340,g,12 oz bag
+strawberries_raw,produce,1,lb,1 lb
+sugar_brown,baking_spices,2,lb,2 lb bag
+sugar_powdered,baking_spices,2,lb,2 lb bag
+sugar_white,baking_spices,4,lb,4 lb bag
+sunflower_seed_butter,canned_jarred,454,g,16 oz jar
+sunflower_seeds,snacks_nuts_dried_fruit,227,g,8 oz bag
+sweet_and_sour_sauce,oils_condiments_sauces,355,ml,12 fl oz bottle
+sweet_potato_raw,produce,1,lb,1 lb
+swordfish_raw,meat_seafood,1,lb,1 lb pack
+taco_shells,international,144,g,12 count box
+tahini,international,454,g,16 oz jar
+tamari,international,296,ml,10 fl oz bottle
+tangerine_raw,produce,1,lb,1 lb
+tapioca_pearl_dry,baking_spices,454,g,1 lb bag
+tarragon_dried,baking_spices,57,g,2 oz jar
+tartar_sauce,oils_condiments_sauces,355,ml,12 fl oz bottle
+teff_raw,pasta_rice_grains,454,g,1 lb bag
+tempeh,dairy_eggs,227,g,8 oz block
+teriyaki_sauce,international,296,ml,10 fl oz bottle
+thyme_dried,baking_spices,57,g,2 oz jar
+thyme_fresh,produce,28,g,1 oz bunch
+tilapia_raw,meat_seafood,1,lb,1 lb pack
+tofu_firm_raw,dairy_eggs,397,g,14 oz block
+tofu_fried,dairy_eggs,227,g,8 oz pack
+tofu_regular_raw,dairy_eggs,397,g,14 oz block
+tomatillo_raw,produce,1,lb,1 lb
+tomato_crushed_canned,canned_jarred,411,g,14.5 oz can
+tomato_green_raw,produce,1,lb,1 lb
+tomato_paste,canned_jarred,170,g,6 oz can
+tomato_puree_canned,canned_jarred,411,g,14.5 oz can
+tomato_raw,produce,1,lb,1 lb
+tomato_sauce_canned,canned_jarred,411,g,14.5 oz can
+tomato_sun_dried,canned_jarred,227,g,8 oz bag
+tortilla_corn,international,340,g,30 count pack
+tortilla_flour,baking_spices,2,lb,2 lb bag
+tortilla_whole_wheat,bakery,340,g,10 count pack
+trout_rainbow_farmed_raw,meat_seafood,1,lb,1 lb pack
+tuna_bluefin_raw,meat_seafood,1,lb,1 lb pack
+tuna_canned_oil,canned_jarred,142,g,5 oz can
+tuna_canned_water,canned_jarred,142,g,5 oz can
+tuna_white_canned_water,canned_jarred,142,g,5 oz can
+tuna_yellowfin_raw,meat_seafood,1,lb,1 lb pack
+turkey_bacon,meat_seafood,340,g,12 oz pack
+turkey_breast_raw,meat_seafood,1,lb,1 lb pack
+turkey_ground_93_raw,meat_seafood,1,lb,1 lb pack
+turkey_ground_raw,meat_seafood,1,lb,1 lb pack
+turkey_thigh_raw,meat_seafood,1,lb,1 lb pack
+turmeric_ground,baking_spices,57,g,2 oz jar
+turnip_raw,produce,1,lb,1 lb
+vanilla_extract,baking_spices,59,ml,2 fl oz bottle
+veal_ground_raw,meat_seafood,1,lb,1 lb pack
+veal_leg_raw,meat_seafood,1,lb,1 lb pack
+vegetable_broth,canned_jarred,946,ml,32 fl oz carton
+venison_raw,meat_seafood,1,lb,1 lb pack
+vinegar_balsamic,oils_condiments_sauces,473,ml,16 fl oz bottle
+vinegar_cider,oils_condiments_sauces,473,ml,16 fl oz bottle
+vinegar_distilled,oils_condiments_sauces,473,ml,16 fl oz bottle
+vinegar_red_wine,oils_condiments_sauces,473,ml,16 fl oz bottle
+vital_wheat_gluten,baking_spices,283,g,10 oz bag
+wakame_raw,produce,1,lb,1 lb
+walnuts_english,snacks_nuts_dried_fruit,454,g,16 oz bag
+wasabi_prepared,international,43,g,1.5 oz tube
+water,not_purchased,,,
+watercress_raw,produce,1,lb,1 lb
+watermelon_raw,produce,1,lb,1 lb
+wheat_bran,baking_spices,340,g,12 oz bag
+wheat_germ,baking_spices,340,g,12 oz jar
+white_beans_canned,canned_jarred,425,g,15 oz can
+white_beans_raw,pasta_rice_grains,454,g,1 lb bag
+wine_cooking,oils_condiments_sauces,473,ml,16 fl oz bottle
+wine_red,beverages,750,ml,750 ml bottle
+wine_white,beverages,750,ml,750 ml bottle
+worcestershire_sauce,oils_condiments_sauces,355,ml,12 fl oz bottle
+yeast_active_dry,baking_spices,113,g,4 oz jar
+yogurt_greek_plain_low_fat,dairy_eggs,907,g,32 oz tub
+yogurt_greek_plain_whole,dairy_eggs,907,g,32 oz tub
+yogurt_plain_low_fat,dairy_eggs,907,g,32 oz tub
+yogurt_plain_whole,dairy_eggs,907,g,32 oz tub
+zucchini_raw,produce,1,lb,1 lb
