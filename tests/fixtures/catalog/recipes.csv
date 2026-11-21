@@ -1,0 +1,13 @@
+id,name,aliases,fdc_id,kcal_per_100g,protein_g_per_100g,carbs_g_per_100g,fat_g_per_100g,g_per_ml,g_per_each,allergens,diet_tags
+chicken,Chicken breast,chicken breasts,100001,165,31,0,3.6,,,,poultry|meat
+rice,White rice,,100002,130,3,28,0.3,,,,
+egg,Egg,eggs,100004,150,12,1,10,,50,egg,
+onion,Onion,onions|yellow onion,100011,40,1.1,9,0.1,,110,,
+olive_oil,Olive oil,,100005,900,0,0,100,0.9,,,
+peanut,Peanuts,peanut,100012,590,26,16,49,,,peanuts,
+soy_sauce,Soy sauce,shoyu,100006,60,10,6,0,1.2,,soy|wheat,gluten
+milk,Whole milk,milk,100003,60,3,5,3,1.03,,milk,
+buttermilk,Buttermilk,,100013,40,3,5,1,1.03,,milk,
+coconut_milk_canned,Coconut milk,canned coconut milk,100014,200,2,3,21,0.97,,,
+eggplant,Eggplant,aubergine,100015,25,1,6,0.2,,,,
+dense,Test dense fuel (500 kcal per 100 g),,100010,500,0,0,0,1,,,
