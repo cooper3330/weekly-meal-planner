@@ -1,0 +1,10 @@
+id,aisle,pack_quantity,pack_unit,pack_label
+chicken,meat_seafood,1,lb,1 lb pack
+chicken_stock,canned_jarred,946,ml,32 fl oz carton
+rice,pasta_rice_grains,2,lb,2 lb bag
+egg,dairy_eggs,12,each,1 dozen
+olive_oil,oils_condiments_sauces,500,ml,16.9 fl oz bottle
+peanut_butter,oils_condiments_sauces,16,oz,16 oz jar
+soy_sauce,international,296,ml,10 fl oz bottle
+fuel,not_purchased,,,
+dense,canned_jarred,500,ml,500 ml can
