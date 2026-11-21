@@ -40,8 +40,9 @@ This meets AC-8 by regeneration. After a reopen, no list exists. After reconfirm
 3. **Merge (FR-2, AC-2, AC-3).** Lines are grouped by `(ingredient_id, dimension)`, and the base amounts in each group are added up. Units in the same dimension are compatible. Different dimensions are never combined into one need line, even when the catalog could convert them, because `g_per_ml` and `g_per_each` are estimates. One ingredient becomes **one grocery item**, and the item carries one need line per dimension it was used in.
 4. **Meals (FR-5, AC-6).** Each item lists the names of the meals that use it, without duplicates, in plan order. A meal that uses an ingredient twice is listed once.
 5. **Buy suggestion (owner requirement).** For an item outside `not_purchased`:
-   - `needed_g` is the sum of `to_grams` over all of the item's scaled lines, using the same catalog conversions as nutrition (FR-7).
-   - `pack_g` is `to_grams(pack_quantity, pack_unit)`.
+   - `row` is the ingredient's catalog row (`CatalogRow`), which carries `g_per_ml` and `g_per_each`.
+   - `needed_g` is the sum of `to_grams(line_quantity, line_unit, row)` over all of the item's scaled lines, using the same catalog conversions as nutrition (FR-7).
+   - `pack_g` is `to_grams(pack_quantity, pack_unit, row)`, matching the signature `to_grams(quantity, unit, row)` in `nutrition/units.py`.
    - `buy_count = max(1, ceil(needed_g / pack_g - 1e-9))`. The small tolerance keeps float error from turning exactly 2 packs into 3.
    - The page labels it as a suggestion, for example "Suggested: buy 2 x 16 oz bag". The need lines above it stay separate, so nothing is combined silently (AC-3).
 6. **Group (FR-4, AC-5).** Items go under their aisle, aisles in `Aisle` order, and items by catalog `name`, compared case-insensitively. Empty aisles are left out.
