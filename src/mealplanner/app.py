@@ -12,8 +12,10 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from mealplanner.config import ConfigError, Settings
 from mealplanner.db import apply_migrations, connect
+from mealplanner.grocery.info import load_grocery_info
 from mealplanner.llm.cli_bridge_client import CLIBridgeLLMClient
 from mealplanner.llm.client import LLMClient
+from mealplanner.nutrition.catalog import load_catalog
 from mealplanner.web.auth import cross_site_protection, make_identity_middleware
 from mealplanner.web.profile import router as profile_router
 from mealplanner.web.routes import router
@@ -76,6 +78,9 @@ def create_app(
     )
     app.state.settings = settings
     app.state.db_path = db_path
+    # Both files are validated once here; a broken one stops startup with its message (ADR 0023).
+    app.state.catalog = load_catalog()
+    app.state.grocery_info = load_grocery_info(app.state.catalog)
     # Injectable so tests are deterministic (ADR 0010); must return a timezone-aware time.
     app.state.clock = clock if clock is not None else (lambda: datetime.now(UTC))
     # Building the client never contacts the bridge; a missing or down bridge shows on generate().
