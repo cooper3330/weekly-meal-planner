@@ -1,6 +1,5 @@
 """Loader rules for the grocery file (ADR 0023)."""
 
-import math
 from pathlib import Path
 
 import pytest
@@ -96,7 +95,6 @@ def test_pack_quantity_invalid(tmp_path: Path, bad: str) -> None:
     row = f"rice,pasta_rice_grains,{bad},lb,2 lb bag"
     with pytest.raises(GroceryInfoError, match="column pack_quantity"):
         load_grocery_info(CAT, write(tmp_path, rice=row))
-    assert not math.isfinite(float("nan"))
 
 
 @pytest.mark.parametrize("unit", ["pinch", "bunch", "LB"])

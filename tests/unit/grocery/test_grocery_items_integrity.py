@@ -1,6 +1,7 @@
 """Integrity of the packaged grocery file against the packaged catalog (ADR 0023)."""
 
 import csv
+import re
 from pathlib import Path
 
 import pytest
@@ -86,3 +87,26 @@ def test_pack_grams_plausible(id: str) -> None:
 
 def test_packaged_path_exists() -> None:
     assert Path(PATH).is_file()
+
+
+_WEIGHT_G = {"lb": 453.592, "oz": 28.3495, "g": 1.0, "kg": 1000.0}
+_VOLUME_ML = {"fl oz": 29.5735, "ml": 1.0, "l": 1000.0}
+
+
+def test_pack_label_agrees_with_quantity() -> None:
+    """A label that states a weight or volume must match pack_quantity."""
+    pattern = re.compile(r"^([\d.]+)\s*(lb|oz|fl oz|g|kg|ml|l)\b")
+    with open(PATH, newline="", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    bad = []
+    for row in rows:
+        m = pattern.match(row["pack_label"])
+        if not m or not row["pack_unit"]:
+            continue
+        table = _WEIGHT_G if row["pack_unit"] == "g" else _VOLUME_ML
+        if m.group(2) not in table:
+            continue
+        stated = float(m.group(1)) * table[m.group(2)]
+        if abs(stated - float(row["pack_quantity"])) / stated > 0.03:
+            bad.append(row["id"])
+    assert bad == []
