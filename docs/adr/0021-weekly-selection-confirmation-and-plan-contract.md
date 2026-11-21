@@ -1,6 +1,7 @@
 # ADR 0021: Weekly selection keeps draft picks per slate, appends a snapshot on each confirmation, and exposes the confirmed plan as the only input for downstream features
 - Status: Accepted
 - Date: 2026-10-30
+- Amended by: ADR 0024 (#9's grocery list is derived on read from `get_confirmed_plan`, so it stores no `confirmation_id` column and does not call `plan_output_status`; the Consequences below still apply to #10 unless its own ADR decides otherwise)
 
 ## Context
 Issue #8, FR-1 to FR-9 and AC-1 to AC-10. Selection sits on top of #7's slate (ADR 0019): one slate per user per week, active `slate_options` rows that carry no nutrition, and nutrition and exclusions re-checked on every read through `check_option` (ADR 0018). The spec asks for:
