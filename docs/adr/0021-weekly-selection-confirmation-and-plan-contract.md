@@ -2,6 +2,7 @@
 - Status: Accepted. Amended by ADR 0026, which allows a recipe preview for one option, on request, while the week is open. ADR 0025 departs from the Consequences for #10: recipes derive from the current plan on read, so they store no `confirmation_id` and do not call `plan_output_status`.
 - Date: 2026-10-30
 - Amended by: ADR 0024 (#9's grocery list is derived on read from `get_confirmed_plan`, so it stores no `confirmation_id` column and does not call `plan_output_status`; the Consequences below still apply to #10 unless its own ADR decides otherwise)
+- Amended by: ADR 0027 (`plan_output_status` and `PlanOutputStatus` are removed, along with the rule that downstream features store a `confirmation_id`; downstream output is derived on read from `get_confirmed_plan`, and stored per-option artifacts are re-checked on read)
 
 ## Context
 Issue #8, FR-1 to FR-9 and AC-1 to AC-10. Selection sits on top of #7's slate (ADR 0019): one slate per user per week, active `slate_options` rows that carry no nutrition, and nutrition and exclusions re-checked on every read through `check_option` (ADR 0018). The spec asks for:
