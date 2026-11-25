@@ -1,16 +1,19 @@
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 import pytest
+from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, ConfigDict
 
 from mealplanner.app import create_app
 from mealplanner.config import load_settings
-from mealplanner.llm import LLMConfigError, LLMOutputError, LLMUnavailableError
+from mealplanner.llm import LLMClient, LLMConfigError, LLMOutputError, LLMUnavailableError
 from mealplanner.llm.cli_bridge_client import CLIBridgeLLMClient
+from mealplanner.llm.fake import FakeLLMClient
+from mealplanner.web.deps import get_llm_client
 
 TOKEN = "TOKEN-SENTINEL-abc123"
 SYSTEM = "SYSTEM-SENTINEL-plan meals"
@@ -18,12 +21,19 @@ USER = "USER-SENTINEL-i like soup"
 STDOUT_SENTINEL = "STDOUT-SENTINEL-secret-output"
 SENTINELS = (TOKEN, SYSTEM, USER, STDOUT_SENTINEL)
 GOOD = {"name": "Soup", "servings": 2}
+FIXTURES = json.loads(
+    (Path(__file__).parents[2] / "fixtures" / "llm" / "invalid_payloads.json").read_text()
+)
 
 
 class Meal(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str
     servings: int
+
+
+class LooseMeal(BaseModel):
+    name: str
 
 
 Reply = tuple[int, bytes]
@@ -266,3 +276,33 @@ def test_bridge_down_app_starts(tmp_path: Path) -> None:
         with pytest.raises(LLMUnavailableError) as info:
             gen(client)
     assert str(info.value) == "The CLI bridge is unavailable (connection_failed). Try again."
+
+
+# Moved from the deleted tests/unit/llm/test_anthropic_client.py (#122): they cover code that stays.
+def test_model_without_forbid_rejected() -> None:
+    client, post = make(ok(json.dumps({"name": "x"})))
+    with pytest.raises(TypeError):
+        client.generate(system=SYSTEM, messages=[], output=LooseMeal, max_tokens=10)
+    assert post.calls == []
+
+
+@pytest.mark.parametrize("name", ["wrong_type", "missing_field", "not_an_object"])
+def test_wrong_types_and_missing_fields_invalid(name: str) -> None:
+    bad = ok(json.dumps(FIXTURES[name]))
+    client, post = make(bad, bad, bad)
+    with pytest.raises(LLMOutputError):
+        gen(client)
+    assert len(post.calls) == 3
+
+
+def test_app_uses_injected_client(tmp_path: Path) -> None:
+    fake = FakeLLMClient([GOOD])
+    app: FastAPI = create_app(load_settings(_app_env(tmp_path)), llm_client=fake)
+
+    @app.get("/_probe")
+    def probe(client: Annotated[LLMClient, Depends(get_llm_client)]) -> dict[str, bool]:
+        return {"same": client is fake}
+
+    headers = {"Tailscale-User-Login": "owner@example.com"}
+    with TestClient(app, base_url="http://localhost", headers=headers) as c:
+        assert c.get("/_probe").json() == {"same": True}
