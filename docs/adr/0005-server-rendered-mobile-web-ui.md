@@ -1,6 +1,7 @@
 # ADR 0005: Server-rendered, mobile-first web UI with no build step
 - Status: Accepted
 - Date: 2026-10-24
+- Superseded in part by: ADR 0027 (Playwright browser checks for agents and CI; phone-size layout is no longer checked only by hand)
 
 ## Context
 Issue #5, decision 2 and Requirement 1: the UI is a web UI used mostly from a phone, served by the local app and reached over Tailscale (ADR 0012). A terminal UI is out. The flows are simple: edit a profile, browse a slate of options with their nutrition, tick the ones to keep, view a grocery list and recipes, rate meals.
