@@ -1,4 +1,4 @@
-# ADR 0027: Agent browser: Playwright flows as JSON files, a demo entry point, and a secrets-free `e2e` job whose evidence the reviewer reads as data
+# ADR 0028: Agent browser: Playwright flows as JSON files, a demo entry point, and a secrets-free `e2e` job whose evidence the reviewer reads as data
 - Status: Proposed
 - Date: 2026-11-25
 - Supersedes in part: ADR 0005 (the rejection of Playwright viewport tests, and the consequence that phone-size layout is checked only by a human checklist)
