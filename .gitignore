@@ -10,3 +10,5 @@ data/
 .agent-tmp/
 # The packaged ingredient catalog is source, not runtime data (ADR 0007, 0020).
 !/src/mealplanner/nutrition/data/
+# The packaged grocery aisle and pack-size file is source too (ADR 0023).
+!/src/mealplanner/grocery/data/
