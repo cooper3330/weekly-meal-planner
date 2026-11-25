@@ -9,7 +9,6 @@ dependencies = [
     "jinja2",
     "python-multipart",
     "pydantic",
-    "anthropic",
 ]
 
 [dependency-groups]

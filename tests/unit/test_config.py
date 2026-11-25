@@ -1,6 +1,15 @@
+import dataclasses
+
 import pytest
 
 from mealplanner.config import ConfigError, Settings, load_settings
+
+
+def test_settings_has_no_api_key_or_model() -> None:
+    fields = {f.name for f in dataclasses.fields(Settings)}
+    assert "anthropic_api_key" not in fields
+    assert "model" not in fields
+    assert "x-secret" not in repr(load_settings({"ANTHROPIC_API_KEY": "x-secret"}))
 
 
 def test_defaults_with_empty_environment() -> None:
@@ -9,7 +18,6 @@ def test_defaults_with_empty_environment() -> None:
     assert s.host == "127.0.0.1"
     assert s.port == 8000
     assert str(s.data_dir) == "data"
-    assert s.model
     assert s.allowed_hosts == ()
     assert s.owner_login is None
     assert s.dev_login is None
@@ -35,14 +43,12 @@ def test_each_variable_overrides_default() -> None:
             "MEALPLANNER_HOST": "::1",
             "MEALPLANNER_PORT": "9001",
             "MEALPLANNER_DATA_DIR": "/tmp/mp",
-            "MEALPLANNER_MODEL": "some-model",
             "MEALPLANNER_ALLOWED_HOSTS": "a.ts.net",
         }
     )
     assert s.host == "::1"
     assert s.port == 9001
     assert str(s.data_dir) == "/tmp/mp"
-    assert s.model == "some-model"
     assert s.allowed_hosts == ("a.ts.net",)
 
 
