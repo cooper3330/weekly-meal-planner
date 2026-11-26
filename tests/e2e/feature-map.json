@@ -1,0 +1,131 @@
+{
+  "internal": [
+    {"route": "GET /healthz", "why": "supervisor health check, not a page"},
+    {"route": "MOUNT /static", "why": "stylesheet and other static files"}
+  ],
+  "features": [
+    {
+      "name": "home",
+      "routes": ["GET /"],
+      "scenario": "empty",
+      "reach": [{"goto": "/"}],
+      "landmarks": [
+        {"role": "heading", "name": "Weekly meal planner"},
+        {"role": "link", "name": "Your profile"}
+      ],
+      "actions": [
+        {"control": {"role": "link", "name": "Your profile"}, "result": "the profile page"}
+      ],
+      "implements": [],
+      "flows": [],
+      "sources": [
+        "src/mealplanner/web/templates/home.html",
+        "src/mealplanner/web/routes.py"
+      ],
+      "phone_notes": ""
+    },
+    {
+      "name": "profile",
+      "routes": ["GET /profile"],
+      "scenario": "profile",
+      "reach": [
+        {"goto": "/"},
+        {"click": {"role": "link", "name": "Your profile"}}
+      ],
+      "landmarks": [
+        {"role": "heading", "name": "Your profile"},
+        {"role": "link", "name": "Edit"},
+        {"role": "link", "name": "History"}
+      ],
+      "actions": [
+        {"control": {"role": "link", "name": "Edit"}, "result": "the edit form"},
+        {"control": {"role": "link", "name": "History"}, "result": "the list of saved versions"},
+        {"control": {"role": "link", "name": "Home"}, "result": "the home page"}
+      ],
+      "implements": [{"issue": 6, "criteria": ["AC-1", "AC-3", "AC-7"]}],
+      "flows": [],
+      "sources": [
+        "src/mealplanner/web/templates/profile.html",
+        "src/mealplanner/web/profile.py"
+      ],
+      "phone_notes": ""
+    },
+    {
+      "name": "profile-edit",
+      "routes": ["GET /profile/edit", "POST /profile"],
+      "scenario": "profile",
+      "reach": [
+        {"goto": "/"},
+        {"click": {"role": "link", "name": "Your profile"}},
+        {"click": {"role": "link", "name": "Edit"}}
+      ],
+      "landmarks": [
+        {"role": "heading", "name": "Edit your profile"},
+        {"label": "Servings"},
+        {"role": "button", "name": "Save profile"}
+      ],
+      "actions": [
+        {"control": {"role": "button", "name": "Save profile"}, "result": "a new version is saved and the profile page is shown, or the form is shown again with a message and nothing saved"},
+        {"control": {"role": "link", "name": "Cancel"}, "result": "the profile page, nothing saved"}
+      ],
+      "implements": [{"issue": 6, "criteria": ["AC-1", "AC-2", "AC-5"]}],
+      "flows": [],
+      "sources": [
+        "src/mealplanner/web/templates/profile_edit.html",
+        "src/mealplanner/web/profile.py"
+      ],
+      "phone_notes": ""
+    },
+    {
+      "name": "profile-history",
+      "routes": ["GET /profile/history"],
+      "scenario": "profile",
+      "reach": [
+        {"goto": "/"},
+        {"click": {"role": "link", "name": "Your profile"}},
+        {"click": {"role": "link", "name": "History"}}
+      ],
+      "landmarks": [
+        {"role": "heading", "name": "Profile history"},
+        {"role": "link", "name": "Version 1"}
+      ],
+      "actions": [
+        {"control": {"role": "link", "name": "Version 1"}, "result": "that saved version, read-only"},
+        {"control": {"role": "link", "name": "Back to your profile"}, "result": "the profile page"}
+      ],
+      "implements": [{"issue": 6, "criteria": ["AC-5"]}],
+      "flows": [],
+      "sources": [
+        "src/mealplanner/web/templates/profile_history.html",
+        "src/mealplanner/web/profile.py"
+      ],
+      "phone_notes": ""
+    },
+    {
+      "name": "profile-version",
+      "routes": ["GET /profile/history/{version}"],
+      "scenario": "profile",
+      "reach": [
+        {"goto": "/"},
+        {"click": {"role": "link", "name": "Your profile"}},
+        {"click": {"role": "link", "name": "History"}},
+        {"click": {"role": "link", "name": "Version 1"}}
+      ],
+      "landmarks": [
+        {"role": "heading", "name": "Profile version 1"},
+        {"role": "link", "name": "Back to history"}
+      ],
+      "actions": [
+        {"control": {"role": "link", "name": "Back to history"}, "result": "the history list"},
+        {"control": {"role": "link", "name": "Your profile"}, "result": "the profile page"}
+      ],
+      "implements": [{"issue": 6, "criteria": ["AC-5"]}],
+      "flows": [],
+      "sources": [
+        "src/mealplanner/web/templates/profile_version.html",
+        "src/mealplanner/web/profile.py"
+      ],
+      "phone_notes": ""
+    }
+  ]
+}
