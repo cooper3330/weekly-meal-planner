@@ -1,4 +1,4 @@
-"""Errors raised by the LLM boundary. Messages never contain the API key."""
+"""Errors raised by the LLM boundary. Messages never contain the bridge token."""
 
 
 class LLMError(Exception):
@@ -14,8 +14,8 @@ class LLMOutputError(LLMError):
 
 
 class LLMUnavailableError(LLMError):
-    """The Claude API could not be reached or is overloaded (after SDK retries)."""
+    """The bridge or the model could not be reached or is overloaded."""
 
 
 class LLMConfigError(LLMError):
-    """The client is not configured, for example ANTHROPIC_API_KEY is missing."""
+    """The client is not configured, for example the bridge port or token is missing."""
