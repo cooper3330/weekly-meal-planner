@@ -450,6 +450,16 @@ assert_grep "$T/claude.args" '^Bash\(scripts/pin-action\.sh \*\)$' "allows scrip
 assert_grep "$T/claude.args" '^Bash\(bash tests/scripts/\*\)$' "allows running the shell tests under tests/scripts"
 assert_no_grep "$T/claude.args" 'Bash\((bash|sh|curl|wget) \*\)' "no unrestricted shell, curl or wget"
 
+echo "allowlist: the developer may run exactly the agent-browser commands, nothing broader (#105)"
+new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+for rule in 'make browser-install' 'make app-up' 'make app-up \*' 'make app-down' 'make app-down \*' 'make browse \*' 'make e2e' 'make e2e \*'; do
+  assert_grep "$T/claude.args" "^Bash\\($rule\\)\$" "allows: $rule"
+done
+assert_no_grep "$T/claude.args" 'Bash\((python3?|npx|playwright|bash -c|sh -c)[ )]' "no python, npx, playwright or shell -c rule"
+assert_no_grep "$T/claude.args" '^Bash\(make \*\)$' "no bare make *"
+assert_no_grep "$T/claude.args" '^Bash\(make (run|bridge-smoke)' "make run and make bridge-smoke stay out"
+
 echo "revisions: a revision of a task's PR is told about the linked issue"
 new_sandbox; echo '[{"number":46,"headRefName":"issue-32-ci-workflow-v3"}]' > "$T/prs.json"
 echo '[{"id":1,"created_at":"2026-10-28T01:22:58Z","body":"pull main in /revise","author_association":"OWNER"}]' > "$T/issue_comments_32.json"

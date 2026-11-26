@@ -189,6 +189,8 @@ ALLOWED_TOOLS=(
   "Bash(make check)" "Bash(make fmt)" "Bash(make sync)" "Bash(uv sync)" "Bash(uv run *)"
   "Bash(bash tests/scripts/*)" "Bash(scripts/pin-action.sh *)" "Bash(bash scripts/pin-action.sh *)"
   "Bash(scripts/fetch-fdc.sh)" "Bash(bash scripts/fetch-fdc.sh)"
+  "Bash(make browser-install)" "Bash(make app-up)" "Bash(make app-up *)" "Bash(make app-down)" "Bash(make app-down *)"
+  "Bash(make browse *)" "Bash(make e2e)" "Bash(make e2e *)"
 )
 if [ -n "${EXTRA_ALLOWED_TOOLS:-}" ]; then
   IFS=, read -r -a extra <<<"$EXTRA_ALLOWED_TOOLS"
