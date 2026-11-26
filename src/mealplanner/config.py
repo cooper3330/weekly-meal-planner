@@ -9,7 +9,6 @@ from pathlib import Path
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8000
 DEFAULT_DATA_DIR = "./data"
-DEFAULT_MODEL = "claude-sonnet-4-5"
 
 
 class ConfigError(ValueError):
@@ -21,15 +20,12 @@ class Settings:
     host: str
     port: int
     data_dir: Path
-    model: str
     allowed_hosts: tuple[str, ...]
-    # Never shown in repr, so it cannot leak through logs or tracebacks.
-    anthropic_api_key: str | None = field(default=None, repr=False, compare=False)
     owner_login: str | None = None
     dev_login: str | None = None
     bridge_host: str = DEFAULT_HOST
     bridge_port: int | None = None
-    # Never shown in repr or compared, like the API key.
+    # Never shown in repr or compared, so it cannot leak through logs or tracebacks.
     bridge_token: str | None = field(default=None, repr=False, compare=False)
 
 
@@ -91,9 +87,7 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         host=host,
         port=port,
         data_dir=Path(env.get("MEALPLANNER_DATA_DIR", DEFAULT_DATA_DIR)),
-        model=env.get("MEALPLANNER_MODEL", DEFAULT_MODEL),
         allowed_hosts=allowed,
-        anthropic_api_key=env.get("ANTHROPIC_API_KEY", "").strip() or None,
         owner_login=normalize_login(env.get("MEALPLANNER_OWNER_LOGIN")),
         dev_login=normalize_login(env.get("MEALPLANNER_DEV_LOGIN")),
     )

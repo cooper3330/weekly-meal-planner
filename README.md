@@ -94,4 +94,4 @@ Rules:
 
 Anyone whose login is not in the users table gets 403. POST, PUT, PATCH, and DELETE requests from other sites are refused.
 
-Tests run offline with no API key: an autouse fixture blocks internet sockets and removes `ANTHROPIC_API_KEY`. Copy `.env.example` to `.env` for local runs.
+The app needs no API key. It reaches Claude only through the local bridge, which uses the Claude CLI: sign in to the CLI once (`claude`), then start everything with `make run`. Tests run offline: an autouse fixture blocks internet sockets and removes `ANTHROPIC_API_KEY`. Copy `.env.example` to `.env` for local runs.
