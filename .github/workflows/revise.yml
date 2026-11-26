@@ -119,7 +119,7 @@ jobs:
         uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           python-version: "3.12"
-          # No cache: nothing here runs uv before the job ends, so the post step would fail saving one.
+          # Cache off: the job runs uv now (uv sync, the Playwright install), but no run has shown that the cache post step succeeds.
           enable-cache: false
 
       - name: Restore the Playwright browser cache
