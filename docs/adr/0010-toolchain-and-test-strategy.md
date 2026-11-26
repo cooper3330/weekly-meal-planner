@@ -1,6 +1,7 @@
 # ADR 0010: ruff, mypy, pytest, and one `make check` command as the test-first loop's exit condition
 - Status: Accepted
 - Date: 2026-10-24
+- Amended by: ADR 0028 (a second, separate test target, `make e2e`, and a second CI job, `e2e`)
 
 ## Context
 Issue #5, decision 7 and AC-5, building on constitution principle 7 and ADR 0003. Tests are written first; the suite must be self-validating so an agent can loop until it passes; LLM calls are mocked and tests run offline with no API key. The CI work in #4 runs the same checks.
