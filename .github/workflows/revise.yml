@@ -122,6 +122,17 @@ jobs:
           # No cache: nothing here runs uv before the job ends, so the post step would fail saving one.
           enable-cache: false
 
+      - name: Restore the Playwright browser cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('uv.lock') }}
+
+      - name: Install the project and the browser (so the developer can run the agent-browser commands)
+        run: uv sync
+
+      - run: make browser-install
+
       - name: Install the claude CLI
         run: npm install -g "@anthropic-ai/claude-code@2.1.308"
 
