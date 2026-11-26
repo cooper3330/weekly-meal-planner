@@ -27,6 +27,14 @@ def test_guard_blocks_ipv6_connect() -> None:
         socket.create_connection(("2606:4700:4700::1111", 443), timeout=1)
 
 
+def test_guard_allows_loopback_connect() -> None:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
+        server.bind(("127.0.0.1", 0))
+        server.listen()
+        with socket.create_connection(server.getsockname(), timeout=2):
+            pass
+
+
 def test_guard_blocks_connect_ex() -> None:
     with (
         socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s,

@@ -18,6 +18,16 @@ def _blocked(target: Any) -> None:
     )
 
 
+def _is_loopback_address(address: Any) -> bool:
+    """True for a (host, port, ...) tuple naming a loopback IP; names are never trusted here."""
+    if not isinstance(address, tuple) or not address:
+        return False
+    try:
+        return ipaddress.ip_address(str(address[0]).split("%")[0]).is_loopback
+    except ValueError:
+        return False
+
+
 def _is_local_host(host: Any) -> bool:
     if host is None or host == "":
         return True
@@ -40,12 +50,12 @@ def offline_guard(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
 
     # connect is patched on the socket class, so asyncio and httpx paths are covered too.
     def connect(self: socket.socket, address: Any) -> Any:
-        if self.family in _INTERNET_FAMILIES:
+        if self.family in _INTERNET_FAMILIES and not _is_loopback_address(address):
             _blocked(address)
         return real_connect(self, address)
 
     def connect_ex(self: socket.socket, address: Any) -> Any:
-        if self.family in _INTERNET_FAMILIES:
+        if self.family in _INTERNET_FAMILIES and not _is_loopback_address(address):
             _blocked(address)
         return real_connect_ex(self, address)
 
