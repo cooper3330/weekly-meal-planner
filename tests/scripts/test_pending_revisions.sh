@@ -55,6 +55,29 @@ echo "[$(comment 2026-10-26T10:00:00Z '/revise' OWNER),$(comment 2026-10-26T10:3
 run
 assert_eq "$(count)" "0" "agent reply after the trigger -> nothing pending"
 
+echo "pending: an automated report posted just after a /revise does not answer it (#168)"
+for marker in reviewer merge-gate review-skipped; do
+  new_sandbox; echo "$PRS" > "$T/prs.json"
+  echo "[$(comment 2026-11-25T15:16:56Z '/revise' OWNER),$(comment 2026-11-25T15:17:02Z "Report. <!-- agent:$marker -->" OWNER)]" > "$T/issue_comments_15.json"
+  run
+  assert_eq "$(count)" "1" "agent:$marker after a /revise -> still pending"
+done
+new_sandbox; echo "$PRS" > "$T/prs.json"
+echo "[$(comment 2026-11-25T15:16:56Z '/revise' OWNER)]" > "$T/issue_comments_15.json"
+echo "[$(review 2026-11-25T15:17:02Z CHANGES_REQUESTED "Findings. <!-- agent:reviewer -->" OWNER)]" > "$T/pr_reviews_15.json"
+run
+assert_eq "$(count)" "1" "a reviewer review (as a PR review) after a /revise -> still pending"
+new_sandbox; echo "$PRS" > "$T/prs.json"
+echo "[$(comment 2026-11-25T15:16:56Z '/revise' OWNER),$(comment 2026-11-25T15:17:10Z 'Picked up. <!-- agent:ack -->' OWNER),$(comment 2026-11-25T15:20:00Z 'Gate. <!-- agent:merge-gate -->' OWNER)]" > "$T/issue_comments_15.json"
+run
+assert_eq "$(count)" "0" "an ack answered it; a later merge-gate comment does not undo that"
+for marker in ack developer architect coordinator permission limit; do
+  new_sandbox; echo "$PRS" > "$T/prs.json"
+  echo "[$(comment 2026-11-25T15:16:56Z '/revise' OWNER),$(comment 2026-11-25T15:17:02Z "Reply. <!-- agent:$marker -->" OWNER)]" > "$T/issue_comments_15.json"
+  run
+  assert_eq "$(count)" "0" "agent:$marker after a /revise -> answered"
+done
+
 echo "pending: a later /revise is pending again"
 new_sandbox; echo "$PRS" > "$T/prs.json"
 echo "[$(comment 2026-10-26T10:00:00Z '/revise' OWNER),$(comment 2026-10-26T10:30:00Z "Done. $AGENT_MARK" OWNER),$(comment 2026-10-26T11:00:00Z 'one more thing /revise' OWNER)]" > "$T/issue_comments_15.json"
