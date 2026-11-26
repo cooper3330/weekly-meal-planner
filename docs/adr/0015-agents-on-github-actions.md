@@ -1,7 +1,7 @@
 # ADR 0015: Agents run on GitHub Actions with the `claude` CLI and the existing scripts, behind a kill switch, a preflight, and usage caps
 - Status: Accepted
 - Date: 2026-10-26
-- Amended: 2026-10-29 (task #55, event-driven triggers)
+- Amended: 2026-10-29 (task #55, event-driven triggers); 2026-11-26 (task #178, ADR PRs join the reviewer-requested revision loop)
 
 ## Context
 Issue #4 (FR-3, FR-6, FR-8, FR-10, FR-11; AC-3, AC-6, AC-8, AC-10 to AC-12) and the owner's scope note on #4. The note asks for an event-driven revision loop with loop safety and a revision budget per PR.
@@ -97,6 +97,13 @@ Constraints:
 
 ## Amendment (#61): the reviewer's time budget
 The reviewer job timeout is 30 minutes, not 20, and the bounded wait for the `check` job on the head SHA is 12 minutes (720 seconds), not 15. The wait step has its own `timeout-minutes: 12` and the review step 18, so neither phase can use up the other's time. The first two real runs showed the reviewer needs about 3.5 to 8 minutes and CI's own timeout is 10, so a longer wait only covers a stuck runner queue. When the wait runs out, the reviewer still runs and sees `check` as pending; `reviewer.md` treats a missing or red `check` as a reason to request changes, so it never approves on an unfinished check. `REVIEWER_MAX_TURNS`, the daily cap and the reviewer's behaviour are unchanged. Wherever this ADR or #36 says 20 minutes or 15 minutes for the reviewer, read 30 and 12.
+
+## Amendment (task #178): ADR PRs join the reviewer-requested revision loop
+**This reverses** the rule that ADR PRs (`arch-*`) are revised only on human feedback. On PR #171 (ADR 0030) the reviewer requested changes six times in ten hours and each round waited for the owner's `/revise`, so the architect and reviewer never went back and forth on their own.
+
+When the reviewer requests changes on an `arch-*` PR, `scripts/after-review.sh` now dispatches `revise.yml` (`source=reviewer`) like it does for an `issue-*` PR, and `scripts/coordinator.sh --revise ... --source reviewer` runs the **architect** for it (the developer for `issue-*`). The budget is the same, shared and counted the same way: `REVISION_BUDGET` rounds (default 3) of reviewer and CI acknowledgements; at the budget the PR gets `needs-human`, one comment and the owner's review request. A human `/revise` always runs and never counts. The kill switch and the daily cap apply as before.
+
+What does not change: every ADR PR is `risk:high` and the owner merges it, so nothing is accepted without a human. A red `check` on an ADR PR is still not fixed automatically (`needs-human`).
 
 ## Constitution check
 - P7: every script added here is tested offline with stubbed `gh` and `claude`. Workflow files get structural tests.
