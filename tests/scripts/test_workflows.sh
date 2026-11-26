@@ -169,6 +169,38 @@ for f in .github/workflows/*.yml; do
   if [ -z "$v" ]; then ok "$f: ok"; else bad "$f: $v"; fi
 done
 
+# --- the developer's workflows provide the browser for the agent-browser commands (#105, ADR 0028) ----
+# browser_violations FILE: a workflow that runs scripts/coordinator.sh must, before that step, restore
+# ~/.cache/ms-playwright with a SHA-pinned actions/cache keyed on uv.lock, run uv sync, and run make browser-install.
+browser_violations() {
+  local f="$1" runl cachel syncl instl
+  grep -Eq 'scripts/coordinator\.sh' "$f" || return 0
+  runl=$(grep -n 'run: scripts/coordinator\.sh' "$f" | head -1 | cut -d: -f1)
+  cachel=$(grep -n 'actions/cache@' "$f" | head -1 | cut -d: -f1)
+  syncl=$(grep -nE 'run:[[:space:]]+uv sync[[:space:]]*$' "$f" | head -1 | cut -d: -f1)
+  instl=$(grep -nE 'run:[[:space:]]+make browser-install[[:space:]]*$' "$f" | head -1 | cut -d: -f1)
+  if [ -z "$cachel" ]; then echo "has no actions/cache step for the browser"; else
+    grep -Eq 'actions/cache@[0-9a-f]{40}( |$)' "$f" || echo "actions/cache is not pinned to a commit SHA"
+    sed -n "$cachel,$((cachel + 4))p" "$f" | grep -Eq '~/\.cache/ms-playwright' || echo "the cache does not cover ~/.cache/ms-playwright"
+    sed -n "$cachel,$((cachel + 4))p" "$f" | grep -Fq "hashFiles('uv.lock')" || echo "the cache key does not use hashFiles('uv.lock')"
+    if [ -n "$runl" ] && [ "$cachel" -gt "$runl" ]; then echo "the browser cache is restored after the coordinator runs"; fi
+  fi
+  if [ -z "$syncl" ]; then echo "does not run uv sync before the coordinator"; elif [ -n "$runl" ] && [ "$syncl" -gt "$runl" ]; then echo "uv sync runs after the coordinator"; fi
+  if [ -z "$instl" ]; then echo "does not run make browser-install"; elif [ -n "$runl" ] && [ "$instl" -gt "$runl" ]; then echo "make browser-install runs after the coordinator"; fi
+}
+for fx in no-browser browser-after-coordinator browser-cache-unpinned; do
+  echo "workflows: the browser checker bites on $fx.yml"
+  if [ -n "$(browser_violations "$FIX/workflows/$fx.yml")" ]; then ok "reported as a violation"; else bad "reported as a violation"; fi
+done
+echo "workflows: every workflow that can run the developer installs the browser (#105)"
+for f in .github/workflows/*.yml; do
+  v=$(browser_violations "$f")
+  if [ -z "$v" ]; then ok "$f: ok"; else bad "$f: $v"; fi
+done
+echo "workflows: review.yml and ci.yml do not install the browser here (#105)"
+assert_no_grep .github/workflows/review.yml 'browser-install|ms-playwright' "review.yml has no browser steps"
+assert_no_grep .github/workflows/ci.yml 'browser-install|ms-playwright' "ci.yml has no browser steps"
+
 CI=.github/workflows/ci.yml
 echo "workflows: ci.yml"
 if [ -f "$CI" ]; then ok "ci.yml exists"; else bad "ci.yml exists"; finish; exit; fi

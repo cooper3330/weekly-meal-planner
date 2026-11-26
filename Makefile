@@ -1,4 +1,4 @@
-.PHONY: check fmt sync run bridge-smoke
+.PHONY: check fmt sync run bridge-smoke browser-install
 
 RUN ?= uv run python
 
@@ -16,6 +16,10 @@ check:
 # Owner-run check against the real Claude CLI (#112 AC-13). Not part of `check`.
 bridge-smoke:
 	PYTHONPATH=src $(RUN) -m bridge.smoke
+
+# Installs the Chromium that the agent-browser commands drive (ADR 0028). Not part of `check`.
+browser-install:
+	uv run playwright install --with-deps --only-shell chromium
 
 fmt:
 	uv run ruff format .
