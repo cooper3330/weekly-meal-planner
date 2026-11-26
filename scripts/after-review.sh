@@ -29,19 +29,18 @@ MARKER='<!-- agent:reviewer -->'
 
 log() { echo "after-review: PR #$PR: $*"; }
 
-# The reviewer asked for changes. On an issue-* PR the developer is dispatched to revise (through
-# .github/workflows/revise.yml), up to REVISION_BUDGET rounds; every round leaves an
-# `<!-- agent:ack source=reviewer -->` comment, which is what is counted (human /revise rounds do not
-# count). At the budget the PR goes to a human instead. ADR PRs (arch-*) are revised only on human
-# feedback, so nothing happens for them here.
+# The reviewer asked for changes. On an issue-* PR the developer, and on an arch-* (ADR) PR the architect,
+# is dispatched to revise (through .github/workflows/revise.yml), up to REVISION_BUDGET rounds; every
+# round leaves an `<!-- agent:ack source=reviewer -->` comment, which is what is counted (human /revise
+# rounds do not count). At the budget the PR goes to a human instead (#178).
 ACK_MARKER='<!-- agent:ack source=reviewer -->'
 CI_ACK_MARKER='<!-- agent:ack source=ci -->'
 request_revision() {
   local branch budget rounds labels
   branch=$(gh pr view "$PR" --repo "$REPO" --json headRefName -q .headRefName)
   case "$branch" in
-    issue-*) ;;
-    *) log "branch '$branch' is not issue-*; revisions of other PRs start only on human feedback"; return 0 ;;
+    issue-*|arch-*) ;;
+    *) log "branch '$branch' is neither issue-* nor arch-*; revisions of other PRs start only on human feedback"; return 0 ;;
   esac
   if [ "${AGENTS_PAUSED:-}" = true ]; then log "AGENTS_PAUSED is true; not dispatching a revision"; return 0; fi
 
@@ -53,7 +52,7 @@ request_revision() {
       '[.[] | (if type == "array" then .[] else . end) | select((.body // "") | contains($m) or contains($c))] | length')
 
   if [ "$rounds" -lt "$budget" ]; then
-    log "revision round $((rounds + 1)) of $budget: dispatching the developer"
+    log "revision round $((rounds + 1)) of $budget: dispatching the revision"
     gh workflow run revise.yml --repo "$REPO" -f kind=pr -f number="$PR" -f source=reviewer
     return 0
   fi
@@ -69,7 +68,7 @@ request_revision() {
   gh pr edit "$PR" --repo "$REPO" --add-label needs-human >/dev/null
   gh pr edit "$PR" --repo "$REPO" --add-reviewer "$OWNER" >/dev/null 2>&1 \
     || log "could not request a review from $OWNER (they may be the PR author)"
-  gh pr comment "$PR" --repo "$REPO" --body "The revision budget is spent: the developer has already revised this PR $rounds times in response to the reviewer or to failing CI (budget $budget, set by REVISION_BUDGET). It is handed to a human: the owner's review is requested. Comment /revise to run another revision; that does not count against the budget.
+  gh pr comment "$PR" --repo "$REPO" --body "The revision budget is spent: an agent has already revised this PR $rounds times in response to the reviewer or to failing CI (budget $budget, set by REVISION_BUDGET). It is handed to a human: the owner's review is requested. Comment /revise to run another revision; that does not count against the budget.
 
 <!-- agent:merge-gate -->" >/dev/null
 }
