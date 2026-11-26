@@ -191,10 +191,25 @@ assert_grep "$T/gh.log" 'needs-human' "2 reviewer + 1 CI round: handed to a huma
 cr_setup; set_acks 0 0 3; run
 assert_eq "$(dispatches)" "0" "3 CI rounds: no dispatch"
 
-echo "after-review.sh: changes requested never dispatches on an ADR PR, a stale review or while paused"
+echo "after-review.sh: changes requested on an ADR PR starts the architect, within the shared budget (#178)"
 cr_setup; set_pr main "" arch-4-plan; set_acks 0 0; run
-assert_eq "$(dispatches)" "0" "arch-* PR: no dispatch"
-assert_no_grep "$T/gh.log" 'needs-human' "arch-* PR: not labelled either"
+assert_eq "$(dispatches)" "1" "arch-* PR: one dispatch"
+assert_no_grep "$T/gh.log" 'needs-human' "arch-* PR under the budget: not labelled"
+cr_setup; set_pr main "" arch-4-plan; set_acks 2 0 0; run
+assert_eq "$(dispatches)" "1" "arch-* PR, 2 prior rounds: the third dispatches"
+cr_setup; set_pr main "" arch-4-plan; set_acks 3 0; run
+assert_eq "$(dispatches)" "0" "arch-* PR at the budget: no dispatch"
+assert_grep "$T/gh.log" 'needs-human' "arch-* PR at the budget: handed to a human"
+cr_setup; set_pr main "" arch-4-plan; set_acks 1 0 2; run
+assert_eq "$(dispatches)" "0" "arch-* PR: reviewer and CI rounds share the budget"
+cr_setup; set_pr main "" arch-4-plan; set_acks 0 9; run
+assert_eq "$(dispatches)" "1" "arch-* PR: human /revise rounds do not count"
+cr_setup; set_pr main "" arch-4-plan; set_acks 0 0; AGENTS_PAUSED=true run
+assert_eq "$(dispatches)" "0" "arch-* PR while paused: no dispatch"
+cr_setup; set_pr main "" claude/other-branch; set_acks 0 0; run
+assert_eq "$(dispatches)" "0" "a branch that is neither arch-* nor issue-*: no dispatch"
+
+echo "after-review.sh: changes requested never dispatches on a stale review or while paused"
 cr_setup; approve_on old000 CHANGES_REQUESTED; run
 assert_eq "$(dispatches)" "0" "a change request on an older head: no dispatch"
 cr_setup; approve_on "$SHA" CHANGES_REQUESTED "no marker"; run

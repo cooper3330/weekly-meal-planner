@@ -707,12 +707,23 @@ echo '[{"id":7,"created_at":"2026-10-28T10:05:00Z","body":"Picked up. <!-- agent
 revise pr 12 --source reviewer
 assert_count "$T/claude.calls" "called" 0 "an acknowledgement newer than the review: no second launch"
 
-echo "revise: --source reviewer is refused on an architect PR"
+echo "revise: --source reviewer on an architect PR runs the architect (#178)"
 reviewer_pr arch-4-plan
 rc=0; revise pr 12 --source reviewer || rc=$?
-if [ "$rc" -ne 0 ]; then ok "exits non-zero"; else bad "exits non-zero"; fi
-assert_count "$T/claude.calls" "called" 0 "no launch"
-assert_grep "$T/out" 'issue-\*' "says only issue-* PRs"
+assert_eq "$rc" "0" "exits 0"
+assert_count "$T/claude.calls" "called" 1 "one launch"
+assert_grep "$T/claude.args" '^architect$' "the architect agent"
+assert_no_grep "$T/claude.args" '^developer$' "not the developer"
+assert_grep "$T/claude.args" 'Source: reviewer' "the prompt says the source is the reviewer"
+assert_grep "$T/gh.log" 'agent:ack source=reviewer' "the acknowledgement carries the reviewer source, which counts a round"
+reviewer_pr arch-4-plan
+echo '[{"id":7,"created_at":"2026-10-28T10:05:00Z","body":"Picked up. <!-- agent:ack source=reviewer -->","author_association":"OWNER"}]' > "$T/issue_comments_12.json"
+revise pr 12 --source reviewer
+assert_count "$T/claude.calls" "called" 0 "an architect PR whose review was already picked up: no second launch"
+reviewer_pr claude/other-thing
+rc=0; revise pr 12 --source reviewer || rc=$?
+if [ "$rc" -ne 0 ]; then ok "a branch that is neither issue-* nor arch-*: exits non-zero"; else bad "a branch that is neither issue-* nor arch-*: exits non-zero"; fi
+assert_count "$T/claude.calls" "called" 0 "a branch that is neither issue-* nor arch-*: no launch"
 reviewer_pr issue-9-feature-x
 rc=0; revise issue 12 --source reviewer || rc=$?
 assert_eq "$rc" "2" "--source reviewer with kind issue is a usage error"
