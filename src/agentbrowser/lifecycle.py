@@ -195,6 +195,7 @@ def _attempt(command: list[str], port: int, log: Path, timeout: float) -> int:
     while time.monotonic() < deadline:
         code = proc.poll()
         if code is not None:
+            _kill_group(proc.pid, 2.0)  # children the app left in its group
             lost = "address already in use" in _log_tail(log).lower()
             raise _Failed(f"The app exited with status {code} before it was ready.", port_lost=lost)
         # Our own process must still be alive after the 200, so a stranger on the port

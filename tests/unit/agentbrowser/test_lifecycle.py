@@ -3,9 +3,11 @@
 import http.client
 import json
 import os
+import re
 import signal
 import subprocess
 import sys
+import tempfile
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -27,8 +29,18 @@ class H(http.server.BaseHTTPRequestHandler):
         pass
 http.server.HTTPServer(("127.0.0.1", port), H).serve_forever()
 """
-STUB_SILENT = "import time\nprint('silent stub booting', flush=True)\ntime.sleep(60)\n"
+STUB_SILENT = (
+    "import os, time\nprint('silent stub booting pid=%d' % os.getpid(), flush=True)\n"
+    "time.sleep(60)\n"
+)
 STUB_EXIT = "import sys\nprint('stub boom', flush=True)\nsys.exit(3)\n"
+# Exits at once but leaves a child in its process group.
+STUB_EXIT_WITH_CHILD = """
+import subprocess, sys
+child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+print("child pid=%d" % child.pid, flush=True)
+sys.exit(3)
+"""
 
 
 def _factory(tmp_path: Path, body: str) -> Callable[[int, Path, str], list[str]]:
@@ -39,6 +51,10 @@ def _factory(tmp_path: Path, body: str) -> Callable[[int, Path, str], list[str]]
         return [sys.executable, "-u", str(script), str(port), "--data-dir", str(data_dir)]
 
     return make
+
+
+def _tmp_dirs() -> set[Path]:
+    return set(Path(tempfile.gettempdir()).glob(lifecycle.DIR_PREFIX + "*"))
 
 
 def _alive(pid: int) -> bool:
@@ -81,24 +97,46 @@ def test_start_writes_state_and_stop_cleans_up(tmp_path: Path, state_dir: Path) 
 def test_never_answering_stub_fails_with_log_tail_and_leaves_nothing(
     tmp_path: Path, state_dir: Path
 ) -> None:
-    before = set(Path(os.environ.get("TMPDIR", "/tmp")).glob(lifecycle.DIR_PREFIX + "*"))
+    before = _tmp_dirs()
     started = time.monotonic()
-    with pytest.raises(lifecycle.LifecycleError, match="silent stub booting"):
+    with pytest.raises(lifecycle.LifecycleError, match="silent stub booting") as info:
         lifecycle.start(
             "s", "profile", command=_factory(tmp_path, STUB_SILENT), state_dir=state_dir, timeout=1
         )
     assert time.monotonic() - started < 10
     assert not (state_dir / "s.json").exists()
-    after = set(Path(os.environ.get("TMPDIR", "/tmp")).glob(lifecycle.DIR_PREFIX + "*"))
-    assert after <= before
+    assert _tmp_dirs() <= before
+    found = re.search(r"pid=(\d+)", str(info.value))
+    assert found
+    assert not _alive(int(found.group(1)))
 
 
 def test_exiting_stub_fails_saying_it_exited(tmp_path: Path, state_dir: Path) -> None:
+    before = _tmp_dirs()
     with pytest.raises(lifecycle.LifecycleError, match="exited"):
         lifecycle.start(
             "x", "profile", command=_factory(tmp_path, STUB_EXIT), state_dir=state_dir, timeout=5
         )
     assert not (state_dir / "x.json").exists()
+    assert _tmp_dirs() <= before
+
+
+def test_early_exit_kills_children_left_in_the_group(tmp_path: Path, state_dir: Path) -> None:
+    with pytest.raises(lifecycle.LifecycleError, match="exited") as info:
+        lifecycle.start(
+            "k",
+            "profile",
+            command=_factory(tmp_path, STUB_EXIT_WITH_CHILD),
+            state_dir=state_dir,
+            timeout=5,
+        )
+    found = re.search(r"child pid=(\d+)", str(info.value))
+    assert found
+    child_pid = int(found.group(1))
+    deadline = time.monotonic() + 3
+    while _alive(child_pid) and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert not _alive(child_pid)
 
 
 def test_exiting_stub_error_has_log_tail(tmp_path: Path, state_dir: Path) -> None:
@@ -119,6 +157,9 @@ def test_two_names_side_by_side_and_same_name_twice_fails(tmp_path: Path, state_
     assert _alive(one.pid)  # the failed second start did not disturb the first
     lifecycle.stop("one", state_dir=state_dir, grace=2)
     lifecycle.stop("two", state_dir=state_dir, grace=2)
+    for handle in (one, two):
+        assert not _alive(handle.pid)
+        assert not handle.data_dir.exists()
 
 
 def test_stale_state_file_is_cleaned(tmp_path: Path, state_dir: Path) -> None:
