@@ -1,0 +1,32 @@
+{
+  "internal": [],
+  "features": [
+    {
+      "name": "home",
+      "routes": ["GET /"],
+      "scenario": "empty",
+      "reach": [{"goto": "/"}],
+      "landmarks": [{"role": "heading", "name": "Weekly meal planner"}],
+      "actions": [],
+      "implements": [],
+      "flows": [],
+      "sources": ["src/mealplanner/web/templates/home.html"],
+      "phone_notes": ""
+    },
+    {
+      "name": "profile-history",
+      "routes": ["GET /profile/history"],
+      "scenario": "profile",
+      "reach": [
+        {"goto": "/"},
+        {"click": {"role": "link", "name": "Your profile"}}
+      ],
+      "landmarks": [{"role": "heading", "name": "Your profile"}],
+      "actions": [],
+      "implements": [],
+      "flows": [],
+      "sources": ["src/mealplanner/web/templates/profile_history.html"],
+      "phone_notes": ""
+    }
+  ]
+}

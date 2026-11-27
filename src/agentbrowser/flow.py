@@ -13,7 +13,16 @@ from pydantic import BaseModel, ConfigDict, Field, StrictInt, ValidationError, m
 MAX_STEPS = 40
 CRITERION = r"^AC-[0-9]+$"
 VIEWPORT = r"^[1-9][0-9]*x[1-9][0-9]*$"
-STEP_KINDS = ("goto", "click", "fill", "select", "press", "expect_text", "expect_no_text")
+STEP_KINDS = (
+    "goto",
+    "click",
+    "fill",
+    "select",
+    "press",
+    "expect_text",
+    "expect_no_text",
+    "expect",
+)
 
 
 class FlowError(ValueError):
@@ -64,6 +73,7 @@ class Step(_Strict):
     press: str | None = Field(default=None, min_length=1)
     expect_text: str | None = Field(default=None, min_length=1)
     expect_no_text: str | None = Field(default=None, min_length=1)
+    expect: Locator | None = None  # visible within the bounded wait
     shows: str | None = Field(default=None, pattern=CRITERION)
 
     @model_validator(mode="after")
@@ -80,8 +90,10 @@ class Step(_Strict):
             locator = getattr(self, kind)
             if locator.value is None:
                 raise ValueError(f"{kind} needs a value")
-        elif kind == "click" and self.click is not None and self.click.value is not None:
-            raise ValueError("click takes no value")
+        elif kind in ("click", "expect"):
+            locator = getattr(self, kind)
+            if locator.value is not None:
+                raise ValueError(f"{kind} takes no value")
         return self
 
     @property
