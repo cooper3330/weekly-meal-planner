@@ -118,12 +118,13 @@ def test_reroll_redirects_and_shows_new(make: Make, tmp_path: Path) -> None:
     assert len(fake.calls) == 1
 
 
-def test_reroll_error_keeps_slate(make: Make, tmp_path: Path) -> None:
+@pytest.mark.parametrize("term", [ExclusionTerm.soy, ExclusionTerm.wheat])
+def test_reroll_error_keeps_slate(make: Make, tmp_path: Path, term: ExclusionTerm) -> None:
     bad = batch(option(9, extra=[("soy_sauce", 1, "tbsp")]))
     client, _ = make([bad, bad, bad])
     conn = db(tmp_path)
     try:
-        profile = DEFAULT_PROFILE.model_copy(update={"exclusions": frozenset({ExclusionTerm.soy})})
+        profile = DEFAULT_PROFILE.model_copy(update={"exclusions": frozenset({term})})
         save_profile(conn, 1, profile, now=THURSDAY)
     finally:
         conn.close()

@@ -128,10 +128,10 @@ def test_reroll_rejects_same_meal(conn: sqlite3.Connection) -> None:
     assert new.options[MealType.lunch][0].draft.name == "Test meal number 9"  # type: ignore[union-attr]
 
 
-def test_reroll_excluded(conn: sqlite3.Connection) -> None:
-    save_profile(
-        conn, 1, DEFAULT_PROFILE.model_copy(update={"exclusions": {ExclusionTerm.soy}}), now=NOW
-    )
+@pytest.mark.parametrize("term", [ExclusionTerm.soy, ExclusionTerm.wheat])
+def test_reroll_excluded(conn: sqlite3.Connection, term: ExclusionTerm) -> None:
+    # wheat: soy sauce is tagged soy|wheat, the hidden-allergen composite case.
+    save_profile(conn, 1, DEFAULT_PROFILE.model_copy(update={"exclusions": {term}}), now=NOW)
     before = active_ids(conn)
     bad = lambda i: batch(option(i, extra=[("soy_sauce", 1, "tbsp")]))  # noqa: E731
     llm = FakeLLMClient([bad(9), bad(10), bad(11)])
