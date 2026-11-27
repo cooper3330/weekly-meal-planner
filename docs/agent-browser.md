@@ -36,6 +36,28 @@ The file has two keys.
 
 `tests/unit/test_feature_map.py` runs in `make check`, offline. It builds the real app with `create_app` and reads its routes: one `"METHOD path"` per method of each API route (HEAD ignored) and `"MOUNT path"` per mount. Any other kind of route fails the test. Each route must be in exactly one entry's `routes` or in `internal`; matching is by the template string. The test fails and names the route or entry when a route has no entry, when an entry lists a route the app does not have, or when a route is listed twice. It also checks the schema rules above.
 
+### The walk
+
+`make e2e` runs every flow, then walks every entry of the map from the home page (ADR 0029). Each entry becomes a demo-mode flow: its `scenario`, a 360x640 phone viewport, its `reach` steps, then one `expect` step per landmark. Every entry runs in its own fresh app, in name order, and nothing is retried. The console, failed and external requests and the phone checks apply as for any flow. A flow may use `{"expect": <locator>}` too: the element must be visible within 5 seconds.
+
+After the reach steps the page's path must match one of the entry's `GET` routes (`{param}` matches one path segment). Otherwise the walk fails with `reached /profile, expected /profile/history`.
+
+Run it:
+
+- `make e2e`: all flows, then the whole walk, then the browser tests in `tests/e2e/`.
+- `make e2e FEATURE=profile`: walk only that feature (no flows, no browser tests). An unknown name fails and lists the known ones.
+- `make e2e FLOW=tests/flows/home.json`: one flow, no walk.
+
+Read the result in the evidence bundle (`.agent-tmp/e2e/<run>/`, or the path the run prints):
+
+- `summary.md`, "Walk" section: one line per feature, `pass` or `FAIL`, with its neighbours (its parent and children, worked out from the `reach` prefixes). A failed feature gets its own block below it.
+- `summary.json`, `walk`: per feature `feature`, `status`, `neighbours`, `steps` (with screenshots) and `failures`.
+- Screenshots, trace, `console.json` and `requests.json` are in `walk/<feature>/`.
+
+A failure names the feature, the step number and kind, what was expected and what was seen, and ends with the command that reproduces it: `Reproduce: make e2e FEATURE=<name>`. When a `click`, `fill`, `select` or `expect` finds no element, the failure lists what the page offered instead: the visible links and buttons by role and name, at most 30 (in `summary.json` as `offered`). A renamed button therefore shows up as `step 2 (click) failed ... link: Your profile`, and the fix is in the entry's `reach` or `landmarks` (or in the page, if the rename was a mistake).
+
+Fix a failing feature like any other failure: run its `Reproduce:` command, change the page or the entry, and run it again until it is green.
+
 ### Adding an entry
 
 When a task adds or changes a page, in the same pull request:

@@ -19,7 +19,8 @@ from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from agentbrowser.checks import MEASURE_JS, PageChecks, evaluate, page_checks_json
-from agentbrowser.evidence import FlowResult, StepResult
+from agentbrowser.evidence import MAX_OFFERED, FlowResult, StepResult, format_offered
+from agentbrowser.feature_map import PathCheck, path_matches
 from agentbrowser.flow import Flow, Locator, Step
 from mealplanner.demo import DEMO_OWNER
 
@@ -38,15 +39,13 @@ _OFFERED_JS = """() => {
   };
   const clean = (s) => (s || '').trim().replace(/\\s+/g, ' ');
   const buttons = 'button,[role=button],input[type=submit],input[type=button]';
-  return {
-    buttons: [...document.querySelectorAll(buttons)].filter(vis)
-      .map((e) => clean(e.getAttribute('aria-label') || e.innerText || e.value)),
-    links: [...document.querySelectorAll('a[href]')].filter(vis)
-      .map((e) => clean(e.getAttribute('aria-label') || e.innerText)),
-    fields: [...document.querySelectorAll('input,select,textarea')].filter(vis)
-      .map((e) => clean((e.labels && e.labels[0] ? e.labels[0].innerText : '')
-        || e.getAttribute('aria-label') || e.name)),
-  };
+  const named = (role, selector, text) => [...document.querySelectorAll(selector)].filter(vis)
+    .map((e) => ({ role, name: clean(e.getAttribute('aria-label') || text(e)) }))
+    .filter((x) => x.name);
+  return [
+    ...named('link', 'a[href]', (e) => e.innerText),
+    ...named('button', buttons, (e) => e.innerText || e.value),
+  ];
 }"""
 
 
@@ -98,12 +97,13 @@ def _page_text(page: Page) -> str:
         return ""
 
 
-def _offered(page: Page) -> str:
+def _offered(page: Page) -> list[dict[str, str]] | None:
+    """The visible links and buttons as role and accessible name (at most 30), or None."""
     try:
-        offered = page.evaluate(_OFFERED_JS)
+        found = page.evaluate(_OFFERED_JS)
     except PlaywrightError:
-        return "  the page could not be read"
-    return "\n".join(f"  {key}: {offered[key]}" for key in ("buttons", "links", "fields"))
+        return None
+    return [{"role": str(i["role"]), "name": str(i["name"])} for i in found][:MAX_OFFERED]
 
 
 def _excerpt(text: str, limit: int = 300) -> str:
@@ -111,8 +111,17 @@ def _excerpt(text: str, limit: int = 300) -> str:
     return flat if len(flat) <= limit else flat[:limit] + "..."
 
 
-def _run_step(page: Page, step: Step, base_url: str, timeout_ms: int) -> str | None:
-    """Run one step; return None, or a message with the expected and the actual."""
+def _run_step(
+    page: Page,
+    step: Step,
+    base_url: str,
+    timeout_ms: int,
+    offered: list[dict[str, str]] | None = None,
+) -> str | None:
+    """Run one step; return None, or a message with the expected and the actual.
+
+    A locator that finds nothing also fills ``offered`` with the links and buttons it saw.
+    """
     kind = step.kind
     seconds = f"{timeout_ms / 1000:g} s"
     started = time.monotonic()
@@ -138,6 +147,8 @@ def _run_step(page: Page, step: Step, base_url: str, timeout_ms: int) -> str | N
                 arg=step.expect_no_text,
                 timeout=left(),
             )
+        elif step.expect is not None:
+            _locator(page, step.expect).first.wait_for(state="visible", timeout=left())
         else:
             loc = cast(Locator, getattr(step, kind))
             target = _locator(page, loc)
@@ -153,13 +164,19 @@ def _run_step(page: Page, step: Step, base_url: str, timeout_ms: int) -> str | N
             except PlaywrightError:
                 pass
     except PlaywrightTimeoutError as exc:
-        return _timeout_message(page, step, seconds, exc)
+        return _timeout_message(page, step, seconds, exc, offered)
     except PlaywrightError as exc:
         return f"expected: {kind} to succeed\nactual: {_first_line(exc)}"
     return None
 
 
-def _timeout_message(page: Page, step: Step, seconds: str, exc: Exception) -> str:
+def _timeout_message(
+    page: Page,
+    step: Step,
+    seconds: str,
+    exc: Exception,
+    offered: list[dict[str, str]] | None = None,
+) -> str:
     kind = step.kind
     if step.expect_text is not None:
         return (
@@ -175,10 +192,14 @@ def _timeout_message(page: Page, step: Step, seconds: str, exc: Exception) -> st
         return f"expected: {step.goto} to load within {seconds}\nactual: {_first_line(exc)}"
     loc = getattr(step, kind)
     if isinstance(loc, Locator):
+        found = _offered(page)
+        if offered is not None and found is not None:
+            offered.extend(found)
+        what = "to be visible" if kind == "expect" else f"to {kind}"
         return (
-            f"expected: a visible, enabled {loc.describe()} to {kind} within {seconds}\n"
+            f"expected: a visible, enabled {loc.describe()} {what} within {seconds}\n"
             f"actual: not found or not usable ({_first_line(exc)})\n"
-            f"the page offered:\n{_offered(page)}"
+            f"the page offered:\n{format_offered(found)}"
         )
     return f"expected: {kind} to finish within {seconds}\nactual: {_first_line(exc)}"
 
@@ -313,14 +334,29 @@ def run_flow(
     name: str | None = None,
     browser: Browser | None = None,
     reproduce: str | None = None,
+    rel_dir: str | None = None,
+    path_check: PathCheck | None = None,
 ) -> FlowResult:
     """Run ``flow`` against ``base_url`` and write its artifacts into ``out_dir``.
 
     Opens its own browser unless one is given. A missing browser raises ``BrowserMissingError``.
+    ``rel_dir`` is how the evidence bundle names ``out_dir`` in screenshot paths (default: its
+    last part). ``path_check`` (the feature walk) requires the page path to match a template
+    once its step has run.
     """
     if browser is None:
         with open_browser() as own:
-            return run_flow(flow, base_url, out_dir, name=name, browser=own, reproduce=reproduce)
+            return run_flow(
+                flow,
+                base_url,
+                out_dir,
+                name=name,
+                browser=own,
+                reproduce=reproduce,
+                rel_dir=rel_dir,
+                path_check=path_check,
+            )
+    rel = rel_dir or out_dir.name
     base = base_url.rstrip("/")
     out_dir.mkdir(parents=True, exist_ok=True)
     result = FlowResult(
@@ -351,16 +387,24 @@ def run_flow(
                     f"{FLOW_TIMEOUT_S:g} s"
                 )
                 break
-            error = _run_step(page, step, base, min(STEP_TIMEOUT_MS, remaining_ms))
+            offered: list[dict[str, str]] = []
+            error = _run_step(page, step, base, min(STEP_TIMEOUT_MS, remaining_ms), offered)
             shot_name = f"{number:02d}-{step.kind}.png"
             shot_error = _screenshot(page, out_dir / shot_name, _budget_ms(deadline))
             if error is None:
                 error = shot_error
             if error is None and step.kind in _MEASURED_KINDS:
-                error = phone.run(page, f"{out_dir.name}/{shot_name}")
+                error = phone.run(page, f"{rel}/{shot_name}")
+            if error is None and path_check is not None and number == path_check.after_step:
+                error = _path_error(page, path_check)
             result.steps.append(
                 StepResult(
-                    step.kind, step.shows, f"{out_dir.name}/{shot_name}", error is None, error
+                    step.kind,
+                    step.shows,
+                    f"{rel}/{shot_name}",
+                    error is None,
+                    error,
+                    offered or None,
                 )
             )
             if error is not None:
@@ -382,6 +426,15 @@ def run_flow(
     _write_json(out_dir / "requests.json", recorder.requests)
     result.failures.extend(recorder.failures())
     return result
+
+
+def _path_error(page: Page, check: PathCheck) -> str | None:
+    """The feature walk's rule: after the reach steps the page is at one of the entry's GETs."""
+    path = urlsplit(page.url).path
+    if path_matches(path, check.templates):
+        return None
+    wanted = " or ".join(check.templates)
+    return f"expected: the page at {wanted}\nactual: reached {path}, expected {wanted}"
 
 
 def _stop_loading(context: BrowserContext, page: Page) -> None:

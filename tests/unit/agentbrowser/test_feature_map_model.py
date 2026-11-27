@@ -147,7 +147,9 @@ def test_the_parent_is_the_longest_proper_prefix() -> None:
     a = [*HOME, click("A")]
     b = [*a, click("B")]
     c = [*b, click("C")]
-    parsed = fm.parse(build(feature("home", HOME), feature("a", a), feature("b", b), feature("c", c)))
+    parsed = fm.parse(
+        build(feature("home", HOME), feature("a", a), feature("b", b), feature("c", c))
+    )
     assert fm.neighbours(parsed, "c") == ["b"]
     assert fm.neighbours(parsed, "b") == ["a", "c"]
     assert fm.neighbours(parsed, "home") == ["a"]
@@ -155,7 +157,11 @@ def test_the_parent_is_the_longest_proper_prefix() -> None:
 
 def test_an_entry_that_is_not_a_prefix_of_another_has_no_children() -> None:
     parsed = fm.parse(
-        build(feature("home", HOME), feature("a", [*HOME, click("A")]), feature("b", [*HOME, click("B")]))
+        build(
+            feature("home", HOME),
+            feature("a", [*HOME, click("A")]),
+            feature("b", [*HOME, click("B")]),
+        )
     )
     assert fm.neighbours(parsed, "a") == ["home"]
     assert fm.neighbours(parsed, "b") == ["home"]

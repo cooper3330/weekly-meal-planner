@@ -89,7 +89,12 @@ def _e2e(args: argparse.Namespace) -> int:
     previous = signal.signal(signal.SIGTERM, _terminate)
     out = Path(args.out) if args.out else runner.default_out()
     try:
-        return runner.run(Path(args.flow) if args.flow else None, out)
+        return runner.run(
+            Path(args.flow) if args.flow else None,
+            out,
+            map_path=Path(args.map) if args.map else None,
+            feature=args.feature or None,
+        )
     finally:
         signal.signal(signal.SIGTERM, previous)
 
@@ -107,8 +112,14 @@ def build_parser() -> argparse.ArgumentParser:
     browse.add_argument("--url", default="")
     browse.add_argument("--out", default="")
     browse.add_argument("--name", default="default", help="app name for the state file")
-    e2e = sub.add_parser("e2e", help="run every flow in tests/flows/ against a fresh demo app")
-    e2e.add_argument("--flow", default="", help="run only this flow file")
+    e2e = sub.add_parser(
+        "e2e", help="run every flow in tests/flows/, then walk every feature in the feature map"
+    )
+    e2e.add_argument("--flow", default="", help="run only this flow file (no walk)")
+    e2e.add_argument("--feature", default="", help="walk only this feature (no flows)")
+    e2e.add_argument(
+        "--map", default="", help="feature map file (default tests/e2e/feature-map.json)"
+    )
     e2e.add_argument("--out", default="", help="artifact directory")
     return parser
 

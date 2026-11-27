@@ -143,7 +143,11 @@ def _format(exc: ValidationError, data: Any) -> list[str]:
         loc = err["loc"]
         msg = err["msg"].removeprefix("Value error, ")
         given = err.get("input")
-        if err["type"] != "missing" and isinstance(given, str | int) and not isinstance(given, bool):
+        if (
+            err["type"] != "missing"
+            and isinstance(given, str | int)
+            and not isinstance(given, bool)
+        ):
             msg = f"{msg} (got {given!r})"
         if len(loc) >= 2 and loc[0] == "features" and isinstance(loc[1], int):
             try:
@@ -223,7 +227,7 @@ def app_routes(app: FastAPI) -> list[str]:
     for ctx in iter_route_contexts(app.routes):
         route = ctx.original_route
         if isinstance(route, APIRoute):
-            out.extend(f"{m} {ctx.path}" for m in sorted(route.methods) if m != "HEAD")
+            out.extend(f"{m} {ctx.path}" for m in sorted(route.methods or ()) if m != "HEAD")
         elif isinstance(route, Mount):
             out.append(f"MOUNT {ctx.path}")
         else:
