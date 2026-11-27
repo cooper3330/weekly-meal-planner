@@ -1,0 +1,10 @@
+{
+  "profile": {
+    "exclusions": ["peanuts"],
+    "servings": 2,
+    "max_cook_minutes": 40,
+    "skill": "intermediate",
+    "repeat_after_weeks": 2,
+    "preferences": "Likes: roasted vegetables, lemon, fresh herbs.\nDislikes: cilantro, very spicy food."
+  }
+}

@@ -9,11 +9,10 @@ dependencies = [
     "jinja2",
     "python-multipart",
     "pydantic",
-    "anthropic",
 ]
 
 [dependency-groups]
-dev = ["pytest", "httpx", "ruff", "mypy"]
+dev = ["pytest", "httpx", "ruff", "mypy", "playwright"]
 
 [tool.uv]
 package = false
@@ -35,3 +34,6 @@ mypy_path = "src"
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+# Browser tests need Chromium (`make browser-install`); run them with
+# `uv run pytest tests/e2e -o addopts=` (`make e2e` in #104).
+addopts = "--ignore=tests/e2e"

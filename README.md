@@ -51,6 +51,28 @@ The app is Python 3.12+ managed with [uv](https://docs.astral.sh/uv/) (ADR 0004)
 3. Run all checks: `make check`. It runs ruff format, ruff lint, mypy, pytest, then the script tests, and stops at the first failure. Exit 0 means green. `make fmt` applies formatting fixes.
 4. Follow the test-first loop (ADR 0010): write the tests named in the task and run `make check` to see them fail for the right reason; commit the failing tests first; then implement until `make check` exits 0. Never weaken, skip, or delete a test to get green.
 
+## CLI bridge
+
+The bridge (`src/bridge/`, ADR 0022) is a small loopback-only server that runs the registered `claude` command with the caller's text on standard input. `python -m bridge` needs `MEALPLANNER_BRIDGE_PORT` (1-65535) and `MEALPLANNER_BRIDGE_TOKEN` (at least 32 characters); `MEALPLANNER_BRIDGE_HOST` defaults to `127.0.0.1` and may only be `127.0.0.1` or `::1`. Anything else prints one line naming the variable and exits with status 2.
+
+- Minimum Claude CLI version: 2.1.248 (it adds `--restricted`). An older CLI rejects the flag and the run fails closed.
+- Smoke check: `make bridge-smoke` runs the real CLI once with a tiny prompt, with the bridge's minimal environment, and prints the CLI version, exit code, whether the JSON envelope parsed, `is_error`, and whether `result` was the expected object. It never prints the environment. It is not part of `make check`; run it yourself on your machine.
+- If the smoke check fails, the bridge does not ship (#112 AC-13).
+
+### `make run`
+
+`make run` starts `python -m bridge.supervisor`. It always starts the bridge first (whatever `MEALPLANNER_LLM_BACKEND` says; starting the bridge does not need the Claude CLI), polls `GET /healthz` every 100 ms for up to 15 s, then starts the app and prints one line with both process ids.
+
+- The port is a free one chosen per run and the token comes from `secrets.token_urlsafe(32)`. Both reach the bridge and the app only through their environment (`MEALPLANNER_BRIDGE_HOST`, `MEALPLANNER_BRIDGE_PORT`, `MEALPLANNER_BRIDGE_TOKEN`). They are never printed, logged, written to a file or put on a command line. The bridge's environment has `ANTHROPIC_API_KEY` removed.
+- Both children run in their own process group. On Ctrl-C, SIGTERM or SIGHUP, or when either child exits, the supervisor sends SIGTERM to each group, waits up to 5 s, then SIGKILL. Exit status: 130 on Ctrl-C, 128 plus the signal number for other signals, otherwise the status of the child that exited first (1 if it exited with 0).
+- If the supervisor itself is killed (even with SIGKILL), both children stop: each started with `--lifeline-stdin` reads its standard input until the pipe closes, then terminates itself.
+- If the port is taken between being chosen and the bridge binding it, the supervisor exits 1 with one line; run again.
+- Supported on macOS and Linux.
+
+`make run` needs a login configured for the app: `MEALPLANNER_OWNER_LOGIN=<tailscale login>`, or `MEALPLANNER_DEV_LOGIN=<login>` for local use (for example `MEALPLANNER_DEV_LOGIN=you@example.com make run`). Without one the app exits with status 3 (`ConfigError`), and the supervisor stops the bridge and exits 3.
+
+Before merging the PR that introduced the supervisor, the owner checks it with the real, signed-in CLI: run `make bridge-smoke`, then `MEALPLANNER_DEV_LOGIN=you@example.com make run`. If the smoke check fails with the traffic switches off, the bridge does not ship.
+
 ## Run it on your tailnet
 
 The server listens on 127.0.0.1 only. `tailscale serve` publishes it over HTTPS to your tailnet and adds your identity (ADR 0012).
@@ -72,4 +94,4 @@ Rules:
 
 Anyone whose login is not in the users table gets 403. POST, PUT, PATCH, and DELETE requests from other sites are refused.
 
-Tests run offline with no API key: an autouse fixture blocks internet sockets and removes `ANTHROPIC_API_KEY`. Copy `.env.example` to `.env` for local runs.
+The app needs no API key. It reaches Claude only through the local bridge, which uses the Claude CLI: sign in to the CLI once (`claude`), then start everything with `make run`. Tests run offline: an autouse fixture blocks internet sockets and removes `ANTHROPIC_API_KEY`. Copy `.env.example` to `.env` for local runs.

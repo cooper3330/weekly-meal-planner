@@ -450,6 +450,16 @@ assert_grep "$T/claude.args" '^Bash\(scripts/pin-action\.sh \*\)$' "allows scrip
 assert_grep "$T/claude.args" '^Bash\(bash tests/scripts/\*\)$' "allows running the shell tests under tests/scripts"
 assert_no_grep "$T/claude.args" 'Bash\((bash|sh|curl|wget) \*\)' "no unrestricted shell, curl or wget"
 
+echo "allowlist: the developer may run exactly the agent-browser commands, nothing broader (#105)"
+new_sandbox; echo "$READY" > "$T/items.json"; echo "$STATUS_FIELDS" > "$T/fields.json"
+PROJECT_NUMBER=1 bash "$SCRIPT" --once > "$T/out" 2>&1
+for rule in 'make browser-install' 'make app-up' 'make app-up \*' 'make app-down' 'make app-down \*' 'make browse \*' 'make e2e' 'make e2e \*'; do
+  assert_grep "$T/claude.args" "^Bash\\($rule\\)\$" "allows: $rule"
+done
+assert_no_grep "$T/claude.args" 'Bash\((python3?|npx|playwright|bash -c|sh -c)[ )]' "no python, npx, playwright or shell -c rule"
+assert_no_grep "$T/claude.args" '^Bash\(make \*\)$' "no bare make *"
+assert_no_grep "$T/claude.args" '^Bash\(make (run|bridge-smoke)' "make run and make bridge-smoke stay out"
+
 echo "revisions: a revision of a task's PR is told about the linked issue"
 new_sandbox; echo '[{"number":46,"headRefName":"issue-32-ci-workflow-v3"}]' > "$T/prs.json"
 echo '[{"id":1,"created_at":"2026-10-28T01:22:58Z","body":"pull main in /revise","author_association":"OWNER"}]' > "$T/issue_comments_32.json"
@@ -707,12 +717,23 @@ echo '[{"id":7,"created_at":"2026-10-28T10:05:00Z","body":"Picked up. <!-- agent
 revise pr 12 --source reviewer
 assert_count "$T/claude.calls" "called" 0 "an acknowledgement newer than the review: no second launch"
 
-echo "revise: --source reviewer is refused on an architect PR"
+echo "revise: --source reviewer on an architect PR runs the architect (#178)"
 reviewer_pr arch-4-plan
 rc=0; revise pr 12 --source reviewer || rc=$?
-if [ "$rc" -ne 0 ]; then ok "exits non-zero"; else bad "exits non-zero"; fi
-assert_count "$T/claude.calls" "called" 0 "no launch"
-assert_grep "$T/out" 'issue-\*' "says only issue-* PRs"
+assert_eq "$rc" "0" "exits 0"
+assert_count "$T/claude.calls" "called" 1 "one launch"
+assert_grep "$T/claude.args" '^architect$' "the architect agent"
+assert_no_grep "$T/claude.args" '^developer$' "not the developer"
+assert_grep "$T/claude.args" 'Source: reviewer' "the prompt says the source is the reviewer"
+assert_grep "$T/gh.log" 'agent:ack source=reviewer' "the acknowledgement carries the reviewer source, which counts a round"
+reviewer_pr arch-4-plan
+echo '[{"id":7,"created_at":"2026-10-28T10:05:00Z","body":"Picked up. <!-- agent:ack source=reviewer -->","author_association":"OWNER"}]' > "$T/issue_comments_12.json"
+revise pr 12 --source reviewer
+assert_count "$T/claude.calls" "called" 0 "an architect PR whose review was already picked up: no second launch"
+reviewer_pr claude/other-thing
+rc=0; revise pr 12 --source reviewer || rc=$?
+if [ "$rc" -ne 0 ]; then ok "a branch that is neither issue-* nor arch-*: exits non-zero"; else bad "a branch that is neither issue-* nor arch-*: exits non-zero"; fi
+assert_count "$T/claude.calls" "called" 0 "a branch that is neither issue-* nor arch-*: no launch"
 reviewer_pr issue-9-feature-x
 rc=0; revise issue 12 --source reviewer || rc=$?
 assert_eq "$rc" "2" "--source reviewer with kind issue is a usage error"

@@ -6,8 +6,8 @@
 #        PROJECT_NUMBER=1 ./scripts/coordinator.sh --revise <pr|issue> <number> [--source human|reviewer]
 #   --revise runs one revision for one item and exits (event-driven, from .github/workflows/revise.yml).
 #   With --source human (default) the item must be pending according to scripts/pending-revisions.sh;
-#   with --source reviewer it must be an open issue-* PR whose latest reviewer review requests changes
-#   on the current head. A stale or duplicate request logs and exits 0 without posting.
+#   with --source reviewer it must be an open issue-* PR (the developer revises it) or arch-* PR (the
+#   architect does) whose latest reviewer review requests changes on the current head. A stale or duplicate request logs and exits 0 without posting.
 #   --source ci --run <run-id> (from .github/workflows/ci-fix.yml) revises an issue-* PR whose `check` job
 #   failed in that run, on the PR's current head, while main is green and the revision budget (shared with
 #   the reviewer source) is not spent. An arch-* PR gets the needs-human label instead.
@@ -189,6 +189,8 @@ ALLOWED_TOOLS=(
   "Bash(make check)" "Bash(make fmt)" "Bash(make sync)" "Bash(uv sync)" "Bash(uv run *)"
   "Bash(bash tests/scripts/*)" "Bash(scripts/pin-action.sh *)" "Bash(bash scripts/pin-action.sh *)"
   "Bash(scripts/fetch-fdc.sh)" "Bash(bash scripts/fetch-fdc.sh)"
+  "Bash(make browser-install)" "Bash(make app-up)" "Bash(make app-up *)" "Bash(make app-down)" "Bash(make app-down *)"
+  "Bash(make browse *)" "Bash(make e2e)" "Bash(make e2e *)"
 )
 if [ -n "${EXTRA_ALLOWED_TOOLS:-}" ]; then
   IFS=, read -r -a extra <<<"$EXTRA_ALLOWED_TOOLS"
@@ -421,15 +423,17 @@ revise_one() { # kind number source
   fi
 
   # Reviewer source: the reviewer is github-actions[bot], which pending-revisions never trusts, so
-  # the checks are made here. Developer PRs (issue-*) only: ADR PRs are revised on human feedback.
-  local pr state branch head review review_state review_time acked
+  # the checks are made here. Developer PRs (issue-*) go to the developer and ADR PRs (arch-*) to the
+  # architect (#178); other branches are refused.
+  local pr state branch head review review_state review_time acked rev_agent
   pr=$(gh pr view "$number" --repo "$REPO" --json state,headRefName,headRefOid) || return 1
   state=$(jq -r '.state // ""' <<<"$pr")
   branch=$(jq -r '.headRefName // ""' <<<"$pr")
   head=$(jq -r '.headRefOid // ""' <<<"$pr")
   case "$branch" in
-    issue-*) ;;
-    *) echo "$(ts) refusing a reviewer-requested revision of PR #$number: its branch '$branch' is not issue-* (ADR PRs are revised on human feedback only)" >&2; return 1 ;;
+    issue-*) rev_agent=developer ;;
+    arch-*) rev_agent=architect ;;
+    *) echo "$(ts) refusing a reviewer-requested revision of PR #$number: its branch '$branch' is neither issue-* nor arch-*" >&2; return 1 ;;
   esac
   if [ "$state" != OPEN ]; then
     echo "$(ts) PR #$number is $state; nothing to do"
@@ -455,8 +459,8 @@ revise_one() { # kind number source
     echo "$(ts) PR #$number: this review was already picked up; nothing to do"
     return 0
   fi
-  item=$(jq -nc --argjson n "$number" --arg b "$branch" --arg l "$(sed -nE 's/^issue-([0-9]+)-.*/\1/p' <<<"$branch")" \
-    '{kind: "pr", number: $n, agent: "developer", branch: $b, linked_issue: (if $l == "" then null else ($l | tonumber) end)}')
+  item=$(jq -nc --argjson n "$number" --arg b "$branch" --arg a "$rev_agent" --arg l "$(sed -nE 's/^issue-([0-9]+)-.*/\1/p' <<<"$branch")" \
+    '{kind: "pr", number: $n, agent: $a, branch: $b, linked_issue: (if $l == "" then null else ($l | tonumber) end)}')
   revise_item "$item" reviewer
 }
 

@@ -1,0 +1,14 @@
+Write the steps for this meal.
+
+Name: {{NAME}}
+Description: {{DESCRIPTION}}
+Total time: {{TOTAL_MINUTES}} minutes
+Written for: {{SERVINGS}} servings (amounts are shown elsewhere; do not state them)
+
+Ingredients, one `id | name | quantity unit` per line:
+{{LINES}}
+
+Excluded foods (never mention or use them): {{EXCLUSIONS}}
+
+Earlier steps that were rejected, and why:
+{{REJECTED}}
