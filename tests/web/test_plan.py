@@ -78,7 +78,8 @@ def cards(html: str) -> list[str]:
 
 
 def section(html: str, heading: str) -> str:
-    start = html.index(f"<h2>{heading}</h2>")
+    # The section header now carries the pick count: "Lunches: 0 of 5 picked".
+    start = html.index(f"<h2>{heading}: ")
     m = re.search(r"<h2>", html[start + 10 :])
     end = start + 10 + m.start() if m else len(html)
     return html[start:end]

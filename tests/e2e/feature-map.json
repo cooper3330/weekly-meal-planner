@@ -27,7 +27,14 @@
     },
     {
       "name": "plan",
-      "routes": ["GET /plan", "POST /plan/generate", "POST /plan/options/{option_id}/reroll"],
+      "routes": [
+        "GET /plan",
+        "POST /plan/generate",
+        "POST /plan/options/{option_id}/reroll",
+        "POST /plan/options/{option_id}/pick",
+        "POST /plan/options/{option_id}/unpick",
+        "POST /plan/limits"
+      ],
       "scenario": "profile",
       "reach": [
         {"goto": "/"},
@@ -43,11 +50,14 @@
         {"control": {"role": "button", "name": "Generate options"}, "result": "the week's slate is generated and shown as Lunches and Dinners cards with calories and macros, or the page is shown again with a plain error message and no options"},
         {"control": {"role": "link", "name": "Home"}, "result": "the home page"}
       ],
-      "implements": [{"issue": 7, "criteria": ["AC-1", "AC-2", "AC-3", "AC-6", "AC-7", "AC-8", "AC-9"]}],
+      "implements": [{"issue": 7, "criteria": ["AC-1", "AC-2", "AC-3", "AC-6", "AC-7", "AC-8", "AC-9"]},
+        {"issue": 8, "criteria": ["AC-1", "AC-2", "AC-3", "AC-8", "AC-9", "AC-10"]}
+      ],
       "flows": [],
       "sources": [
         "src/mealplanner/web/templates/plan.html",
         "src/mealplanner/web/templates/_option_card.html",
+        "src/mealplanner/web/templates/_selection_summary.html",
         "src/mealplanner/web/plan.py"
       ],
       "phone_notes": ""

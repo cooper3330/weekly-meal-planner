@@ -1,5 +1,6 @@
 {% if card.available %}
-<article class="option" id="option-{{ card.id }}">
+<article class="option{% if card.picked %} picked{% endif %}" id="option-{{ card.id }}">
+  {% if card.picked %}<p class="picked-label"><strong>&#10003; Picked</strong></p>{% endif %}
   <h3>{{ card.name }}</h3>
   <p>{{ card.description }}</p>
   <p class="meta">{{ card.cook_minutes }} min</p>
@@ -20,14 +21,30 @@
   <ul class="ingredients">
     {% for line in card.ingredients %}<li>{{ line }}</li>{% endfor %}
   </ul>
+  {% if card.picked %}
+  <form method="post" action="/plan/options/{{ card.id }}/unpick">
+    <button type="submit" class="unpick">Unpick</button>
+  </form>
+  {% else %}
+  <form method="post" action="/plan/options/{{ card.id }}/pick">
+    <button type="submit" class="pick"{% if card.full %} disabled{% endif %}>Pick</button>
+    {% if card.full %}<span class="hint">You have picked all you can. Unpick one to change.</span>{% endif %}
+  </form>
+  {% endif %}
   <form method="post" action="/plan/options/{{ card.id }}/reroll">
     <button type="submit" class="replace">Replace</button>
   </form>
 </article>
 {% else %}
-<article class="option unavailable" id="option-{{ card.id }}">
+<article class="option unavailable{% if card.picked %} picked{% endif %}" id="option-{{ card.id }}">
+  {% if card.picked %}<p class="picked-label"><strong>&#10003; Picked</strong></p>{% endif %}
   <p><strong>This option no longer fits your profile</strong></p>
   <p>{{ card.reason }}</p>
+  {% if card.picked %}
+  <form method="post" action="/plan/options/{{ card.id }}/unpick">
+    <button type="submit" class="unpick">Unpick</button>
+  </form>
+  {% endif %}
   <form method="post" action="/plan/options/{{ card.id }}/reroll">
     <button type="submit" class="replace">Replace</button>
   </form>

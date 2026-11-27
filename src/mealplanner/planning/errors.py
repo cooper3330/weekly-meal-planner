@@ -13,6 +13,18 @@ class OptionNotFoundError(LookupError):
     """No active option with that id belongs to the user (missing, foreign or already replaced)."""
 
 
+class OptionUnavailableError(RuntimeError):
+    """The option fails the checks now (for example a new exclusion), so it cannot be picked."""
+
+
+class SelectionLimitError(ValueError):
+    """A pick would pass the limit, or a limit is invalid or below the current number of picks."""
+
+
+class SlateNotFoundError(LookupError):
+    """The user has no slate for that week."""
+
+
 class SlateExistsError(RuntimeError):
     """The user already has a slate for that week."""
 
