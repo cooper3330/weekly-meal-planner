@@ -1,0 +1,20 @@
+{
+  "internal": [],
+  "features": [
+    {
+      "name": "home",
+      "routes": ["GET /"],
+      "scenario": "empty",
+      "reach": [{"goto": "/"}],
+      "landmarks": [
+        {"role": "heading", "name": "Weekly meal planner"},
+        {"role": "button", "name": "Plan my week"}
+      ],
+      "actions": [],
+      "implements": [],
+      "flows": [],
+      "sources": ["src/mealplanner/web/templates/home.html"],
+      "phone_notes": ""
+    }
+  ]
+}
