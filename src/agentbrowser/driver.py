@@ -398,7 +398,11 @@ def run_flow(
     try:
         for number, step in enumerate(flow.steps, 1):
             label = f"step {number} ({step.kind}): "
-            starts.append((len(recorder.console), len(recorder.requests), label))
+            # The first step owns everything logged before it began.
+            first = not starts
+            starts.append(
+                (0, 0, label) if first else (len(recorder.console), len(recorder.requests), label)
+            )
             remaining_ms = int((deadline - time.monotonic()) * 1000)
             if remaining_ms <= 0:
                 result.failures.append(

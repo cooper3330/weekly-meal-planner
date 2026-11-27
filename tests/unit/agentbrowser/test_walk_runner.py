@@ -319,13 +319,13 @@ def test_a_console_error_and_an_external_request_fail_the_walk_naming_the_featur
     env: Env, capsys: pytest.CaptureFixture[str]
 ) -> None:
     env.drv.failing = {
-        "home": ["console error: boom"],
-        "profile-edit": ["external request (aborted): GET http://evil.test/"],
+        "home": ["step 1 (goto): console error: boom"],
+        "profile-edit": ["step 2 (click): external request (aborted): GET http://evil.test/"],
     }
     assert env.run() == 1
     err = capsys.readouterr().err
-    assert "feature home: console error: boom" in err
-    assert "feature profile-edit: external request (aborted)" in err
+    assert "feature home: step 1 (goto): console error: boom" in err
+    assert "feature profile-edit: step 2 (click): external request (aborted)" in err
     assert "Reproduce: make e2e FEATURE=home" in err
     assert "Reproduce: make e2e FEATURE=profile-edit" in err
 
