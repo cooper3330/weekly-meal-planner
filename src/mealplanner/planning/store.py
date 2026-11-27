@@ -8,7 +8,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 
-from mealplanner.planning.errors import SlateExistsError
+from mealplanner.planning.errors import OptionNotFoundError, SlateExistsError
 from mealplanner.planning.models import MealOption, MealType, RecentMeal
 from mealplanner.planning.schema import MealOptionDraft
 
@@ -148,3 +148,92 @@ def recent_meals(
             )
         )
     return meals
+
+
+@dataclass(frozen=True)
+class OptionRef:
+    """An active option and where it sits."""
+
+    option: StoredOption
+    slate_id: int
+    week_start: date
+
+
+def get_active_option(conn: sqlite3.Connection, user_id: int, option_id: int) -> OptionRef | None:
+    """The user's option if it exists and is not replaced; otherwise None."""
+    row = conn.execute(
+        "SELECT o.id, o.meal_type, o.position, o.servings, o.data, o.slate_id, s.week_start "
+        "FROM slate_options o JOIN slates s ON s.id = o.slate_id "
+        "WHERE o.id = ? AND o.user_id = ? AND s.user_id = ? AND o.replaced_at IS NULL",
+        (option_id, user_id, user_id),
+    ).fetchone()
+    if row is None:
+        return None
+    return OptionRef(
+        option=StoredOption(
+            id=row["id"],
+            meal_type=MealType(row["meal_type"]),
+            position=row["position"],
+            servings=row["servings"],
+            draft=MealOptionDraft.model_validate_json(row["data"]),
+        ),
+        slate_id=row["slate_id"],
+        week_start=date.fromisoformat(row["week_start"]),
+    )
+
+
+def replaced_drafts(conn: sqlite3.Connection, user_id: int, slate_id: int) -> list[MealOptionDraft]:
+    """Every replaced option of the slate, oldest first."""
+    rows = conn.execute(
+        "SELECT data FROM slate_options "
+        "WHERE slate_id = ? AND user_id = ? AND replaced_at IS NOT NULL ORDER BY id",
+        (slate_id, user_id),
+    ).fetchall()
+    return [MealOptionDraft.model_validate_json(r["data"]) for r in rows]
+
+
+def replace_option(
+    conn: sqlite3.Connection,
+    user_id: int,
+    option_id: int,
+    option: MealOption,
+    *,
+    now: datetime,
+) -> int:
+    """In one transaction retire the old row and insert the new one in the same slot."""
+    stamp = _timestamp(now)
+    data = option.draft.model_dump_json()
+    conn.commit()
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        old = conn.execute(
+            "SELECT slate_id, meal_type, position FROM slate_options "
+            "WHERE id = ? AND user_id = ? AND replaced_at IS NULL",
+            (option_id, user_id),
+        ).fetchone()
+        if old is None:
+            raise OptionNotFoundError(f"option {option_id} cannot be replaced")
+        conn.execute("UPDATE slate_options SET replaced_at = ? WHERE id = ?", (stamp, option_id))
+        cursor = conn.execute(
+            "INSERT INTO slate_options "
+            "(slate_id, user_id, meal_type, position, servings, data, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (
+                old["slate_id"],
+                user_id,
+                old["meal_type"],
+                old["position"],
+                option.servings,
+                data,
+                stamp,
+            ),
+        )
+        new_id = cursor.lastrowid
+        assert new_id is not None
+        conn.execute("UPDATE slate_options SET replaced_by = ? WHERE id = ?", (new_id, option_id))
+        conn.execute("COMMIT")
+    except BaseException:
+        if conn.in_transaction:
+            conn.execute("ROLLBACK")
+        raise
+    return new_id

@@ -1,5 +1,5 @@
 {% if card.available %}
-<article class="option">
+<article class="option" id="option-{{ card.id }}">
   <h3>{{ card.name }}</h3>
   <p>{{ card.description }}</p>
   <p class="meta">{{ card.cook_minutes }} min</p>
@@ -20,10 +20,16 @@
   <ul class="ingredients">
     {% for line in card.ingredients %}<li>{{ line }}</li>{% endfor %}
   </ul>
+  <form method="post" action="/plan/options/{{ card.id }}/reroll">
+    <button type="submit" class="replace">Replace</button>
+  </form>
 </article>
 {% else %}
-<article class="option unavailable">
+<article class="option unavailable" id="option-{{ card.id }}">
   <p><strong>This option no longer fits your profile</strong></p>
   <p>{{ card.reason }}</p>
+  <form method="post" action="/plan/options/{{ card.id }}/reroll">
+    <button type="submit" class="replace">Replace</button>
+  </form>
 </article>
 {% endif %}
