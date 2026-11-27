@@ -3,6 +3,7 @@ and ``make browse``."""
 
 import argparse
 import json
+import signal
 import sys
 from collections.abc import Sequence
 from datetime import UTC, datetime
@@ -79,6 +80,20 @@ def _browse(args: argparse.Namespace) -> int:
     return 1
 
 
+def _e2e(args: argparse.Namespace) -> int:
+    from agentbrowser import runner
+
+    def _terminate(signum: int, frame: object) -> None:
+        raise KeyboardInterrupt  # so the running app is stopped, as for Ctrl-C
+
+    previous = signal.signal(signal.SIGTERM, _terminate)
+    out = Path(args.out) if args.out else runner.default_out()
+    try:
+        return runner.run(Path(args.flow) if args.flow else None, out)
+    finally:
+        signal.signal(signal.SIGTERM, previous)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="agentbrowser")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -92,7 +107,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     browse.add_argument("--url", default="")
     browse.add_argument("--out", default="")
     browse.add_argument("--name", default="default", help="app name for the state file")
+    e2e = sub.add_parser("e2e", help="run every flow in tests/flows/ against a fresh demo app")
+    e2e.add_argument("--flow", default="", help="run only this flow file")
+    e2e.add_argument("--out", default="", help="artifact directory")
     args = parser.parse_args(argv)
+    if args.cmd == "e2e":
+        return _e2e(args)
     try:
         if args.cmd == "up":
             handle = lifecycle.start(args.name, args.scenario)

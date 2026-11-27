@@ -1,5 +1,18 @@
 # Agent browser
 
+## Reproduce first
+
+For a reported UI bug, the failing flow comes before the fix, and it stays afterwards as the regression test.
+
+1. Write a flow in `tests/flows/<name>.json` from the report's steps (`viewport` and `steps` paste in unchanged; add `proves` and the demo `scenario` the bug needs).
+2. Run `make e2e FLOW=tests/flows/<name>.json`. A flow starts its own fresh demo app and stops it afterwards; nothing is retried.
+3. Check that it fails for the reason in the report: the failure block names the step, what was expected and what happened, and the artifact directory. A flow that fails for another reason (a typo in a name, a wrong scenario) is not yet the reproduction; fix the flow.
+4. Fix the bug.
+5. Run `make e2e FLOW=tests/flows/<name>.json` again until it is green, then `make e2e` for every flow.
+6. Keep the flow file in the pull request.
+
+`make e2e` also runs the browser tests in `tests/e2e/` when no `FLOW` is given. A flow with `mode: wired` is rejected until #145 lands.
+
 ## Feature map
 
 `tests/e2e/feature-map.json` says where each page lives, how to reach it from the home page, what state it needs and what it shows once it rendered (ADR 0029). It holds fixture data only: labels of the pages, issue and criteria numbers, file paths.
