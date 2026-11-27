@@ -97,7 +97,12 @@ def test_real_map_has_the_expected_pages(real_map: dict[str, Any]) -> None:
         "profile-history",
         "profile-version",
     }
-    assert {i["route"] for i in real_map["internal"]} == {"GET /healthz", "MOUNT /static"}
+    # GET /grocery is internal until a demo scenario has a confirmed week to walk to it.
+    assert {i["route"] for i in real_map["internal"]} == {
+        "GET /healthz",
+        "GET /grocery",
+        "MOUNT /static",
+    }
     assert entry(real_map, "home")["reach"] == [{"goto": "/"}]
 
 

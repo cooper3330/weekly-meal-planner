@@ -1,6 +1,7 @@
 {
   "internal": [
     {"route": "GET /healthz", "why": "supervisor health check, not a page"},
+    {"route": "GET /grocery", "why": "linked only from a confirmed plan, and no demo scenario has a confirmed week yet, so the walk cannot reach it; covered by tests/web/test_grocery.py"},
     {"route": "MOUNT /static", "why": "stylesheet and other static files"}
   ],
   "features": [
