@@ -1,0 +1,29 @@
+{% if card.available %}
+<article class="option">
+  <h3>{{ card.name }}</h3>
+  <p>{{ card.description }}</p>
+  <p class="meta">{{ card.cook_minutes }} min</p>
+  {% if card.tags %}
+  <ul class="tags">
+    {% for tag in card.tags %}<li>{{ tag }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+  <p class="nutrition">
+    <span data-nutrient="kcal">{{ card.nutrition.kcal }}</span> kcal,
+    protein <span data-nutrient="protein">{{ card.nutrition.protein }}</span> g,
+    carbs <span data-nutrient="carbs">{{ card.nutrition.carbs }}</span> g,
+    fat <span data-nutrient="fat">{{ card.nutrition.fat }}</span> g
+    per serving
+  </p>
+  <p class="meta">Written for {{ card.servings }} servings</p>
+  <h4>Ingredients</h4>
+  <ul class="ingredients">
+    {% for line in card.ingredients %}<li>{{ line }}</li>{% endfor %}
+  </ul>
+</article>
+{% else %}
+<article class="option unavailable">
+  <p><strong>This option no longer fits your profile</strong></p>
+  <p>{{ card.reason }}</p>
+</article>
+{% endif %}

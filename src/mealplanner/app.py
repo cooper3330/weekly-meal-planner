@@ -15,8 +15,9 @@ from mealplanner.db import apply_migrations, connect
 from mealplanner.grocery.info import load_grocery_info
 from mealplanner.llm.cli_bridge_client import CLIBridgeLLMClient
 from mealplanner.llm.client import LLMClient
-from mealplanner.nutrition.catalog import load_catalog
+from mealplanner.nutrition.catalog import Catalog, load_catalog
 from mealplanner.web.auth import cross_site_protection, make_identity_middleware
+from mealplanner.web.plan import router as plan_router
 from mealplanner.web.profile import router as profile_router
 from mealplanner.web.routes import router
 
@@ -31,6 +32,50 @@ SECURITY_HEADERS = {
 _STATIC_DIR = Path(__file__).parent / "web" / "static"
 MIGRATIONS_DIR = Path(__file__).parent / "db" / "migrations"
 DB_FILENAME = "mealplanner.sqlite3"
+MISS_LOGGER = "mealplanner.catalog_misses"
+MISS_LOG_NAME = "catalog-misses.log"
+_MISS_HANDLER_MARK = "_mealplanner_miss_handler"
+APP_LOGGER = "mealplanner"
+APP_LOG_NAME = "app.log"
+_APP_HANDLER_MARK = "_mealplanner_app_handler"
+
+
+def _attach_miss_log(data_dir: Path) -> None:
+    """Append catalog misses to ``<data_dir>/logs/catalog-misses.log`` (ADR 0018).
+
+    A handler from an earlier ``create_app`` call is replaced, so tests and reloads do not
+    stack handlers or keep files open.
+    """
+    log_dir = data_dir / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    miss_logger = logging.getLogger(MISS_LOGGER)
+    for old in [h for h in miss_logger.handlers if getattr(h, _MISS_HANDLER_MARK, False)]:
+        miss_logger.removeHandler(old)
+        old.close()
+    handler = logging.FileHandler(log_dir / MISS_LOG_NAME, mode="a", encoding="utf-8")
+    handler.setLevel(logging.WARNING)
+    handler.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
+    setattr(handler, _MISS_HANDLER_MARK, True)
+    miss_logger.addHandler(handler)
+
+
+def _attach_app_log(data_dir: Path) -> None:
+    """Append warnings from every ``mealplanner`` logger to ``<data_dir>/logs/app.log``.
+
+    Failures were visible only on the page; this keeps the diagnostic lines (never prompts or
+    model text) for troubleshooting. Like the miss log, an earlier handler is replaced.
+    """
+    log_dir = data_dir / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    app_logger = logging.getLogger(APP_LOGGER)
+    for old in [h for h in app_logger.handlers if getattr(h, _APP_HANDLER_MARK, False)]:
+        app_logger.removeHandler(old)
+        old.close()
+    handler = logging.FileHandler(log_dir / APP_LOG_NAME, mode="a", encoding="utf-8")
+    handler.setLevel(logging.WARNING)
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+    setattr(handler, _APP_HANDLER_MARK, True)
+    app_logger.addHandler(handler)
 
 
 def _write_owner_login(db_path: Path, login: str) -> None:
@@ -46,6 +91,7 @@ def _write_owner_login(db_path: Path, login: str) -> None:
 def create_app(
     settings: Settings,
     llm_client: LLMClient | None = None,
+    catalog: Catalog | None = None,
     clock: Callable[[], datetime] | None = None,
 ) -> FastAPI:
     db_path = settings.data_dir / DB_FILENAME
@@ -77,10 +123,16 @@ def create_app(
         lifespan=lifespan,
     )
     app.state.settings = settings
+    # Loaded once at startup (a bad packaged catalog fails fast); tests inject a small one.
+    packaged = load_catalog()
+    app.state.catalog = catalog if catalog is not None else packaged
+    _attach_miss_log(settings.data_dir)
+    _attach_app_log(settings.data_dir)
     app.state.db_path = db_path
     # Both files are validated once here; a broken one stops startup with its message (ADR 0023).
-    app.state.catalog = load_catalog()
-    app.state.grocery_info = load_grocery_info(app.state.catalog)
+    # The grocery file describes the packaged catalog, so it is checked against that one even
+    # when a test injects a small catalog.
+    app.state.grocery_info = load_grocery_info(packaged)
     # Injectable so tests are deterministic (ADR 0010); must return a timezone-aware time.
     app.state.clock = clock if clock is not None else (lambda: datetime.now(UTC))
     # Building the client never contacts the bridge; a missing or down bridge shows on generate().
@@ -107,4 +159,5 @@ def create_app(
     app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
     app.include_router(router)
     app.include_router(profile_router)
+    app.include_router(plan_router)
     return app

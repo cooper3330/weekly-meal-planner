@@ -49,6 +49,27 @@ def test_smoke_fails_on_error_envelope(
     assert "is_error" in out
 
 
+def test_smoke_failure_shows_the_cli_error_text(
+    tmp_path: Path, stub_registry: Callable[..., Registry], capsys: pytest.CaptureFixture[str]
+) -> None:
+    long_text = "Invalid API key. " + "x" * 2000
+    body = "import json, sys\nif '--version' in sys.argv: print('1.0'); sys.exit(0)\n"
+    body += f"print(json.dumps({{'is_error': True, 'result': {long_text!r}}}))\nsys.exit(1)\n"
+    code, out = _smoke(tmp_path, stub_registry(body), capsys, {"SECRET": "leak-me"})
+    assert code == 1
+    assert "cli error text: Invalid API key." in out
+    assert "x" * 600 not in out  # truncated
+    assert "leak-me" not in out
+
+
+def test_smoke_success_prints_no_cli_error_text(
+    tmp_path: Path, stub_registry: Callable[..., Registry], capsys: pytest.CaptureFixture[str]
+) -> None:
+    code, out = _smoke(tmp_path, stub_registry(OK_STUB), capsys, {})
+    assert code == 0
+    assert "cli error text" not in out
+
+
 def test_smoke_fails_on_unparseable_stdout(
     tmp_path: Path, stub_registry: Callable[..., Registry], capsys: pytest.CaptureFixture[str]
 ) -> None:
