@@ -9,6 +9,10 @@ class ProfileRequiredError(RuntimeError):
     """The user has no saved profile. "No profile" never means "no exclusions" (ADR 0017)."""
 
 
+class OptionNotFoundError(LookupError):
+    """No active option with that id belongs to the user (missing, foreign or already replaced)."""
+
+
 class SlateExistsError(RuntimeError):
     """The user already has a slate for that week."""
 

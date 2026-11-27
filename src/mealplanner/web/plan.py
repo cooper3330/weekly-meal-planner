@@ -12,19 +12,21 @@ from datetime import date, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
 
 from mealplanner.llm.client import LLMClient
 from mealplanner.llm.errors import LLMConfigError, LLMOutputError, LLMUnavailableError
 from mealplanner.nutrition.catalog import Catalog
 from mealplanner.nutrition.compute import display_nutrition
 from mealplanner.planning.errors import (
+    OptionNotFoundError,
     ProfileRequiredError,
     SlateExistsError,
     SlateGenerationError,
 )
 from mealplanner.planning.generate import MAX_COUNT, MIN_COUNT, generate_slate
 from mealplanner.planning.models import MealOption, MealType, SlateView, UnavailableOption
+from mealplanner.planning.reroll import reroll_option
 from mealplanner.planning.view import load_slate_view
 from mealplanner.planning.week import week_start_for
 from mealplanner.profile.store import get_current_profile
@@ -79,13 +81,14 @@ def _cards(view: SlateView, catalog: Catalog, meal_type: MealType) -> list[dict[
     cards: list[dict[str, Any]] = []
     for slot in view.options[meal_type]:
         if isinstance(slot, UnavailableOption):
-            cards.append({"available": False, "reason": slot.reason})
+            cards.append({"available": False, "id": slot.option_id, "reason": slot.reason})
             continue
         assert isinstance(slot, MealOption)
         n = display_nutrition(slot.nutrition)
         cards.append(
             {
                 "available": True,
+                "id": slot.option_id,
                 "name": slot.draft.name,
                 "description": slot.draft.description,
                 "cook_minutes": slot.draft.cook_minutes,
@@ -205,22 +208,68 @@ async def generate_plan(
         )
     except SlateExistsError:
         pass
-    except ProfileRequiredError:
-        return fail(409, "Set up your profile first.", profile_link=True)
-    except SlateGenerationError as e:
+    except _HANDLED as e:
+        status, message, extra = _failure("slate generation", e)
+        return fail(status, message, **extra)
+    return RedirectResponse("/plan", status_code=303)
+
+
+_HANDLED = (
+    ProfileRequiredError,
+    SlateGenerationError,
+    LLMOutputError,
+    LLMConfigError,
+    LLMUnavailableError,
+)
+
+
+def _failure(what: str, e: Exception) -> tuple[int, str, dict[str, Any]]:
+    """Status, message and extra render arguments for an error shared by generate and reroll."""
+    if isinstance(e, ProfileRequiredError):
+        return 409, "Set up your profile first.", {"profile_link": True}
+    if isinstance(e, SlateGenerationError):
         # Reasons only: they come from the code checks, and no dish name is shown.
         reasons = list(dict.fromkeys(r.reason for r in e.rejections))
-        logger.warning("slate generation failed: rejected options (%s)", "; ".join(reasons))
-        return fail(502, SLATE_FAILED, reasons=reasons)
-    except LLMOutputError:
+        logger.warning("%s failed: rejected options (%s)", what, "; ".join(reasons))
+        return 502, SLATE_FAILED, {"reasons": reasons}
+    if isinstance(e, LLMOutputError):
         # No message: it could carry model text.
-        logger.warning("slate generation failed: LLMOutputError (invalid model output)")
-        return fail(502, OUTPUT_INVALID)
-    except LLMConfigError as e:
+        logger.warning("%s failed: LLMOutputError (invalid model output)", what)
+        return 502, OUTPUT_INVALID, {}
+    if isinstance(e, LLMConfigError):
         # The bridge client's own message says what to fix (not set up, not signed in, ...).
-        logger.warning("slate generation failed: LLMConfigError: %s", e)
-        return fail(503, str(e))
-    except LLMUnavailableError as e:
-        logger.warning("slate generation failed: LLMUnavailableError: %s", e)
-        return fail(503, UNAVAILABLE)
-    return RedirectResponse("/plan", status_code=303)
+        logger.warning("%s failed: LLMConfigError: %s", what, e)
+        return 503, str(e), {}
+    logger.warning("%s failed: %s: %s", what, type(e).__name__, e)
+    return 503, UNAVAILABLE, {}
+
+
+@router.post("/plan/options/{option_id}/reroll", response_model=None)
+async def reroll_plan_option(
+    option_id: int,
+    request: Request,
+    user_id: UserId,
+    conn: Conn,
+    catalog: CatalogDep,
+    llm: Llm,
+    now: Now,
+) -> Response:
+    try:
+        reroll_option(conn, llm, catalog, user_id, option_id, now=now)
+    except OptionNotFoundError:
+        return PlainTextResponse("Option not found.", status_code=404)
+    except _HANDLED as e:
+        status, message, extra = _failure("option replacement", e)
+        return _render(
+            request, conn, catalog, user_id, now, status_code=status, error=message, **extra
+        )
+    new_id = _replacement_id(conn, user_id, option_id)
+    return RedirectResponse(f"/plan#option-{new_id}", status_code=303)
+
+
+def _replacement_id(conn: sqlite3.Connection, user_id: int, option_id: int) -> int:
+    row = conn.execute(
+        "SELECT replaced_by FROM slate_options WHERE id = ? AND user_id = ?",
+        (option_id, user_id),
+    ).fetchone()
+    return int(row["replaced_by"])

@@ -5,6 +5,7 @@ rejected. Nothing is written unless both meal types are full.
 """
 
 import sqlite3
+from collections.abc import Sequence
 from datetime import date, datetime
 
 from mealplanner.llm.client import LLMClient
@@ -70,8 +71,8 @@ def generate_slate(
         (MealType.lunch, lunch_count),
         (MealType.dinner, dinner_count),
     ):
-        earlier = [o for group in accepted.values() for o in group]
-        accepted[meal_type] = _fill(
+        earlier = [o.draft for group in accepted.values() for o in group]
+        accepted[meal_type] = fill_options(
             llm, catalog, system, profile, meal_type, count, recent, earlier
         )
 
@@ -81,7 +82,7 @@ def generate_slate(
     return view
 
 
-def _fill(
+def fill_options(
     llm: LLMClient,
     catalog: Catalog,
     system: str,
@@ -89,16 +90,21 @@ def _fill(
     meal_type: MealType,
     count: int,
     recent: list[RecentMeal],
-    earlier: list[MealOption],
+    earlier: Sequence[MealOptionDraft],
 ) -> list[MealOption]:
-    """One batch call, then up to ``MAX_TOP_UPS`` calls for the shortfall."""
+    """One batch call, then up to ``MAX_TOP_UPS`` calls for the shortfall.
+
+    ``earlier`` are the drafts the new options must differ from. Shared with ``reroll``.
+    """
     accepted: list[MealOption] = []
     rejections: list[Rejection] = []
     for _ in range(1 + MAX_TOP_UPS):
         need = count - len(accepted)
         if need == 0:
             break
-        avoid = [o.draft.name for o in earlier + accepted] + [m.name for m in recent]
+        avoid = (
+            [d.name for d in earlier] + [o.draft.name for o in accepted] + [m.name for m in recent]
+        )
         batch = llm.generate(
             system=system,
             messages=[
@@ -123,7 +129,7 @@ def _fill(
             if isinstance(result, Rejection):
                 rejections.append(result)
                 continue
-            clash = _clash(draft, [o.draft for o in earlier + accepted], recent)
+            clash = _clash(draft, [*earlier, *(o.draft for o in accepted)], recent)
             if clash is not None:
                 rejections.append(Rejection(name=draft.name, reason=clash))
                 continue
