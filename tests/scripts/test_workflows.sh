@@ -529,6 +529,9 @@ if grep -q 'ref: \${{ github.event.pull_request.base.ref }}' <<<"$rv_ci" && ! gr
 if grep -q 'needs: ci-output' <<<"$rv_rj"; then ok "review.yml: the review job waits for ci-output"; else bad "review.yml: the review job waits for ci-output"; fi
 if grep -q 'needs.ci-output.outputs.text' <<<"$rv_rj"; then ok "review.yml: the review job takes the text from ci-output"; else bad "review.yml: the review job takes the text from ci-output"; fi
 if grep -Eq '^[[:space:]]+run:.*needs\.ci-output' <<<"$rv_rj"; then bad "review.yml: the CI text is never on a command line"; else ok "review.yml: the CI text is never on a command line"; fi
+# Both wait loops look at the newest `check` run, so a re-run is waited for (the old completed run is not enough).
+if grep -c 'select(.name == "check")\] | sort_by(.id) | if length == 0 then "missing" else last | .status' "$RV" | grep -qx 2; then ok "review.yml: both wait loops read the newest check run (sort_by(.id) | last)"; else bad "review.yml: both wait loops read the newest check run (sort_by(.id) | last)"; fi
+if grep -q 'else .\[0\].status' "$RV"; then bad "review.yml: no wait loop reads the first check run"; else ok "review.yml: no wait loop reads the first check run"; fi
 assert_grep "$RV" 'REVISION_BUDGET:[[:space:]]*\$\{\{[[:space:]]*vars\.REVISION_BUDGET' "review.yml passes REVISION_BUDGET to the merge gate"
 
 # A workflow step that runs a script directly (scripts/x.sh, not "bash scripts/x.sh") needs the git

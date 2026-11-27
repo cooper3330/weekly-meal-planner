@@ -43,6 +43,7 @@ case "$conclusion" in
     else
       echo "The log was unavailable (the fetch failed). Review without it, and say so."
     fi ;;
+  cancelled) echo "The \`check\` job was cancelled on head commit $sha, so there is no failure to show. No log was fetched." ;;
   success) echo "The \`check\` job passed on head commit $sha. There is no failure to show." ;;
   *) echo "There is no completed \`check\` run on head commit $sha (it is missing or still running). No log was fetched." ;;
 esac

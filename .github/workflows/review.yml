@@ -60,7 +60,7 @@ jobs:
           waited=0
           while [ "$waited" -lt 720 ]; do
             status=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs" \
-              --jq '[.check_runs[] | select(.name == "check")] | if length == 0 then "missing" else .[0].status end')
+              --jq '[.check_runs[] | select(.name == "check")] | sort_by(.id) | if length == 0 then "missing" else last | .status end')
             if [ "$status" = "completed" ]; then exit 0; fi
             sleep 20
             waited=$((SECONDS - start))
@@ -206,7 +206,7 @@ jobs:
           waited=0
           while [ "$waited" -lt 720 ]; do
             status=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs" \
-              --jq '[.check_runs[] | select(.name == "check")] | if length == 0 then "missing" else .[0].status end')
+              --jq '[.check_runs[] | select(.name == "check")] | sort_by(.id) | if length == 0 then "missing" else last | .status end')
             if [ "$status" = "completed" ]; then exit 0; fi
             sleep 20
             waited=$((SECONDS - start))

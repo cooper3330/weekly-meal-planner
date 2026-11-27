@@ -62,6 +62,14 @@ out > "$T/out.md"
 assert_grep "$T/out.md" 'no completed' "a run that has not concluded is reported the same way"
 assert_count "$T/gh.log" 'actions/jobs' 0 "and no log is fetched"
 
+echo "ci-failure.sh: a cancelled check"
+printf 'cancelled 558\n' > "$T/checkruns.txt"
+: > "$T/gh.log"
+out > "$T/out.md"
+assert_grep "$T/out.md" 'cancelled' "says the check was cancelled"
+if grep -qi 'missing or still running' "$T/out.md"; then bad "and does not call it missing or still running"; else ok "and does not call it missing or still running"; fi
+assert_count "$T/gh.log" 'actions/jobs' 0 "no log is fetched for a cancelled check"
+
 echo "ci-failure.sh: failed fetches never fail the script"
 printf 'failure 555\n' > "$T/checkruns.txt"
 rc=0; STUB_LOG_FAIL=1 bash scripts/ci-failure.sh "$SHA" > "$T/out.md" 2>/dev/null || rc=$?
