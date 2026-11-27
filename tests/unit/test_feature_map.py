@@ -1,21 +1,25 @@
 """The feature map (tests/e2e/feature-map.json) must agree with the app's routes (ADR 0029).
 
-Offline, no browser. The step and locator check below is a minimal interim one; #154 replaces
-it with the agentbrowser types, so keep it small.
+Offline, no browser. The map's schema and rules live in `agentbrowser.feature_map` (ADR 0028's
+steps and locators); this module checks the real map against the real app and keeps the cases
+that guard each rule.
 """
 
 import copy
 import json
-import re
 from pathlib import Path
 from typing import Any
 
 import pytest
 from fastapi import FastAPI
-from fastapi.routing import APIRoute, iter_route_contexts
-from starlette.routing import Mount
 from starlette.websockets import WebSocket
 
+from agentbrowser.feature_map import (
+    FeatureMapError,
+    app_routes,
+    parse,
+    route_errors,
+)
 from mealplanner.app import create_app
 from mealplanner.config import load_settings
 from mealplanner.demo.build import scenario_names
@@ -24,157 +28,10 @@ from mealplanner.llm.fake import FakeLLMClient
 ROOT = Path(__file__).resolve().parents[2]
 MAP_PATH = ROOT / "tests" / "e2e" / "feature-map.json"
 FLOWS_DIR = ROOT / "tests" / "flows"
-
-TOP_KEYS = {"internal", "features"}
-FEATURE_KEYS = {
-    "name",
-    "routes",
-    "scenario",
-    "reach",
-    "landmarks",
-    "actions",
-    "implements",
-    "flows",
-    "sources",
-    "phone_notes",
-}
-STEP_KEYS = {"goto", "click", "fill", "select", "press", "expect_text", "expect_no_text"}
-NAV_KEYS = {"click", "fill", "select", "press"}
-KEBAB = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
-SHARED_LAYOUT = {"base.html", "app.css"}
-
-
-# --- the routes the app really has ---------------------------------------------------------
-
-
-def app_routes(app: FastAPI) -> list[str]:
-    # FastAPI keeps included routers lazy in app.routes; iter_route_contexts flattens them and
-    # gives each route's full path.
-    out: list[str] = []
-    for ctx in iter_route_contexts(app.routes):
-        route = ctx.original_route
-        if isinstance(route, APIRoute):
-            out.extend(f"{m} {ctx.path}" for m in sorted(route.methods) if m != "HEAD")
-        elif isinstance(route, Mount):
-            out.append(f"MOUNT {ctx.path}")
-        else:
-            raise AssertionError(f"Unknown route type {type(route).__name__}: {route!r}")
-    return out
+SCENARIOS_DIR = ROOT / "src" / "mealplanner" / "demo" / "scenarios"
 
 
 # --- the check ------------------------------------------------------------------------------
-
-
-def _locator_errors(where: str, loc: Any, extra: frozenset[str] = frozenset()) -> list[str]:
-    if not isinstance(loc, dict):
-        return [f"{where}: a locator must be an object"]
-    keys = set(loc) - extra
-    if keys == {"role", "name"} or keys == {"label"} or keys == {"text"}:
-        if all(isinstance(loc[k], str) and loc[k] for k in keys):
-            return []
-        return [f"{where}: locator values must be non-empty strings"]
-    return [f"{where}: locator must be role+name, label or text, got keys {sorted(loc)}"]
-
-
-def _step_errors(where: str, step: Any) -> list[str]:
-    if not isinstance(step, dict):
-        return [f"{where}: a step must be an object"]
-    keys = set(step) - {"shows"}
-    if len(keys) != 1 or not keys <= STEP_KEYS:
-        return [f"{where}: a step needs exactly one step key from {sorted(STEP_KEYS)}"]
-    (kind,) = keys
-    value = step[kind]
-    if kind in {"goto", "press", "expect_text", "expect_no_text"}:
-        return [] if isinstance(value, str) and value else [f"{where}: {kind} needs text"]
-    extra = frozenset({"value"}) if kind in {"fill", "select"} else frozenset()
-    return _locator_errors(f"{where}.{kind}", value, extra)
-
-
-def _reach_errors(name: str, reach: Any) -> list[str]:
-    if not isinstance(reach, list) or not reach or reach[0] != {"goto": "/"}:
-        return [f'{name}: reach must start with {{"goto": "/"}}']
-    errors: list[str] = []
-    for i, step in enumerate(reach):
-        where = f"{name}: reach[{i}]"
-        errors += _step_errors(where, step)
-        if i > 0 and isinstance(step, dict):
-            if "goto" in step:
-                errors.append(f"{where}: no other goto is allowed in reach")
-            elif set(step) - {"shows"} and not set(step) & NAV_KEYS:
-                errors.append(f"{where}: reach steps must be click, fill, select or press")
-    return errors
-
-
-def _implements_errors(name: str, implements: Any) -> list[str]:
-    if not isinstance(implements, list):
-        return [f"{name}: implements must be a list"]
-    errors: list[str] = []
-    for i, item in enumerate(implements):
-        where = f"{name}: implements[{i}]"
-        if not isinstance(item, dict) or set(item) != {"issue", "criteria"}:
-            errors.append(f"{where}: needs exactly issue and criteria")
-            continue
-        issue = item["issue"]
-        if not isinstance(issue, int) or isinstance(issue, bool) or issue < 1:
-            errors.append(f"{where}: issue must be a positive number")
-        crit = item["criteria"]
-        if not isinstance(crit, list) or not crit:
-            errors.append(f"{where}: criteria needs at least one AC-n")
-        else:
-            errors += [
-                f"{where}: criteria {c!r} is not AC-n"
-                for c in crit
-                if not (isinstance(c, str) and re.fullmatch(r"AC-\d+", c))
-            ]
-    return errors
-
-
-def _feature_errors(
-    f: dict[str, Any], root: Path, flows_dir: Path, scenarios: set[str]
-) -> list[str]:
-    name = f.get("name", "<unnamed>")
-    missing = FEATURE_KEYS - set(f)
-    unknown = set(f) - FEATURE_KEYS
-    errors = [f"{name}: missing field {k}" for k in sorted(missing)]
-    errors += [f"{name}: unknown field {k}" for k in sorted(unknown)]
-    if missing:
-        return errors
-    if not isinstance(name, str) or not KEBAB.match(name):
-        errors.append(f"{name}: name must be kebab-case")
-    routes = f["routes"]
-    if not isinstance(routes, list) or not all(isinstance(r, str) for r in routes):
-        return [*errors, f"{name}: routes must be a list of strings"]
-    if not any(r.startswith("GET ") for r in routes):
-        errors.append(f"{name}: routes needs at least one GET route")
-    if f["scenario"] not in scenarios:
-        errors.append(f"{name}: scenario {f['scenario']!r} does not exist")
-    errors += _reach_errors(name, f["reach"])
-    if not isinstance(f["landmarks"], list) or not f["landmarks"]:
-        errors.append(f"{name}: landmarks needs at least one landmark")
-    else:
-        for i, loc in enumerate(f["landmarks"]):
-            errors += _locator_errors(f"{name}: landmarks[{i}]", loc)
-    for i, action in enumerate(f["actions"]):
-        if not isinstance(action, dict) or set(action) != {"control", "result"}:
-            errors.append(f"{name}: actions[{i}] needs exactly control and result")
-        else:
-            errors += _locator_errors(f"{name}: actions[{i}].control", action["control"])
-    errors += _implements_errors(name, f["implements"])
-    if not isinstance(f["phone_notes"], str):
-        errors.append(f"{name}: phone_notes must be text")
-    for flow in f["flows"]:
-        if not (flows_dir / f"{flow}.json").is_file():
-            errors.append(f"{name}: flows: no file tests/flows/{flow}.json")
-    sources = f["sources"]
-    if not isinstance(sources, list) or not sources:
-        errors.append(f"{name}: sources must not be empty")
-    else:
-        for src in sources:
-            if Path(src).name in SHARED_LAYOUT:
-                errors.append(f"{name}: sources must not list the shared layout file {src}")
-            elif not (root / src).is_file():
-                errors.append(f"{name}: sources: {src} does not exist")
-    return errors
 
 
 def check_map(
@@ -187,39 +44,11 @@ def check_map(
 ) -> list[str]:
     """Every problem found, each naming the entry (or route) and the field."""
     known = set(scenario_names()) if scenarios is None else scenarios
-    if not isinstance(feature_map, dict):
-        return ["map: must be an object"]
-    errors = [f"map: unknown key {k}" for k in sorted(set(feature_map) - TOP_KEYS)]
-    errors += [f"map: missing key {k}" for k in sorted(TOP_KEYS - set(feature_map))]
-    if errors:
-        return errors
-
-    owners: dict[str, list[str]] = {}
-    for item in feature_map["internal"]:
-        if not isinstance(item, dict) or set(item) != {"route", "why"} or not item["why"]:
-            errors.append(f"internal: needs exactly route and a non-empty why: {item!r}")
-            continue
-        owners.setdefault(item["route"], []).append("internal")
-
-    names: set[str] = set()
-    for f in feature_map["features"]:
-        errors += _feature_errors(f, root, flows_dir, known)
-        name = f.get("name", "<unnamed>")
-        if name in names:
-            errors.append(f"{name}: duplicate name")
-        names.add(name)
-        for route in f.get("routes", []):
-            owners.setdefault(route, []).append(name)
-
-    have = set(routes)
-    for route in sorted(have - set(owners)):
-        errors.append(f"route {route} is in no entry and not in internal")
-    for route, who in sorted(owners.items()):
-        if route not in have:
-            errors.append(f"{who[0]}: route {route} does not exist in the app")
-        if len(who) > 1:
-            errors.append(f"route {route} is listed more than once: {', '.join(who)}")
-    return errors
+    try:
+        parsed = parse(feature_map, root=root, flows_dir=flows_dir, scenarios=known)
+    except FeatureMapError as exc:
+        return exc.errors
+    return route_errors(parsed, routes)
 
 
 # --- fixtures -------------------------------------------------------------------------------
@@ -270,6 +99,11 @@ def test_real_map_has_the_expected_pages(real_map: dict[str, Any]) -> None:
     }
     assert {i["route"] for i in real_map["internal"]} == {"GET /healthz", "MOUNT /static"}
     assert entry(real_map, "home")["reach"] == [{"goto": "/"}]
+
+
+def test_every_scenario_an_entry_names_exists_as_a_file(real_map: dict[str, Any]) -> None:
+    for f in real_map["features"]:
+        assert (SCENARIOS_DIR / f"{f['scenario']}.json").is_file(), f["name"]
 
 
 def test_app_routes_lists_each_method_once(app: FastAPI) -> None:
@@ -373,6 +207,11 @@ SCHEMA_CASES: list[tuple[str, Any, str]] = [
     (
         "expect-text-in-reach",
         _set("reach", [{"goto": "/"}, {"expect_text": "hi"}]),
+        "reach[1]",
+    ),
+    (
+        "expect-in-reach",
+        _set("reach", [{"goto": "/"}, {"expect": {"text": "hi"}}]),
         "reach[1]",
     ),
     (

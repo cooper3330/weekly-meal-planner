@@ -18,11 +18,13 @@ browse:
 	PYTHONPATH=src $(RUN) -m agentbrowser browse --steps "$(STEPS)" --name $(APP_NAME) $(if $(URL),--url "$(URL)") $(if $(OUT),--out "$(OUT)")
 
 # Run every flow in tests/flows/ (or one: FLOW=tests/flows/<name>.json) against a fresh demo app
-# each, then the browser tests in tests/e2e/ (only without FLOW). Needs `make browser-install`.
+# each, then walk every feature in tests/e2e/feature-map.json (or one: FEATURE=<name>) from the
+# home page, then the browser tests in tests/e2e/ (only without FLOW or FEATURE). Needs
+# `make browser-install`.
 e2e:
 	@rc=0; \
-	PYTHONPATH=src $(RUN) -m agentbrowser e2e $(if $(FLOW),--flow "$(FLOW)") $(if $(OUT),--out "$(OUT)") || rc=1; \
-	$(if $(FLOW),,uv run pytest tests/e2e -o addopts= || rc=1;) \
+	PYTHONPATH=src $(RUN) -m agentbrowser e2e $(if $(FLOW),--flow "$(FLOW)") $(if $(FEATURE),--feature "$(FEATURE)") $(if $(OUT),--out "$(OUT)") || rc=1; \
+	$(if $(or $(FLOW),$(FEATURE)),,uv run pytest tests/e2e -o addopts= || rc=1;) \
 	exit $$rc
 
 # The project is not installed (package = false), so put src/ on the import path.
