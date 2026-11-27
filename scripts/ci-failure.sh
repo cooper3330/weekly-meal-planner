@@ -36,7 +36,9 @@ case "$conclusion" in
                | tail -n 300 | cut -c1-500 | sed 's/^/> /')
       if [ "$(printf '%s' "$body" | wc -c | tr -d ' ')" -gt 60000 ]; then
         echo "[truncated: only the last 60 KB of the log is shown]"
-        printf '%s\n' "$body" | tail -c 60000 | tail -n +2
+        # Whole lines from the end, at most 60000 bytes. awk, not `tail -c`: on a CI runner whose tail is
+        # not GNU tail, `tail -c` over a pipe returned up to 5 KB too much (#192).
+        printf '%s\n' "$body" | LC_ALL=C awk '{ l[NR] = $0 } END { n = 0; for (i = NR; i >= 1; i--) { n += length(l[i]) + 1; if (n > 60000) break }; for (j = i + 1; j <= NR; j++) print l[j] }'
       else
         printf '%s\n' "$body"
       fi
