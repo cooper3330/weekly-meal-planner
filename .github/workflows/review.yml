@@ -17,6 +17,7 @@ permissions:
   pull-requests: write
   issues: read
   checks: read
+  actions: read   # the reviewer's pre-fetch reads the failed check job's log (#192); read only
 
 jobs:
   review:
