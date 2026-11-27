@@ -20,7 +20,7 @@ def test_summary_files_for_pass_and_fail(tmp_path: Path) -> None:
     write_summary(tmp_path, [good, bad], head_sha="abc")
     data = json.loads((tmp_path / "summary.json").read_text())
     assert data["head_sha"] == "abc"
-    assert data["coverage"] == [{"issue": 99, "criteria": ["AC-3"]}]
+    assert data["coverage"] == [{"issue": 99, "criterion": "AC-3", "flows": ["good"]}]
     assert [f["status"] for f in data["flows"]] == ["pass", "fail"]
     assert data["flows"][1]["steps"][0]["shows"] == "AC-1"
     assert data["failures"] == ["bad: step 1 (click) failed:\n  expected: x\n  actual: y"]

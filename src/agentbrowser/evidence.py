@@ -52,7 +52,8 @@ def _flow_json(result: FlowResult) -> dict[str, object]:
 
 
 def _coverage(results: list[FlowResult]) -> list[dict[str, object]]:
-    covered: dict[int, set[str]] = {}
+    """Fallback when the caller has no declared coverage: from the flows that passed."""
+    found: dict[tuple[int, str], set[str]] = {}
     for result in results:
         if not result.ok:
             continue
@@ -60,8 +61,10 @@ def _coverage(results: list[FlowResult]) -> list[dict[str, object]]:
             issue = item["issue"]
             criteria = item["criteria"]
             assert isinstance(issue, int) and isinstance(criteria, list)
-            covered.setdefault(issue, set()).update(str(c) for c in criteria)
-    return [{"issue": i, "criteria": sorted(c, key=_num)} for i, c in sorted(covered.items())]
+            for criterion in criteria:
+                found.setdefault((issue, str(criterion)), set()).add(result.name)
+    keys = sorted(found, key=lambda k: (k[0], _num(k[1])))
+    return [{"issue": i, "criterion": c, "flows": sorted(found[(i, c)])} for i, c in keys]
 
 
 def _num(criterion: str) -> int:
@@ -99,12 +102,17 @@ def render_markdown(results: list[FlowResult], head_sha: str | None = None) -> s
     return "\n".join(lines) + "\n"
 
 
-def write_summary(out: Path, results: list[FlowResult], head_sha: str | None = None) -> None:
+def write_summary(
+    out: Path,
+    results: list[FlowResult],
+    head_sha: str | None = None,
+    coverage: list[dict[str, object]] | None = None,
+) -> None:
     """Write ``summary.json`` and ``summary.md`` into ``out`` for the flows that ran."""
     out.mkdir(parents=True, exist_ok=True)
     data = {
         "head_sha": head_sha,
-        "coverage": _coverage(results),
+        "coverage": _coverage(results) if coverage is None else coverage,
         "flows": [_flow_json(r) for r in results],
         "failures": [f"{r.name}: {reason}" for r in results for reason in r.failures],
         "reproduce": [r.reproduce for r in results if not r.ok and r.reproduce],
