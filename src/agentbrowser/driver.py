@@ -258,23 +258,39 @@ class _Recorder:
     def on_page_error(self, error: Any) -> None:
         self.console.append({"type": "pageerror", "text": str(error), "url": ""})
 
-    def failures(self) -> list[str]:
+    def failures(
+        self, console: slice = slice(None), requests: slice = slice(None), prefix: str = ""
+    ) -> list[str]:
+        """Failures among the given console messages and requests, each starting with ``prefix``."""
         out: list[str] = []
-        for entry in self.console:
+        for entry in self.console[console]:
             if entry["type"] not in ("error", "pageerror"):
                 continue
             if entry["text"].startswith(_LOAD_FAILED):
                 continue  # the request log below names the URL
             label = "uncaught exception" if entry["type"] == "pageerror" else "console error"
-            out.append(f"{label}: {entry['text']}")
-        for record in self.requests:
+            out.append(f"{prefix}{label}: {entry['text']}")
+        for record in self.requests[requests]:
             line = f"{record['method']} {record['url']}"
             if record["external"]:
-                out.append(f"external request (aborted): {line}")
+                out.append(f"{prefix}external request (aborted): {line}")
             elif record["failed"]:
-                out.append(f"request failed: {line}: {record.get('error')}")
+                out.append(f"{prefix}request failed: {line}: {record.get('error')}")
             elif record["status"] is not None and record["status"] >= 400:
-                out.append(f"request failed: {line} -> {record['status']}")
+                out.append(f"{prefix}request failed: {line} -> {record['status']}")
+        return out
+
+    def failures_by_step(self, starts: list[tuple[int, int, str]]) -> list[str]:
+        """Failures named for the step during which they arrived.
+
+        ``starts`` holds, per step, the console and request log lengths when it began and its
+        label. Entries that arrive after the last step began (its settling included) are its.
+        """
+        end = (len(self.console), len(self.requests), "")
+        bounds = [*starts, end]
+        out: list[str] = []
+        for (c0, r0, label), (c1, r1, _) in zip(bounds, bounds[1:], strict=False):
+            out.extend(self.failures(slice(c0, c1), slice(r0, r1), label))
         return out
 
 
@@ -378,8 +394,11 @@ def run_flow(
     page.on("console", recorder.on_console)
     page.on("pageerror", recorder.on_page_error)
     deadline = time.monotonic() + FLOW_TIMEOUT_S
+    starts: list[tuple[int, int, str]] = []
     try:
         for number, step in enumerate(flow.steps, 1):
+            label = f"step {number} ({step.kind}): "
+            starts.append((len(recorder.console), len(recorder.requests), label))
             remaining_ms = int((deadline - time.monotonic()) * 1000)
             if remaining_ms <= 0:
                 result.failures.append(
@@ -424,7 +443,7 @@ def run_flow(
         result.failures.extend(checked.failures())
     _write_json(out_dir / "console.json", recorder.console)
     _write_json(out_dir / "requests.json", recorder.requests)
-    result.failures.extend(recorder.failures())
+    result.failures.extend(recorder.failures_by_step(starts))
     return result
 
 
