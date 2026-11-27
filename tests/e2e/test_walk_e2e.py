@@ -76,10 +76,11 @@ def test_the_real_map_walks_green_and_leaves_nothing_behind(
     api = Recording()
     assert _walk(tmp_path / "out", api, REAL_MAP) == 0
     out = capsys.readouterr().out
-    for name in ("home", "profile", "profile-edit", "profile-history", "profile-version"):
+    names = ("home", "plan", "profile", "profile-edit", "profile-history", "profile-version")
+    for name in names:
         assert f"PASS feature {name}" in out
     summary = json.loads((tmp_path / "out" / "summary.json").read_text())
-    assert [w["status"] for w in summary["walk"]] == ["pass"] * 5
+    assert [w["status"] for w in summary["walk"]] == ["pass"] * len(names)
     shots = [s["screenshot"] for w in summary["walk"] for s in w["steps"]]
     assert all(s.startswith("walk/") for s in shots)
     assert all((tmp_path / "out" / s).is_file() for s in shots)
