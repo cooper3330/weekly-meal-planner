@@ -1,0 +1,18 @@
+<section class="summary" id="summary" aria-labelledby="summary-heading">
+  <h2 id="summary-heading">Your picks</h2>
+  <p class="count"><span data-summary="count">{{ summary.count }}</span> meals chosen</p>
+  <h3>Total, one serving of each</h3>
+  <p class="nutrition" data-summary="total">
+    <span data-nutrient="kcal">{{ summary.total.kcal }}</span> kcal,
+    protein <span data-nutrient="protein">{{ summary.total.protein }}</span> g,
+    carbs <span data-nutrient="carbs">{{ summary.total.carbs }}</span> g,
+    fat <span data-nutrient="fat">{{ summary.total.fat }}</span> g
+  </p>
+  <h3>Average per meal</h3>
+  <p class="nutrition" data-summary="average">
+    <span data-nutrient="kcal">{{ summary.average.kcal }}</span> kcal,
+    protein <span data-nutrient="protein">{{ summary.average.protein }}</span> g,
+    carbs <span data-nutrient="carbs">{{ summary.average.carbs }}</span> g,
+    fat <span data-nutrient="fat">{{ summary.average.fat }}</span> g
+  </p>
+</section>
