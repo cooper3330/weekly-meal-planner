@@ -5,6 +5,7 @@ identity header, aborts and records every request that leaves the app's own host
 every wait is bounded: 5 s per step and 60 s per flow.
 """
 
+import hashlib
 import json
 import time
 from collections.abc import Iterator
@@ -17,6 +18,7 @@ from playwright.sync_api import Browser, BrowserContext, Page, Request, Route, s
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
+from agentbrowser.checks import MEASURE_JS, PageChecks, evaluate, page_checks_json
 from agentbrowser.evidence import FlowResult, StepResult
 from agentbrowser.flow import Flow, Locator, Step
 from mealplanner.demo import DEMO_OWNER
@@ -188,6 +190,7 @@ class _Recorder:
         self.origin = _origin(base_url)
         self.console: list[dict[str, Any]] = []
         self.requests: list[dict[str, Any]] = []
+        self.documents: dict[str, dict[str, str]] = {}
         self._by_request: dict[Request, dict[str, Any]] = {}
 
     def is_external(self, url: str) -> bool:
@@ -213,6 +216,8 @@ class _Recorder:
         self.requests.append(record)
 
     def on_response(self, response: Any) -> None:
+        if response.request.resource_type == "document":
+            self.documents[response.url] = {k.lower(): v for k, v in response.headers.items()}
         record = self._by_request.get(response.request)
         if record is not None:
             record["status"] = response.status
@@ -250,6 +255,40 @@ class _Recorder:
             elif record["status"] is not None and record["status"] >= 400:
                 out.append(f"request failed: {line} -> {record['status']}")
         return out
+
+
+_MEASURED_KINDS = ("goto", "click", "fill", "select", "press")
+
+
+class _PhoneChecks:
+    """Runs the phone checks once per distinct page (its URL and its text) of one flow."""
+
+    def __init__(self, recorder: _Recorder) -> None:
+        self.recorder = recorder
+        self.pages: list[PageChecks] = []
+        self._seen: set[tuple[str, str]] = set()
+        self._requests_seen = 0
+
+    def run(self, page: Page, screenshot: str) -> str | None:
+        """Measure the page now; return an error message if it could not be measured."""
+        new = [r["url"] for r in self.recorder.requests[self._requests_seen :] if r["external"]]
+        self._requests_seen = len(self.recorder.requests)
+        url = page.url.split("#", 1)[0]
+        if urlsplit(url).scheme not in _NETWORK_SCHEMES:
+            return None
+        key = (url, hashlib.sha256(_page_text(page).encode()).hexdigest())
+        if key in self._seen:
+            return None
+        self._seen.add(key)
+        try:
+            measurement = page.evaluate(MEASURE_JS)
+        except PlaywrightError as exc:
+            return f"expected: the phone checks to run on {url}\nactual: {_first_line(exc)}"
+        shown = urlsplit(url)
+        label = shown.path + (f"?{shown.query}" if shown.query else "")
+        headers = self.recorder.documents.get(url)
+        self.pages.append(evaluate(label, screenshot, measurement, new, headers))
+        return None
 
 
 def _new_context(browser: Browser, flow: Flow) -> BrowserContext:
@@ -290,6 +329,7 @@ def run_flow(
         reproduce=reproduce,
     )
     recorder = _Recorder(base)
+    phone = _PhoneChecks(recorder)
     context = _new_context(browser, flow)
     context.set_default_timeout(STEP_TIMEOUT_MS)
     context.set_default_navigation_timeout(STEP_TIMEOUT_MS)
@@ -316,6 +356,8 @@ def run_flow(
             shot_error = _screenshot(page, out_dir / shot_name, _budget_ms(deadline))
             if error is None:
                 error = shot_error
+            if error is None and step.kind in _MEASURED_KINDS:
+                error = phone.run(page, f"{out_dir.name}/{shot_name}")
             result.steps.append(
                 StepResult(
                     step.kind, step.shows, f"{out_dir.name}/{shot_name}", error is None, error
@@ -332,6 +374,10 @@ def run_flow(
     finally:
         _save_trace(context, out_dir)
         context.close()
+    result.pages = phone.pages
+    _write_json(out_dir / "checks.json", page_checks_json(phone.pages))
+    for checked in phone.pages:
+        result.failures.extend(checked.failures())
     _write_json(out_dir / "console.json", recorder.console)
     _write_json(out_dir / "requests.json", recorder.requests)
     result.failures.extend(recorder.failures())
