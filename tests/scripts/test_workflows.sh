@@ -521,6 +521,14 @@ rv_rj=$(awk '/^  review:/ { on = 1; print; next } on && /^  [a-z-]+:/ { exit } o
 if grep -Eq '^      actions:[[:space:]]+write' <<<"$rv_mg"; then ok "review.yml: the merge-gate job has actions: write (to dispatch revise.yml)"; else bad "review.yml: the merge-gate job has actions: write (to dispatch revise.yml)"; fi
 if grep -q 'actions:' <<<"$rv_rj"; then bad "review.yml: the review job (which runs PR scripts) has no actions permission"; else ok "review.yml: the review job (which runs PR scripts) has no actions permission"; fi
 assert_no_grep <(sed -n '1,/^jobs:/p' "$RV") 'actions:' "review.yml: no workflow-level actions permission"
+# The failing CI output (#192): a separate trusted job on base-branch code is the only one with actions: read.
+rv_ci=$(awk '/^  ci-output:/ { on = 1; print; next } on && /^  [a-z-]+:/ { exit } on { print }' "$RV")
+if grep -Eq '^      actions:[[:space:]]+read' <<<"$rv_ci"; then ok "review.yml: the ci-output job has actions: read"; else bad "review.yml: the ci-output job has actions: read"; fi
+if grep -Eq 'actions:[[:space:]]+write' <<<"$rv_ci"; then bad "review.yml: the ci-output job has no write permission"; else ok "review.yml: the ci-output job has no write permission"; fi
+if grep -q 'ref: \${{ github.event.pull_request.base.ref }}' <<<"$rv_ci" && ! grep -q 'head.sha }}$' <<<"$(grep -A3 'checkout' <<<"$rv_ci")"; then ok "review.yml: the ci-output job checks out the base branch"; else bad "review.yml: the ci-output job checks out the base branch"; fi
+if grep -q 'needs: ci-output' <<<"$rv_rj"; then ok "review.yml: the review job waits for ci-output"; else bad "review.yml: the review job waits for ci-output"; fi
+if grep -q 'needs.ci-output.outputs.text' <<<"$rv_rj"; then ok "review.yml: the review job takes the text from ci-output"; else bad "review.yml: the review job takes the text from ci-output"; fi
+if grep -Eq '^[[:space:]]+run:.*needs\.ci-output' <<<"$rv_rj"; then bad "review.yml: the CI text is never on a command line"; else ok "review.yml: the CI text is never on a command line"; fi
 assert_grep "$RV" 'REVISION_BUDGET:[[:space:]]*\$\{\{[[:space:]]*vars\.REVISION_BUDGET' "review.yml passes REVISION_BUDGET to the merge gate"
 
 # A workflow step that runs a script directly (scripts/x.sh, not "bash scripts/x.sh") needs the git

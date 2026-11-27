@@ -17,14 +17,15 @@ permissions:
   pull-requests: write
   issues: read
   checks: read
-  actions: read   # the reviewer's pre-fetch reads the failed check job's log (#192); read only
 
 jobs:
   review:
+    needs: ci-output
     # Same-repository PRs only (a fork gets no secrets), no drafts, agent branches only, and the
     # kill switch: set the repository variable AGENTS_PAUSED to true to stop all agent runs.
     if: >-
       github.event.pull_request.head.repo.full_name == github.repository &&
+      !cancelled() &&
       github.event.pull_request.draft == false &&
       (startsWith(github.event.pull_request.head.ref, 'issue-') ||
        startsWith(github.event.pull_request.head.ref, 'arch-')) &&
@@ -95,6 +96,16 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: scripts/agent-guard.sh skip-comment --number "$PR_NUMBER" --sha "$HEAD_SHA"
 
+      # The trusted ci-output job's text, written as data; review.sh gives the reviewer the file.
+      # It goes through the environment, never a command line, and is empty if that job found nothing.
+      - name: Write the CI output for the reviewer
+        if: steps.preflight.outputs.skip != 'true'
+        env:
+          CI_OUTPUT: ${{ needs.ci-output.outputs.text }}
+        run: |
+          mkdir -p .agent-tmp
+          if [ -n "$CI_OUTPUT" ]; then printf '%s\n' "$CI_OUTPUT" > .agent-tmp/ci-failure.md; fi
+
       - name: Run the reviewer
         if: steps.preflight.outputs.skip != 'true'
         timeout-minutes: 18
@@ -152,3 +163,68 @@ jobs:
           REVISION_BUDGET: ${{ vars.REVISION_BUDGET }}   # unset means the script's default (3)
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: bash trusted/scripts/after-review.sh "$PR_NUMBER"
+
+  # The failing CI output for the reviewer (#192). The reviewer never runs the tests itself, so it
+  # needs what CI printed. This job runs on base-branch code only (no PR code runs here) and is the
+  # only job with `actions: read`, which the review job (it runs the PR's own scripts, #166) must not
+  # have. It waits for the `check` job, then scripts/ci-failure.sh quotes the end of the failed log.
+  # The text goes to the review job as a job output and is only ever written to a file there, never
+  # run or interpolated into a shell command. Every step is continue-on-error, so this job never
+  # blocks a review: the review job says the output was unavailable. Until scripts/ci-failure.sh is on
+  # the base branch the fetch step is skipped.
+  ci-output:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.draft == false &&
+      (startsWith(github.event.pull_request.head.ref, 'issue-') ||
+       startsWith(github.event.pull_request.head.ref, 'arch-')) &&
+      vars.AGENTS_PAUSED != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      checks: read
+      actions: read
+    outputs:
+      text: ${{ steps.fetch.outputs.text }}
+    steps:
+      - name: Check out the base branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        continue-on-error: true
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          persist-credentials: false
+
+      - name: Wait for the check job on the head SHA
+        timeout-minutes: 12
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          start=$SECONDS
+          waited=0
+          while [ "$waited" -lt 720 ]; do
+            status=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs" \
+              --jq '[.check_runs[] | select(.name == "check")] | if length == 0 then "missing" else .[0].status end')
+            if [ "$status" = "completed" ]; then exit 0; fi
+            sleep 20
+            waited=$((SECONDS - start))
+          done
+
+      - name: Quote the failing CI output
+        id: fetch
+        if: hashFiles('scripts/ci-failure.sh') != ''
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          text=$(bash scripts/ci-failure.sh "$HEAD_SHA")
+          delim="ci_output_$(openssl rand -hex 8)"
+          {
+            echo "text<<$delim"
+            printf '%s\n' "$text"
+            echo "$delim"
+          } >> "$GITHUB_OUTPUT"
