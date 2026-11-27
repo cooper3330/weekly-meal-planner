@@ -35,5 +35,5 @@ mypy_path = "src"
 pythonpath = ["src"]
 testpaths = ["tests"]
 # Browser tests need Chromium (`make browser-install`); run them with
-# `uv run pytest tests/e2e -o addopts=` (`make e2e` in #104).
+# `uv run pytest tests/e2e -o addopts=` (`make e2e` does this).
 addopts = "--ignore=tests/e2e"

@@ -1,0 +1,10 @@
+{
+  "proves": [{"issue": 99, "criteria": ["AC-4"]}],
+  "mode": "demo",
+  "scenario": "empty",
+  "steps": [
+    {"goto": "/"},
+    {"expect_text": "Weekly meal planner"},
+    {"expect_text": "Your plan for the week will appear here."}
+  ]
+}

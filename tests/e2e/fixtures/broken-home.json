@@ -1,0 +1,8 @@
+{
+  "proves": [{"issue": 99, "criteria": ["AC-5"]}],
+  "scenario": "empty",
+  "steps": [
+    {"goto": "/"},
+    {"expect_text": "This text is not on the home page"}
+  ]
+}

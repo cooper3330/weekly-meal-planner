@@ -17,7 +17,7 @@
         {"control": {"role": "link", "name": "Your profile"}, "result": "the profile page"}
       ],
       "implements": [],
-      "flows": [],
+      "flows": ["home"],
       "sources": [
         "src/mealplanner/web/templates/home.html",
         "src/mealplanner/web/routes.py"
