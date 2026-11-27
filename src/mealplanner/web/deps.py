@@ -8,6 +8,7 @@ from fastapi import Request
 
 from mealplanner.db import connect
 from mealplanner.llm.client import LLMClient
+from mealplanner.nutrition.catalog import Catalog
 
 
 def get_llm_client(request: Request) -> LLMClient:
@@ -26,6 +27,11 @@ async def get_db(request: Request) -> AsyncIterator[sqlite3.Connection]:
         yield conn
     finally:
         conn.close()
+
+
+def get_catalog(request: Request) -> Catalog:
+    catalog: Catalog = request.app.state.catalog
+    return catalog
 
 
 def get_now(request: Request) -> datetime:

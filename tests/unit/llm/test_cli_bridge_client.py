@@ -306,3 +306,34 @@ def test_app_uses_injected_client(tmp_path: Path) -> None:
     headers = {"Tailscale-User-Login": "owner@example.com"}
     with TestClient(app, base_url="http://localhost", headers=headers) as c:
         assert c.get("/_probe").json() == {"same": True}
+
+
+@pytest.mark.parametrize(
+    ("item", "fragments"),
+    [
+        (ok(f"{SIGN_IN} {LEAK}", exit_code=1), ["exit_code=1", "is_error=False", "not_signed_in"]),
+        (ok(LEAK, is_error=True), ["exit_code=0", "is_error=True", "cli_error"]),
+        (leaky_err(503, "program_not_found"), ["status=503", "program_not_found"]),
+        (leaky_err(502, "busy"), ["status=502", "busy"]),
+    ],
+)
+def test_failure_diagnostics_logged_without_content(
+    item: Any, fragments: list[str], caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.WARNING, logger="mealplanner.llm")
+    client, _ = make(item)
+    with pytest.raises((LLMConfigError, LLMUnavailableError)):
+        gen(client)
+    for fragment in fragments:
+        assert fragment in caplog.text
+    for sentinel in SENTINELS:
+        assert sentinel not in caplog.text
+
+
+def test_transport_failure_logged(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.WARNING, logger="mealplanner.llm")
+    client, _ = make(ConnectionRefusedError(LEAK))
+    with pytest.raises(LLMUnavailableError):
+        gen(client)
+    assert "connection_failed" in caplog.text
+    assert STDOUT_SENTINEL not in caplog.text

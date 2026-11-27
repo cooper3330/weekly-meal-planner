@@ -17,6 +17,7 @@ from bridge.runner import RunError, run_command
 
 COMMAND = "claude"
 PROMPT = 'Reply with exactly this JSON object and nothing else: {"ok": true}'
+ERROR_TEXT_CHARS = 500
 REGISTRY_PATH = Path(__file__).resolve().parent / "commands.toml"
 
 
@@ -72,6 +73,10 @@ def run_smoke(registry: Registry, *, home: str, parent_env: Mapping[str, str]) -
     print(f"is_error: {is_error}")
     print(f"result is the expected object: {result_ok}")
     passed = result.exit_code == 0 and envelope_ok and is_error is False and result_ok
+    if not passed and is_error is True and isinstance(envelope, dict):
+        # The owner runs this by hand: show why the CLI refused (truncated, one line).
+        text = str(envelope.get("result", "")).replace("\n", " ")
+        print(f"cli error text: {text[:ERROR_TEXT_CHARS]}")
     print("SMOKE PASSED" if passed else "SMOKE FAILED: the bridge does not ship (#112 AC-13)")
     return 0 if passed else 1
 

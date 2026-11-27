@@ -126,3 +126,45 @@ dt {
 button {
   padding: 0.5rem 1rem;
 }
+
+/* Plan page: option cards stack in one column and never overflow the viewport. */
+.option {
+  border: 1px solid #888;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.option.unavailable {
+  border-style: dashed;
+}
+
+.tags,
+.ingredients {
+  padding-left: 1.25rem;
+}
+
+.tags {
+  list-style: none;
+  padding-left: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+}
+
+.meta,
+.hint {
+  color: #444;
+}
+
+button.generate {
+  min-height: 44px;
+  width: 100%;
+}
+
+details summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}

@@ -10,6 +10,7 @@ messages or the CLI's output, and causes are never chained (the raise happens ou
 
 import http.client
 import json
+import logging
 import re
 from collections.abc import Callable
 from typing import Any
@@ -17,6 +18,8 @@ from typing import Any
 from mealplanner.config import Settings
 from mealplanner.llm.client import Message, Request, Response, T, run_attempts
 from mealplanner.llm.errors import LLMConfigError, LLMUnavailableError
+
+logger = logging.getLogger(__name__)
 
 COMMAND = "claude"
 RUN_PATH = "/v1/run"
@@ -123,6 +126,7 @@ class CLIBridgeLLMClient:
             kind = "connection_failed"
             failed = True
         if failed:
+            logger.warning("bridge request failed: kind=%s", kind)
             raise _unavailable(kind) from None
         result = self._result_text(status, raw)
         return [_to_block(result, request.tool_name, attempt)]
@@ -131,6 +135,7 @@ class CLIBridgeLLMClient:
         """The CLI's ``result`` string, or a mapped error. Raises outside any ``except``."""
         if status != 200:
             kind = _error_kind(raw)
+            logger.warning("bridge returned an error: status=%s kind=%s", status, kind)
             if status in (401, 403, 404) or (status == 503 and kind == "program_not_found"):
                 raise LLMConfigError(NOT_INSTALLED if status == 503 else _config_message(status))
             raise _unavailable(kind if kind != "unknown" else f"http_{status}") from None
@@ -143,9 +148,18 @@ class CLIBridgeLLMClient:
         result = env.get("result") if isinstance(env, dict) else None
         failed = exit_code != 0 or (isinstance(env, dict) and env.get("is_error") is True)
         if not isinstance(exit_code, int) or not isinstance(result, str):
+            logger.warning("bridge reply was not a CLI envelope: status=%s", status)
             raise _unavailable("invalid_envelope") from None
         if failed:
-            if _SIGN_IN.search(result):
+            # Only the exit code, the error flag and the classification: never the CLI's text.
+            signed_out = bool(_SIGN_IN.search(result))
+            logger.warning(
+                "CLI run failed: exit_code=%s is_error=%s classified=%s",
+                exit_code,
+                isinstance(env, dict) and env.get("is_error") is True,
+                "not_signed_in" if signed_out else "cli_error",
+            )
+            if signed_out:
                 raise LLMConfigError(NOT_SIGNED_IN)
             raise _unavailable("cli_error") from None
         return result
