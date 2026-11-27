@@ -87,6 +87,20 @@ class SelectionView:
     items: dict[MealType, tuple[SelectionItem, ...]]
     pick_counts: dict[MealType, int]
     summary: NutritionSummary
+    confirmed: bool = False
+    confirmation_id: int | None = None
+    # Picked meals of the current plan that now fail the checks (only while confirmed).
+    confirmed_unavailable: tuple[UnavailableOption, ...] = ()
 
     def limit(self, meal_type: MealType) -> int:
         return self.lunch_limit if meal_type is MealType.lunch else self.dinner_limit
+
+
+@dataclass(frozen=True)
+class ConfirmedPlan:
+    """A confirmed week (ADR 0021). ``meals`` may be empty: a week with no meals planned."""
+
+    confirmation_id: int
+    week_start: date
+    meals: list[MealOption]
+    unavailable: list[UnavailableOption]

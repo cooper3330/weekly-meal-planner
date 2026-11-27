@@ -21,6 +21,18 @@ class SelectionLimitError(ValueError):
     """A pick would pass the limit, or a limit is invalid or below the current number of picks."""
 
 
+class SelectionLockedError(RuntimeError):
+    """The week is confirmed, so picks, limits and a second confirmation are refused (ADR 0021)."""
+
+
+class SelectionNotConfirmedError(RuntimeError):
+    """The week has no current confirmation, so there is nothing to reopen."""
+
+
+class UnavailablePickError(RuntimeError):
+    """A picked option no longer passes the checks, so the week cannot be confirmed (P9)."""
+
+
 class SlateNotFoundError(LookupError):
     """The user has no slate for that week."""
 

@@ -23,9 +23,12 @@ from mealplanner.planning.errors import (
     OptionUnavailableError,
     ProfileRequiredError,
     SelectionLimitError,
+    SelectionLockedError,
+    SelectionNotConfirmedError,
     SlateExistsError,
     SlateGenerationError,
     SlateNotFoundError,
+    UnavailablePickError,
 )
 from mealplanner.planning.generate import MAX_COUNT, MIN_COUNT, generate_slate
 from mealplanner.planning.models import MealOption, MealType, SelectionView, UnavailableOption
@@ -33,8 +36,10 @@ from mealplanner.planning.reroll import reroll_option
 from mealplanner.planning.selection import (
     MAX_LIMIT,
     MIN_LIMIT,
+    confirm_selection,
     load_selection_view,
     pick_option,
+    reopen_selection,
     set_pick_limits,
     unpick_option,
 )
@@ -161,23 +166,34 @@ def _render(
     view = (
         load_selection_view(conn, catalog, user_id, week_start) if context["has_profile"] else None
     )
+    context["confirmed"] = view is not None and view.confirmed
+    context["has_unavailable_pick"] = False
     if view is not None:
-        context["sections"] = [
-            {
-                "heading": "Lunches",
-                "noun": "lunches",
-                "cards": _cards(view, catalog, MealType.lunch),
-                "picked": view.pick_counts[MealType.lunch],
-                "limit": view.lunch_limit,
-            },
-            {
-                "heading": "Dinners",
-                "noun": "dinners",
-                "cards": _cards(view, catalog, MealType.dinner),
-                "picked": view.pick_counts[MealType.dinner],
-                "limit": view.dinner_limit,
-            },
-        ]
+        context["has_unavailable_pick"] = any(
+            item.picked and isinstance(item.slot, UnavailableOption)
+            for group in view.items.values()
+            for item in group
+        )
+        context["confirmed_unavailable"] = bool(view.confirmed_unavailable)
+        sections = []
+        for meal_type, heading, noun in (
+            (MealType.lunch, "Lunches", "lunches"),
+            (MealType.dinner, "Dinners", "dinners"),
+        ):
+            section_cards = _cards(view, catalog, meal_type)
+            if view.confirmed:
+                # A confirmed week lists only the chosen meals.
+                section_cards = [c for c in section_cards if c["picked"]]
+            sections.append(
+                {
+                    "heading": heading,
+                    "noun": noun,
+                    "cards": section_cards,
+                    "picked": view.pick_counts[meal_type],
+                    "limit": view.limit(meal_type),
+                }
+            )
+        context["sections"] = sections
         context["limit_values"] = limits or (str(view.lunch_limit), str(view.dinner_limit))
         context["summary"] = {
             "count": view.summary.count,
@@ -340,7 +356,7 @@ async def pick_plan_option(
             status_code=409,
             error="This option no longer fits your profile, so it cannot be picked.",
         )
-    except SelectionLimitError as e:
+    except (SelectionLimitError, SelectionLockedError) as e:
         return _render(request, conn, catalog, user_id, now, status_code=409, error=str(e))
     except ProfileRequiredError as e:
         status, message, extra = _failure("pick", e)
@@ -351,11 +367,15 @@ async def pick_plan_option(
 
 
 @router.post("/plan/options/{option_id}/unpick", response_model=None)
-async def unpick_plan_option(option_id: int, user_id: UserId, conn: Conn, now: Now) -> Response:
+async def unpick_plan_option(
+    option_id: int, request: Request, user_id: UserId, conn: Conn, catalog: CatalogDep, now: Now
+) -> Response:
     try:
         unpick_option(conn, user_id, option_id, now=now)
     except OptionNotFoundError:
         return NOT_FOUND
+    except SelectionLockedError as e:
+        return _render(request, conn, catalog, user_id, now, status_code=409, error=str(e))
     return RedirectResponse(f"/plan#option-{option_id}", status_code=303)
 
 
@@ -394,8 +414,37 @@ async def set_plan_limits(
         set_pick_limits(conn, user_id, week_start_for(_today(now)), lunch, dinner, now=now)
     except SlateNotFoundError:
         return PlainTextResponse("No options for this week.", status_code=404)
-    except SelectionLimitError as e:
+    except (SelectionLimitError, SelectionLockedError) as e:
         return _render(
             request, conn, catalog, user_id, now, status_code=409, error=str(e), limits=shown
         )
+    return RedirectResponse("/plan", status_code=303)
+
+
+@router.post("/plan/confirm", response_model=None)
+async def confirm_plan(
+    request: Request, user_id: UserId, conn: Conn, catalog: CatalogDep, now: Now
+) -> Response:
+    try:
+        confirm_selection(conn, catalog, user_id, week_start_for(_today(now)), now=now)
+    except SlateNotFoundError:
+        return PlainTextResponse("No options for this week.", status_code=404)
+    except (SelectionLockedError, UnavailablePickError) as e:
+        return _render(request, conn, catalog, user_id, now, status_code=409, error=str(e))
+    except ProfileRequiredError as e:
+        status, message, extra = _failure("confirmation", e)
+        return _render(
+            request, conn, catalog, user_id, now, status_code=status, error=message, **extra
+        )
+    return RedirectResponse("/plan", status_code=303)
+
+
+@router.post("/plan/reopen", response_model=None)
+async def reopen_plan(
+    request: Request, user_id: UserId, conn: Conn, catalog: CatalogDep, now: Now
+) -> Response:
+    try:
+        reopen_selection(conn, user_id, week_start_for(_today(now)), now=now)
+    except SelectionNotConfirmedError as e:
+        return _render(request, conn, catalog, user_id, now, status_code=409, error=str(e))
     return RedirectResponse("/plan", status_code=303)
