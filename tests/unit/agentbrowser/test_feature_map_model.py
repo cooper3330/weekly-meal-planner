@@ -136,7 +136,7 @@ def test_profile_has_parent_home_and_children_edit_and_history(real: fm.FeatureM
 
 
 def test_home_has_no_parent_only_its_child(real: fm.FeatureMap) -> None:
-    assert fm.neighbours(real, "home") == ["profile"]
+    assert fm.neighbours(real, "home") == ["plan", "profile"]
 
 
 def test_a_leaf_has_only_its_parent(real: fm.FeatureMap) -> None:
