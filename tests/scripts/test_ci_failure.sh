@@ -88,7 +88,7 @@ open(sys.argv[1], "w").write("\n".join(lines) + "\n")
 ' "$T/ci.log"
 out > "$T/out.md"
 size=$(wc -c < "$T/out.md" | tr -d ' ')
-if [ "$size" -le 61700 ]; then ok "the output is at most about 60 KB ($size bytes)"; else bad "the output is at most about 60 KB ($size bytes)"; fi
+if [ "$size" -le 61700 ]; then ok "the output is at most about 60 KB ($size bytes)"; else bad "the output is at most about 60 KB ($size bytes, $(wc -l < "$T/out.md" | tr -d ' ') lines, $(grep -c '^> ' "$T/out.md") quoted, first line: $(head -c 80 "$T/out.md"))"; fi
 assert_grep "$T/out.md" 'the-last-failure' "the end of the log is kept"
 assert_grep "$T/out.md" 'truncated' "and the cut is noted"
 
