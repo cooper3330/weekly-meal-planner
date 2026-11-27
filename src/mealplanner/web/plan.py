@@ -20,6 +20,7 @@ from mealplanner.nutrition.catalog import Catalog
 from mealplanner.nutrition.compute import Nutrition, display_nutrition
 from mealplanner.planning.errors import (
     OptionNotFoundError,
+    OptionPickedError,
     OptionUnavailableError,
     ProfileRequiredError,
     SelectionLimitError,
@@ -317,6 +318,26 @@ async def reroll_plan_option(
         reroll_option(conn, llm, catalog, user_id, option_id, now=now)
     except OptionNotFoundError:
         return PlainTextResponse("Option not found.", status_code=404)
+    except OptionPickedError:
+        return _render(
+            request,
+            conn,
+            catalog,
+            user_id,
+            now,
+            status_code=409,
+            error="Unpick this meal before replacing it.",
+        )
+    except SelectionLockedError:
+        return _render(
+            request,
+            conn,
+            catalog,
+            user_id,
+            now,
+            status_code=409,
+            error="Reopen the week to change it.",
+        )
     except _HANDLED as e:
         status, message, extra = _failure("option replacement", e)
         return _render(

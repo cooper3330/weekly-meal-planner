@@ -13,6 +13,7 @@ from mealplanner.planning.errors import OptionNotFoundError, ProfileRequiredErro
 from mealplanner.planning.generate import fill_options
 from mealplanner.planning.models import SlateView
 from mealplanner.planning.prompt import build_system_prompt
+from mealplanner.planning.selection import refuse_if_not_replaceable
 from mealplanner.planning.store import (
     get_active_option,
     get_slate,
@@ -37,6 +38,7 @@ def reroll_option(
     ref = get_active_option(conn, user_id, option_id)
     if ref is None:
         raise OptionNotFoundError(f"option {option_id} not found")
+    refuse_if_not_replaceable(conn, user_id, ref.slate_id, option_id)
     current = get_current_profile(conn, user_id)
     if current is None:
         raise ProfileRequiredError("save a profile before replacing an option")
@@ -59,6 +61,8 @@ def reroll_option(
         recent,
         earlier,
     )
+    # The model call took time: a pick or confirmation may have landed meanwhile.
+    refuse_if_not_replaceable(conn, user_id, ref.slate_id, option_id)
     replace_option(conn, user_id, option_id, replacement, now=now)
     view = load_slate_view(conn, catalog, user_id, ref.week_start)
     assert view is not None
