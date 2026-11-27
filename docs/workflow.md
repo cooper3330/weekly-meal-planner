@@ -116,7 +116,7 @@ The agents run on Actions by default, using the pinned `claude` CLI and the same
 
 | Workflow | Trigger | Does |
 |---|---|---|
-| `ci.yml` | PRs into `main`, pushes to `main` | the `check` job: `make check` (no secrets) |
+| `ci.yml` | PRs into `main`, pushes to `main` | two jobs, neither with secrets: `check` (`make check`) and `e2e` (every browser flow and the feature walk with the phone checks, ADR 0028; it skips itself in seconds when a PR changes no runtime path, and uploads its evidence as `e2e-evidence`) |
 | `risk-label.yml` | `pull_request_target` into `main`, and `labeled` | adds `risk:high`; on that label, turns auto-merge off |
 | `coordinator.yml` | hourly (minute 17), "Run workflow", the `ready` label, a closed task or merged `issue-*` PR | `scripts/coordinator.sh --once`: dispatches the architect and developer |
 | `review.yml` | PRs into `main` from `issue-*` and `arch-*` branches of this repository | the reviewer agent, then `scripts/after-review.sh` (auto-merge or a revision) |
@@ -193,7 +193,7 @@ Agents cannot make these. Do each once as the repository owner. `tests/scripts/t
 - [ ] **Branch protection on `main`** (Settings, Branches):
   - Require a pull request before merging, with 1 approval.
   - Require review from Code Owners.
-  - Require status checks to pass, and select the `check` status.
+  - Require status checks to pass, and select the `check` and `e2e` statuses. `e2e` can be required at once because it always reports: the workflow has no `paths:` filter, and a change with no runtime path makes the job succeed in seconds without a browser.
   - Leave "Do not allow bypassing the above settings" off, so you can merge your own protected-path PRs (ADR 0013).
 - [ ] **Repository settings** (Settings, General, and Actions):
   - Allow auto-merge.
