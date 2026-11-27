@@ -7,6 +7,7 @@ Excluded from `make check` (needs Chromium; `make browser-install`). Run with:
 import http.server
 import json
 import threading
+import time
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -36,6 +37,8 @@ class _Server:
         class Handler(http.server.BaseHTTPRequestHandler):
             def do_GET(self) -> None:
                 outer.hits.append(self.path)
+                if self.path == "/slow.html":
+                    time.sleep(8)
                 if self.path == "/ok.png":
                     body, kind = PNG, "image/png"
                 else:
@@ -212,7 +215,62 @@ def test_invalid_flow_is_rejected_before_the_browser_starts(
     code, out = _browse(tmp_path, "http://127.0.0.1:9", [{"goto": "https://example.com"}])
     assert code == 1
     assert "goto" in capsys.readouterr().err
-    assert not out.exists()
+    summary = (out / "summary.md").read_text()
+    assert "FAIL" in summary and "goto" in summary
+    assert not (out / "case").exists()
+
+
+def test_non_loopback_url_is_rejected_before_the_browser_starts(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from agentbrowser import driver
+
+    def boom(*args: Any, **kwargs: Any) -> None:
+        raise AssertionError("browser started")
+
+    monkeypatch.setattr(driver, "run_flow", boom)
+    for url in ("https://example.com", "http://example.com:8000", "http://127.0.0.1.evil.test"):
+        code, out = _browse(tmp_path, url, [{"goto": "/"}])
+        assert code == 1
+        assert "must be http on 127.0.0.1" in capsys.readouterr().err
+        assert "FAIL" in (out / "summary.md").read_text()
+
+
+def test_a_step_is_held_to_its_one_budget(
+    site: _Server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from agentbrowser import driver
+
+    monkeypatch.setattr(driver, "STEP_TIMEOUT_MS", 700)
+    started = time.monotonic()
+    code, out = _browse(tmp_path, site.url, [{"goto": "/slow.html"}])
+    assert code == 1
+    assert time.monotonic() - started < 6  # the page takes 8 s
+    assert "to load within 0.7 s" in (out / "summary.md").read_text()
+
+
+def test_the_flow_is_held_to_its_deadline(
+    site: _Server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from agentbrowser import driver
+
+    monkeypatch.setattr(driver, "FLOW_TIMEOUT_S", 1.0)
+    started = time.monotonic()
+    code, out = _browse(tmp_path, site.url, [{"goto": "/slow.html"}, {"goto": "/clean.html"}])
+    assert code == 1
+    assert time.monotonic() - started < 6
+    assert "step 1 (goto) failed" in (out / "summary.md").read_text()
+
+
+def test_final_full_screenshot_is_held_to_one_megabyte(
+    site: _Server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from agentbrowser import driver
+
+    monkeypatch.setattr(driver, "MAX_SCREENSHOT_BYTES", 1)
+    code, out = _browse(tmp_path, site.url, [{"goto": "/clean.html"}])
+    assert code == 1
+    assert "final-full.png at most 1 bytes" in (out / "summary.md").read_text()
 
 
 def test_viewport_comes_from_the_flow(site: _Server, tmp_path: Path) -> None:

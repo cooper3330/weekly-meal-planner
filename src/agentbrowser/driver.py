@@ -113,35 +113,41 @@ def _run_step(page: Page, step: Step, base_url: str, timeout_ms: int) -> str | N
     """Run one step; return None, or a message with the expected and the actual."""
     kind = step.kind
     seconds = f"{timeout_ms / 1000:g} s"
+    started = time.monotonic()
+
+    def left() -> int:
+        """What is left of this step's one budget (the action and the load wait share it)."""
+        return max(1, timeout_ms - int((time.monotonic() - started) * 1000))
+
     try:
         if step.goto is not None:
-            page.goto(base_url + step.goto, wait_until="load", timeout=timeout_ms)
+            page.goto(base_url + step.goto, wait_until="load", timeout=left())
         elif step.press is not None:
             page.keyboard.press(step.press)
         elif step.expect_text is not None:
             page.wait_for_function(
                 "t => document.body.innerText.includes(t)",
                 arg=step.expect_text,
-                timeout=timeout_ms,
+                timeout=left(),
             )
         elif step.expect_no_text is not None:
             page.wait_for_function(
                 "t => !document.body.innerText.includes(t)",
                 arg=step.expect_no_text,
-                timeout=timeout_ms,
+                timeout=left(),
             )
         else:
             loc = cast(Locator, getattr(step, kind))
             target = _locator(page, loc)
             if kind == "click":
-                target.click(timeout=timeout_ms)
+                target.click(timeout=left())
             elif kind == "fill":
-                target.fill(loc.value or "", timeout=timeout_ms)
+                target.fill(loc.value or "", timeout=left())
             else:
-                target.select_option(loc.value or "", timeout=timeout_ms)
+                target.select_option(loc.value or "", timeout=left())
         if kind in ("click", "press", "fill", "select"):
             try:
-                page.wait_for_load_state("load", timeout=timeout_ms)
+                page.wait_for_load_state("load", timeout=left())
             except PlaywrightError:
                 pass
     except PlaywrightTimeoutError as exc:
@@ -285,6 +291,8 @@ def run_flow(
     )
     recorder = _Recorder(base)
     context = _new_context(browser, flow)
+    context.set_default_timeout(STEP_TIMEOUT_MS)
+    context.set_default_navigation_timeout(STEP_TIMEOUT_MS)
     context.route("**/*", recorder.route)
     context.tracing.start(screenshots=True, snapshots=True)
     page = context.new_page()
@@ -305,7 +313,7 @@ def run_flow(
                 break
             error = _run_step(page, step, base, min(STEP_TIMEOUT_MS, remaining_ms))
             shot_name = f"{number:02d}-{step.kind}.png"
-            shot_error = _screenshot(page, out_dir / shot_name)
+            shot_error = _screenshot(page, out_dir / shot_name, _budget_ms(deadline))
             if error is None:
                 error = shot_error
             result.steps.append(
@@ -316,8 +324,11 @@ def run_flow(
             if error is not None:
                 detail = "\n".join(f"  {line}" for line in error.splitlines())
                 result.failures.append(f"step {number} ({step.kind}) failed:\n{detail}")
+                _stop_loading(context, page)
                 break
-        _finish(page, context, out_dir)
+        final_error = _finish(page, out_dir, _budget_ms(deadline))
+        if final_error is not None:
+            result.failures.append(final_error)
     finally:
         _save_trace(context, out_dir)
         context.close()
@@ -327,28 +338,39 @@ def run_flow(
     return result
 
 
-def _screenshot(page: Page, path: Path) -> str | None:
-    """Take a viewport screenshot; return an error message if it fails or is over 1 MB."""
+def _stop_loading(context: BrowserContext, page: Page) -> None:
+    """Cancel a page that is still loading, or reading its text would wait for it (no timeout)."""
     try:
-        page.screenshot(path=path)
+        context.new_cdp_session(page).send("Page.stopLoading")
+    except PlaywrightError:
+        pass
+
+
+def _budget_ms(deadline: float) -> int:
+    """A wait outside a step: at most one step's time, and never past the flow deadline."""
+    return max(1, min(STEP_TIMEOUT_MS, int((deadline - time.monotonic()) * 1000)))
+
+
+def _screenshot(page: Page, path: Path, timeout_ms: int, full_page: bool = False) -> str | None:
+    """Take a screenshot; return an error message if it fails or is over 1 MB."""
+    try:
+        page.screenshot(path=path, full_page=full_page, timeout=timeout_ms)
     except PlaywrightError as exc:
-        return f"expected: a screenshot\nactual: {_first_line(exc)}"
+        return f"expected: {path.name} to be written\nactual: {_first_line(exc)}"
     size = path.stat().st_size
     if size > MAX_SCREENSHOT_BYTES:
         return f"expected: {path.name} at most {MAX_SCREENSHOT_BYTES} bytes\nactual: {size} bytes"
     return None
 
 
-def _finish(page: Page, context: BrowserContext, out_dir: Path) -> None:
+def _finish(page: Page, out_dir: Path, timeout_ms: int) -> str | None:
     try:
-        page.wait_for_load_state("load", timeout=STEP_TIMEOUT_MS)
+        page.wait_for_load_state("load", timeout=timeout_ms)
     except PlaywrightError:
         pass
-    try:
-        page.screenshot(path=out_dir / "final-full.png", full_page=True)
-    except PlaywrightError:
-        pass
+    error = _screenshot(page, out_dir / "final-full.png", timeout_ms, full_page=True)
     (out_dir / "page.txt").write_text(_page_text(page), encoding="utf-8")
+    return error
 
 
 def _save_trace(context: BrowserContext, out_dir: Path) -> None:

@@ -7,10 +7,12 @@ import sys
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from agentbrowser import lifecycle
 from agentbrowser.flow import FlowError, load
 
+LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
 RUN_ROOT = lifecycle.REPO_ROOT / ".agent-tmp" / "e2e"
 
 
@@ -26,21 +28,40 @@ def _app_url(name: str) -> str:
     return str(url)
 
 
+def _check_loopback(url: str) -> None:
+    """Only the app on this machine: the owner's identity header goes wherever the driver goes."""
+    parts = urlsplit(url)
+    if parts.scheme != "http" or parts.hostname not in LOOPBACK_HOSTS:
+        raise lifecycle.LifecycleError(
+            f"Refusing to browse {url!r}: the base URL must be http on 127.0.0.1, ::1 or localhost."
+        )
+
+
+def _write_failure(out: Path, name: str, reason: str, reproduce: str) -> None:
+    """The summary for a run that stopped before the browser: no browser is needed."""
+    from agentbrowser.evidence import FlowResult, write_summary
+
+    write_summary(out, [FlowResult(name, [], failures=[reason], reproduce=reproduce)])
+    print(f"Summary: {out / 'summary.md'}", file=sys.stderr)
+
+
 def _browse(args: argparse.Namespace) -> int:
     steps_file = Path(args.steps)
+    flow_name = steps_file.stem
+    reproduce = f"make browse STEPS={args.steps}"
+    out = Path(args.out) if args.out else RUN_ROOT / datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     try:
         flow = load(steps_file)
-    except FlowError as exc:
+        url = args.url or _app_url(args.name)
+        _check_loopback(url)
+    except (FlowError, lifecycle.LifecycleError) as exc:
         print(exc, file=sys.stderr)
+        _write_failure(out, flow_name, str(exc), reproduce)
         return 1
-    url = args.url or _app_url(args.name)
-    out = Path(args.out) if args.out else RUN_ROOT / datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     # Imported here so that loading a flow (and `up`/`down`) never needs Playwright.
     from agentbrowser import driver
     from agentbrowser.evidence import write_summary
 
-    flow_name = steps_file.stem
-    reproduce = f"make browse STEPS={args.steps}"
     try:
         result = driver.run_flow(flow, url, out / flow_name, name=flow_name, reproduce=reproduce)
     except driver.BrowserMissingError as exc:
