@@ -96,6 +96,19 @@ class Flow(_Strict):
     viewport: str = Field(default="360x640", pattern=VIEWPORT)
     steps: list[Step] = Field(min_length=1, max_length=MAX_STEPS)
 
+    @model_validator(mode="after")
+    def _shows_are_declared(self) -> Self:
+        declared = {c for p in self.proves for c in p.criteria}
+        if not declared:  # an ad hoc steps file (make browse) may label steps freely
+            return self
+        for number, step in enumerate(self.steps, 1):
+            if step.shows is not None and step.shows not in declared:
+                raise ValueError(
+                    f"step {number} shows {step.shows}, which proves does not declare "
+                    f"(declared: {', '.join(sorted(declared))})"
+                )
+        return self
+
     @property
     def width(self) -> int:
         return int(self.viewport.split("x")[0])
@@ -131,3 +144,22 @@ def load(path: Path, strict: bool = False) -> Flow:
     if strict and not flow.proves:
         raise FlowError(f"{path}: invalid flow\nproves: required for flows in tests/flows/")
     return flow
+
+
+def _num(criterion: str) -> int:
+    return int(criterion.rsplit("-", 1)[-1])
+
+
+def coverage(flows: dict[str, Flow]) -> list[dict[str, Any]]:
+    """One entry per (issue, criterion) with the names of the flows that declare it, once each."""
+    found: dict[tuple[int, str], set[str]] = {}
+    for name, flow in flows.items():
+        for item in flow.proves:
+            for criterion in item.criteria:
+                found.setdefault((item.issue, criterion), set()).add(name)
+    keys = sorted(found, key=lambda k: (k[0], _num(k[1])))
+    return [{"issue": i, "criterion": c, "flows": sorted(found[(i, c)])} for i, c in keys]
+
+
+def coverage_lines(entries: list[dict[str, Any]]) -> list[str]:
+    return [f"#{e['issue']} {e['criterion']}: {', '.join(e['flows'])}" for e in entries]

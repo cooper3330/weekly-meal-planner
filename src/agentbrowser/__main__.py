@@ -94,7 +94,7 @@ def _e2e(args: argparse.Namespace) -> int:
         signal.signal(signal.SIGTERM, previous)
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="agentbrowser")
     sub = parser.add_subparsers(dest="cmd", required=True)
     up = sub.add_parser("up", help="start the demo app")
@@ -110,7 +110,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     e2e = sub.add_parser("e2e", help="run every flow in tests/flows/ against a fresh demo app")
     e2e.add_argument("--flow", default="", help="run only this flow file")
     e2e.add_argument("--out", default="", help="artifact directory")
-    args = parser.parse_args(argv)
+    return parser
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
     if args.cmd == "e2e":
         return _e2e(args)
     try:
