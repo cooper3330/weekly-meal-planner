@@ -25,13 +25,53 @@
 {% else %}
 <p class="week">{{ week_label }}</p>
 {% if has_slate %}
-{% for heading, cards in sections %}
+{% if confirmed %}
+<p class="status"><strong>This week's plan is confirmed</strong></p>
+{% if confirmed_unavailable %}
+<div class="error-summary" role="alert">
+  <p>A meal in this plan no longer fits your profile. Reopen the plan to change it.</p>
+</div>
+{% endif %}
+{% if (sections | map(attribute="cards") | map("length") | sum) == 0 %}
+<p>No meals planned this week</p>
+{% endif %}
+{% include "_selection_summary.html" %}
+<form method="post" action="/plan/reopen">
+  <button type="submit" class="reopen">Reopen</button>
+</form>
+{% else %}
+{% include "_selection_summary.html" %}
+<form method="post" action="/plan/confirm">
+  <button type="submit" class="confirm"{% if has_unavailable_pick %} disabled{% endif %}>Confirm this week's picks</button>
+  {% if has_unavailable_pick %}<span class="hint">A picked meal no longer fits your profile. Unpick it to confirm.</span>{% endif %}
+</form>
+<form method="post" action="/plan/limits" class="limits">
+  <div class="field">
+    <label for="lunch_limit">Lunches to pick</label>
+    <input id="lunch_limit" name="lunch_limit" type="number" inputmode="numeric"
+           min="{{ min_limit }}" max="{{ max_limit }}" step="1" value="{{ limit_values[0] }}" required>
+  </div>
+  <div class="field">
+    <label for="dinner_limit">Dinners to pick</label>
+    <input id="dinner_limit" name="dinner_limit" type="number" inputmode="numeric"
+           min="{{ min_limit }}" max="{{ max_limit }}" step="1" value="{{ limit_values[1] }}" required>
+  </div>
+  <button type="submit" class="set-limits">Set limits</button>
+</form>
+{% endif %}
+{% for section in sections %}
+{% if not confirmed or section.cards %}
 <section>
-  <h2>{{ heading }}</h2>
-  {% for card in cards %}
+  {% if confirmed %}
+  <h2>{{ section.heading }}: {{ section.picked }} chosen</h2>
+  {% else %}
+  <h2>{{ section.heading }}: {{ section.picked }} of {{ section.limit }} picked</h2>
+  {% endif %}
+  {% for card in section.cards %}
   {% include "_option_card.html" %}
   {% endfor %}
 </section>
+{% endif %}
 {% endfor %}
 {% else %}
 <form method="post" action="/plan/generate">

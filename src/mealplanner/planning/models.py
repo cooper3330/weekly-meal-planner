@@ -59,3 +59,48 @@ class SlateView:
     week_start: date
     profile_version: int
     options: dict[MealType, tuple[Slot, ...]]
+
+
+@dataclass(frozen=True)
+class NutritionSummary:
+    """Sum and mean of the unrounded per-serving nutrition of the chosen meals (ADR 0021)."""
+
+    count: int
+    total: Nutrition
+    average: Nutrition
+
+
+@dataclass(frozen=True)
+class SelectionItem:
+    slot: Slot
+    picked: bool
+
+
+@dataclass(frozen=True)
+class SelectionView:
+    """A slate with the draft picks, the limits and the summary of the available picks."""
+
+    slate_id: int
+    week_start: date
+    lunch_limit: int
+    dinner_limit: int
+    items: dict[MealType, tuple[SelectionItem, ...]]
+    pick_counts: dict[MealType, int]
+    summary: NutritionSummary
+    confirmed: bool = False
+    confirmation_id: int | None = None
+    # Picked meals of the current plan that now fail the checks (only while confirmed).
+    confirmed_unavailable: tuple[UnavailableOption, ...] = ()
+
+    def limit(self, meal_type: MealType) -> int:
+        return self.lunch_limit if meal_type is MealType.lunch else self.dinner_limit
+
+
+@dataclass(frozen=True)
+class ConfirmedPlan:
+    """A confirmed week (ADR 0021). ``meals`` may be empty: a week with no meals planned."""
+
+    confirmation_id: int
+    week_start: date
+    meals: list[MealOption]
+    unavailable: list[UnavailableOption]
