@@ -1,0 +1,492 @@
+{
+  "lunch": [
+    {
+      "name": "Lemon chicken rice bowl",
+      "description": "Roast chicken over rice with lemon and herbs.",
+      "cook_minutes": 30,
+      "tags": [
+        "bowl"
+      ],
+      "ingredients": [
+        {
+          "ingredient_id": "chicken_breast_raw",
+          "quantity": 300,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "rice_white_long_raw",
+          "quantity": 120,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "lemon_juice",
+          "quantity": 30,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "parsley_fresh",
+          "quantity": 10,
+          "unit": "g"
+        }
+      ]
+    },
+    {
+      "name": "Chickpea cucumber salad",
+      "description": "Chickpeas, cucumber and tomato with olive oil.",
+      "cook_minutes": 15,
+      "tags": [
+        "salad",
+        "vegetarian"
+      ],
+      "ingredients": [
+        {
+          "ingredient_id": "chickpeas_canned",
+          "quantity": 300,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "cucumber_raw",
+          "quantity": 200,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "tomato_raw",
+          "quantity": 200,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "oil_olive",
+          "quantity": 15,
+          "unit": "g"
+        }
+      ]
+    },
+    {
+      "name": "Salmon spinach wrap",
+      "description": "Canned salmon, spinach and hummus in a flour tortilla.",
+      "cook_minutes": 10,
+      "tags": [
+        "wrap"
+      ],
+      "ingredients": [
+        {
+          "ingredient_id": "salmon_pink_canned",
+          "quantity": 200,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "tortilla_flour",
+          "quantity": 100,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "spinach_raw",
+          "quantity": 60,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "hummus",
+          "quantity": 80,
+          "unit": "g"
+        }
+      ]
+    },
+    {
+      "name": "Lentil and carrot soup",
+      "description": "Red lentils simmered with carrot and onion.",
+      "cook_minutes": 35,
+      "tags": [
+        "soup",
+        "vegan"
+      ],
+      "ingredients": [
+        {
+          "ingredient_id": "lentils_red_raw",
+          "quantity": 150,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "carrot_raw",
+          "quantity": 250,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "onion_raw",
+          "quantity": 100,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "oil_olive",
+          "quantity": 10,
+          "unit": "g"
+        }
+      ]
+    },
+    {
+      "name": "Egg fried rice",
+      "description": "Rice stir-fried with eggs, peppers and soy sauce.",
+      "cook_minutes": 20,
+      "tags": [
+        "rice"
+      ],
+      "ingredients": [
+        {
+          "ingredient_id": "rice_white_long_raw",
+          "quantity": 150,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "egg_whole_raw",
+          "quantity": 150,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "pepper_bell_red_raw",
+          "quantity": 150,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "soy_sauce",
+          "quantity": 20,
+          "unit": "g"
+        }
+      ]
+    },
+    {
+      "name": "Roasted vegetable couscous",
+      "description": "Couscous with roasted eggplant, peppers and feta.",
+      "cook_minutes": 30,
+      "tags": [
+        "vegetarian"
+      ],
+      "ingredients": [
+        {
+          "ingredient_id": "couscous_dry",
+          "quantity": 150,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "eggplant_raw",
+          "quantity": 250,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "pepper_bell_yellow_raw",
+          "quantity": 150,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "cheese_feta",
+          "quantity": 60,
+          "unit": "g"
+        }
+      ]
+    },
+    {
+      "name": "Black bean quesadilla",
+      "description": "Black beans and cheddar in a corn tortilla.",
+      "cook_minutes": 20,
+      "tags": [
+        "mexican"
+      ],
+      "ingredients": [
+        {
+          "ingredient_id": "black_beans_canned",
+          "quantity": 300,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "tortilla_corn",
+          "quantity": 120,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "cheese_cheddar",
+          "quantity": 80,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "onion_sweet_raw",
+          "quantity": 80,
+          "unit": "g"
+        }
+      ]
+    },
+    {
+      "name": "Mushroom and spinach omelette",
+      "description": "Eggs folded around mushrooms and spinach.",
+      "cook_minutes": 15,
+      "tags": [
+        "eggs",
+        "vegetarian"
+      ],
+      "ingredients": [
+        {
+          "ingredient_id": "egg_whole_raw",
+          "quantity": 250,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "mushroom_white_raw",
+          "quantity": 200,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "spinach_frozen",
+          "quantity": 100,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "butter_unsalted",
+          "quantity": 15,
+          "unit": "g"
+        }
+      ]
+    }
+  ],
+  "dinner": [
+    {
+      "name": "Roast salmon with potatoes",
+      "description": "Oven salmon with red potatoes and green beans.",
+      "cook_minutes": 35,
+      "tags": [
+        "fish"
+      ],
+      "ingredients": [
+        {
+          "ingredient_id": "salmon_atlantic_farmed_raw",
+          "quantity": 300,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "potato_red_raw",
+          "quantity": 400,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "beans_green_canned",
+          "quantity": 200,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "oil_olive",
+          "quantity": 15,
+          "unit": "g"
+        }
+      ]
+    },
+    {
+      "name": "Tomato basil pasta",
+      "description": "Pasta in a quick tomato and basil sauce.",
+      "cook_minutes": 25,
+      "tags": [
+        "pasta",
+        "vegan"
+      ],
+      "ingredients": [
+        {
+          "ingredient_id": "pasta_dry",
+          "quantity": 200,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "tomato_sauce_canned",
+          "quantity": 300,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "basil_fresh",
+          "quantity": 15,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "garlic_raw",
+          "quantity": 10,
+          "unit": "g"
+        }
+      ]
+    },
+    {
+      "name": "Chicken and broccoli stir-fry",
+      "description": "Chicken, broccoli and rice noodles in soy sauce.",
+      "cook_minutes": 25,
+      "tags": [
+        "stir-fry"
+      ],
+      "ingredients": [
+        {
+          "ingredient_id": "chicken_thigh_raw",
+          "quantity": 300,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "broccoli_raw",
+          "quantity": 300,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "rice_noodles_dry",
+          "quantity": 120,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "soy_sauce",
+          "quantity": 25,
+          "unit": "g"
+        }
+      ]
+    },
+    {
+      "name": "Tofu and cabbage rice bowl",
+      "description": "Pan-fried tofu with red cabbage and brown rice.",
+      "cook_minutes": 30,
+      "tags": [
+        "bowl",
+        "vegan"
+      ],
+      "ingredients": [
+        {
+          "ingredient_id": "tofu_firm_raw",
+          "quantity": 300,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "cabbage_red_raw",
+          "quantity": 250,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "rice_brown_long_raw",
+          "quantity": 120,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "oil_sesame",
+          "quantity": 10,
+          "unit": "g"
+        }
+      ]
+    },
+    {
+      "name": "Beef and pepper skillet",
+      "description": "Ground beef with green peppers and onion.",
+      "cook_minutes": 30,
+      "tags": [
+        "skillet"
+      ],
+      "ingredients": [
+        {
+          "ingredient_id": "beef_ground_90_raw",
+          "quantity": 300,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "pepper_bell_green_raw",
+          "quantity": 250,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "onion_raw",
+          "quantity": 100,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "tomato_paste",
+          "quantity": 30,
+          "unit": "g"
+        }
+      ]
+    },
+    {
+      "name": "Sweet potato and kale hash",
+      "description": "Sweet potato and kale fried with eggs.",
+      "cook_minutes": 35,
+      "tags": [
+        "vegetarian"
+      ],
+      "ingredients": [
+        {
+          "ingredient_id": "sweet_potato_raw",
+          "quantity": 500,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "kale_raw",
+          "quantity": 150,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "egg_whole_raw",
+          "quantity": 200,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "oil_canola",
+          "quantity": 15,
+          "unit": "g"
+        }
+      ]
+    },
+    {
+      "name": "Shrimp and corn tacos",
+      "description": "Shrimp, sweet corn and lettuce in corn tortillas.",
+      "cook_minutes": 25,
+      "tags": [
+        "mexican",
+        "fish"
+      ],
+      "ingredients": [
+        {
+          "ingredient_id": "shrimp_raw",
+          "quantity": 300,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "corn_sweet_yellow_frozen",
+          "quantity": 200,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "tortilla_corn",
+          "quantity": 150,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "lettuce_romaine_raw",
+          "quantity": 80,
+          "unit": "g"
+        }
+      ]
+    },
+    {
+      "name": "Pork and quinoa bowl",
+      "description": "Seared pork tenderloin over quinoa with salad greens.",
+      "cook_minutes": 35,
+      "tags": [
+        "bowl"
+      ],
+      "ingredients": [
+        {
+          "ingredient_id": "pork_tenderloin_raw",
+          "quantity": 300,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "quinoa_raw",
+          "quantity": 130,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "lettuce_red_leaf_raw",
+          "quantity": 80,
+          "unit": "g"
+        },
+        {
+          "ingredient_id": "lemon_raw",
+          "quantity": 60,
+          "unit": "g"
+        }
+      ]
+    }
+  ]
+}
