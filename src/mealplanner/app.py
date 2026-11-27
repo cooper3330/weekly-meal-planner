@@ -102,11 +102,14 @@ def create_app(
     )
     app.state.settings = settings
     # Loaded once at startup (a bad packaged catalog fails fast); tests inject a small one.
-    app.state.catalog = catalog if catalog is not None else load_catalog()
+    packaged = load_catalog()
+    app.state.catalog = catalog if catalog is not None else packaged
     _attach_miss_log(settings.data_dir)
     app.state.db_path = db_path
     # Both files are validated once here; a broken one stops startup with its message (ADR 0023).
-    app.state.grocery_info = load_grocery_info(app.state.catalog)
+    # The grocery file describes the packaged catalog, so it is checked against that one even
+    # when a test injects a small catalog.
+    app.state.grocery_info = load_grocery_info(packaged)
     # Injectable so tests are deterministic (ADR 0010); must return a timezone-aware time.
     app.state.clock = clock if clock is not None else (lambda: datetime.now(UTC))
     # Building the client never contacts the bridge; a missing or down bridge shows on generate().

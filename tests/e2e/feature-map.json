@@ -14,6 +14,7 @@
         {"role": "link", "name": "Your profile"}
       ],
       "actions": [
+        {"control": {"role": "link", "name": "This week's options"}, "result": "the plan page"},
         {"control": {"role": "link", "name": "Your profile"}, "result": "the profile page"}
       ],
       "implements": [],
@@ -21,6 +22,33 @@
       "sources": [
         "src/mealplanner/web/templates/home.html",
         "src/mealplanner/web/routes.py"
+      ],
+      "phone_notes": ""
+    },
+    {
+      "name": "plan",
+      "routes": ["GET /plan", "POST /plan/generate"],
+      "scenario": "profile",
+      "reach": [
+        {"goto": "/"},
+        {"click": {"role": "link", "name": "This week's options"}}
+      ],
+      "landmarks": [
+        {"role": "heading", "name": "This week's options"},
+        {"label": "Lunches"},
+        {"label": "Dinners"},
+        {"role": "button", "name": "Generate options"}
+      ],
+      "actions": [
+        {"control": {"role": "button", "name": "Generate options"}, "result": "the week's slate is generated and shown as Lunches and Dinners cards with calories and macros, or the page is shown again with a plain error message and no options"},
+        {"control": {"role": "link", "name": "Home"}, "result": "the home page"}
+      ],
+      "implements": [{"issue": 7, "criteria": ["AC-1", "AC-2", "AC-3", "AC-7", "AC-8", "AC-9"]}],
+      "flows": [],
+      "sources": [
+        "src/mealplanner/web/templates/plan.html",
+        "src/mealplanner/web/templates/_option_card.html",
+        "src/mealplanner/web/plan.py"
       ],
       "phone_notes": ""
     },

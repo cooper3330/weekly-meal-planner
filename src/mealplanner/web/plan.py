@@ -46,7 +46,6 @@ _WHOLE_NUMBER = re.compile(r"[0-9]{1,6}")
 SLATE_FAILED = "Could not put together enough options that fit your profile. Try again."
 OUTPUT_INVALID = "The meal planner returned something invalid. Try again."
 UNAVAILABLE = "The meal planner is unavailable. Try again in a minute."
-NO_KEY = "ANTHROPIC_API_KEY is not set."
 
 
 @dataclass(frozen=True)
@@ -212,8 +211,9 @@ async def generate_plan(
         return fail(502, SLATE_FAILED, reasons=reasons)
     except LLMOutputError:
         return fail(502, OUTPUT_INVALID)
-    except LLMConfigError:
-        return fail(503, NO_KEY)
+    except LLMConfigError as e:
+        # The bridge client's own message says what to fix (not set up, not signed in, ...).
+        return fail(503, str(e))
     except LLMUnavailableError:
         return fail(503, UNAVAILABLE)
     return RedirectResponse("/plan", status_code=303)

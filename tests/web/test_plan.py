@@ -250,10 +250,14 @@ def test_unavailable_message(make: Make) -> None:
 
 
 def test_missing_key_message(make: Make) -> None:
-    client, _ = make([LLMConfigError("no key")])
+    # The model is reached through the CLI bridge now (no API key), so the page shows the
+    # client's own setup message instead of the "ANTHROPIC_API_KEY is not set." text.
+    client, _ = make(
+        [LLMConfigError("The CLI bridge is not set up. Start the app with `make run`.")]
+    )
     r = client.post("/plan/generate", data=DEFAULT_FORM)
     assert r.status_code == 503
-    assert "ANTHROPIC_API_KEY is not set." in r.text
+    assert "The CLI bridge is not set up. Start the app with `make run`." in r.text
 
 
 def test_generate_without_profile(make: Make) -> None:
