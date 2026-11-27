@@ -4,6 +4,7 @@ Everything shown comes from ``load_slate_view``, which rebuilds each option thro
 domain checks, so nutrition is computed in code and nothing invalid is rendered.
 """
 
+import logging
 import re
 import sqlite3
 from dataclasses import dataclass
@@ -32,6 +33,7 @@ from mealplanner.web.deps import get_catalog, get_db, get_llm_client, get_now
 from mealplanner.web.routes import templates
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 UserId = Annotated[int, Depends(current_user_id)]
 Conn = Annotated[sqlite3.Connection, Depends(get_db)]
@@ -208,12 +210,17 @@ async def generate_plan(
     except SlateGenerationError as e:
         # Reasons only: they come from the code checks, and no dish name is shown.
         reasons = list(dict.fromkeys(r.reason for r in e.rejections))
+        logger.warning("slate generation failed: rejected options (%s)", "; ".join(reasons))
         return fail(502, SLATE_FAILED, reasons=reasons)
     except LLMOutputError:
+        # No message: it could carry model text.
+        logger.warning("slate generation failed: LLMOutputError (invalid model output)")
         return fail(502, OUTPUT_INVALID)
     except LLMConfigError as e:
         # The bridge client's own message says what to fix (not set up, not signed in, ...).
+        logger.warning("slate generation failed: LLMConfigError: %s", e)
         return fail(503, str(e))
-    except LLMUnavailableError:
+    except LLMUnavailableError as e:
+        logger.warning("slate generation failed: LLMUnavailableError: %s", e)
         return fail(503, UNAVAILABLE)
     return RedirectResponse("/plan", status_code=303)

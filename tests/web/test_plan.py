@@ -358,3 +358,36 @@ def test_offline(make: Make) -> None:
     client, _ = make()
     assert client.post("/plan/generate", data=DEFAULT_FORM).status_code == 200
     assert "Test meal number 0" in client.get("/plan").text
+
+
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        (
+            LLMConfigError("The CLI is set up wrongly."),
+            "LLMConfigError: The CLI is set up wrongly.",
+        ),
+        (
+            LLMUnavailableError("Bridge down (timeout)."),
+            "LLMUnavailableError: Bridge down (timeout).",
+        ),
+    ],
+)
+def test_generate_failure_logged_to_app_log(
+    make: Make, tmp_path: Path, error: Exception, expected: str
+) -> None:
+    client, _ = make([error])
+    assert client.post("/plan/generate", data=DEFAULT_FORM).status_code == 503
+    text = (tmp_path / "logs" / "app.log").read_text()
+    assert "slate generation failed" in text
+    assert expected in text
+
+
+def test_app_log_handler_not_duplicated(tmp_path: Path) -> None:
+    settings = load_settings({"MEALPLANNER_DATA_DIR": str(tmp_path)})
+    create_app(settings, catalog=CAT)
+    create_app(settings, catalog=CAT)
+    files = [
+        h for h in logging.getLogger("mealplanner").handlers if isinstance(h, logging.FileHandler)
+    ]
+    assert len(files) == 1
