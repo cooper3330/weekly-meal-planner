@@ -14,6 +14,8 @@
 # the last 300 lines is kept (the failures are at the end).
 # Works with macOS (BSD) tools and bash 3.2.
 set -uo pipefail
+# Byte semantics for cut, sed and awk, so the size caps below do not depend on the runner's locale (#192).
+export LC_ALL=C
 
 sha="${1:-}"
 case "$sha" in ''|*[!0-9a-fA-F]*) echo "usage: scripts/ci-failure.sh <head-sha>" >&2; exit 2 ;; esac
