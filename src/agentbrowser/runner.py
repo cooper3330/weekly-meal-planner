@@ -14,7 +14,7 @@ from typing import Any
 
 from agentbrowser import lifecycle
 from agentbrowser.evidence import FlowResult, write_summary
-from agentbrowser.flow import Flow, FlowError, load
+from agentbrowser.flow import Flow, FlowError, coverage, coverage_lines, load
 
 FLOWS_DIR = lifecycle.REPO_ROOT / "tests" / "flows"
 RUN_ROOT = lifecycle.REPO_ROOT / ".agent-tmp" / "e2e"
@@ -115,6 +115,13 @@ def run(
             continue
         runnable.append((path, loaded))
 
+    declared = coverage({p.stem: f for p, f in runnable})
+    if declared:
+        print("Coverage:")
+        for line in coverage_lines(declared):
+            print(f"  {line}")
+        print(flush=True)
+
     try:
         if runnable:
             if driver_api is None:
@@ -131,7 +138,7 @@ def run(
                     )
     finally:
         if results:
-            write_summary(out, results)
+            write_summary(out, results, coverage=declared)
 
     failed = [r for r in results if not r.ok]
     print(f"{len(results) - len(failed)}/{len(results)} flows passed", flush=True)

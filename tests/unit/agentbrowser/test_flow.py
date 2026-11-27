@@ -39,7 +39,7 @@ def test_valid_flow_parses_with_defaults(tmp_path: Path) -> None:
 
 def test_full_flow_from_adr_parses(tmp_path: Path) -> None:
     data = {
-        "proves": [{"issue": 99, "criteria": ["AC-4"]}],
+        "proves": [{"issue": 99, "criteria": ["AC-2", "AC-4"]}],
         "mode": "wired",
         "scenario": "empty",
         "viewport": "412x915",
