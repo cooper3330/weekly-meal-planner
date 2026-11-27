@@ -418,6 +418,7 @@ def test_existing_flow_file_is_accepted(
     app: FastAPI, real_map: dict[str, Any], tmp_path: Path
 ) -> None:
     (tmp_path / "ok.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "home.json").write_text("{}", encoding="utf-8")  # the home entry lists its flow
     entry(real_map, "profile")["flows"] = ["ok"]
     assert check_map(real_map, app_routes(app), flows_dir=tmp_path) == []
 

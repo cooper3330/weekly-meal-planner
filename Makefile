@@ -1,4 +1,4 @@
-.PHONY: check fmt sync run bridge-smoke browser-install app-up app-down browse
+.PHONY: check fmt sync run bridge-smoke browser-install app-up app-down browse e2e
 
 RUN ?= uv run python
 APP_NAME ?= default
@@ -16,6 +16,14 @@ app-down:
 browse:
 	@test -n "$(STEPS)" || { echo "Usage: make browse STEPS=<file> [URL=...] [OUT=...] [APP_NAME=default]" >&2; exit 2; }
 	PYTHONPATH=src $(RUN) -m agentbrowser browse --steps "$(STEPS)" --name $(APP_NAME) $(if $(URL),--url "$(URL)") $(if $(OUT),--out "$(OUT)")
+
+# Run every flow in tests/flows/ (or one: FLOW=tests/flows/<name>.json) against a fresh demo app
+# each, then the browser tests in tests/e2e/ (only without FLOW). Needs `make browser-install`.
+e2e:
+	@rc=0; \
+	PYTHONPATH=src $(RUN) -m agentbrowser e2e $(if $(FLOW),--flow "$(FLOW)") $(if $(OUT),--out "$(OUT)") || rc=1; \
+	$(if $(FLOW),,uv run pytest tests/e2e -o addopts= || rc=1;) \
+	exit $$rc
 
 # The project is not installed (package = false), so put src/ on the import path.
 run:
