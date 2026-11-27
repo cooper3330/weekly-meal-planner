@@ -4,80 +4,21 @@ Excluded from `make check` (needs Chromium; `make browser-install`). Run with:
 `uv run pytest tests/e2e -o addopts=`
 """
 
-import http.server
 import json
-import threading
 import time
-from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
 import pytest
+from fixture_server import Server as _Server
 
 from agentbrowser import __main__ as cli
 from agentbrowser import lifecycle
-
-SITE = Path(__file__).parent / "fixture_site"
-PNG = bytes.fromhex(
-    "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489"
-    "0000000d49444154789c6360000002000001e221bc330000000049454e44ae426082"
-)
 
 
 def _png_size(path: Path) -> tuple[int, int]:
     header = path.read_bytes()[:24]
     return int.from_bytes(header[16:20], "big"), int.from_bytes(header[20:24], "big")
-
-
-class _Server:
-    def __init__(self, external: str = "") -> None:
-        outer = self
-        self.hits: list[str] = []
-
-        class Handler(http.server.BaseHTTPRequestHandler):
-            def do_GET(self) -> None:
-                outer.hits.append(self.path)
-                if self.path == "/slow.html":
-                    time.sleep(8)
-                if self.path == "/ok.png":
-                    body, kind = PNG, "image/png"
-                else:
-                    page = SITE / self.path.lstrip("/")
-                    if not page.is_file():
-                        self.send_error(404)
-                        return
-                    body = page.read_text().replace("__EXTERNAL__", external).encode()
-                    kind = "text/html; charset=utf-8"
-                self.send_response(200)
-                self.send_header("Content-Type", kind)
-                self.send_header("Content-Length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
-
-            def log_message(self, *args: Any) -> None:
-                pass
-
-        self.httpd = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-        self.url = f"http://127.0.0.1:{self.httpd.server_address[1]}"
-        threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
-
-    def close(self) -> None:
-        self.httpd.shutdown()
-        self.httpd.server_close()
-
-
-@pytest.fixture
-def outside() -> Iterator[_Server]:
-    server = _Server()
-    yield server
-    server.close()
-
-
-@pytest.fixture
-def site(outside: _Server) -> Iterator[_Server]:
-    server = _Server(external=outside.url)
-    yield server
-    server.close()
 
 
 def _browse(

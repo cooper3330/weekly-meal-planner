@@ -1,6 +1,21 @@
 # Mobile checklist
 
-The UI is checked at a phone viewport by hand (ADR 0005). Minimum viewport: 360 x 640.
+The UI is checked at a phone viewport (ADR 0005, ADR 0028). Minimum viewport: 360 x 640.
+
+## Automated and manual checks
+
+The driver runs these five checks at 360 x 640 in headless Chromium on every distinct page that
+every flow and every `make browse` run reaches. There is no separate command. The results are in
+`<flow>/checks.json` and `summary.md` (pass or fail per page and check, with the element, its size
+and the screenshot), and any failure makes the run exit non-zero.
+
+1. No horizontal scroll: the page is not wider than the viewport; a failure names the widest element past the right edge.
+2. Body text is at least 16 px.
+3. Every visible link, button, input (not hidden), select, textarea and `[role=button]` is at least 44 px tall. A link inside running text (its parent `p` or `li` has other text) is exempt.
+4. Every request went to the app's own loopback host and port.
+5. Each page response carries `Content-Security-Policy`, `Referrer-Policy` and `X-Content-Type-Options`.
+
+Still manual: a real browser's device mode, by eye, for taste ("nothing is cut off or overlapping"), and the real phone over Tailscale (below).
 
 **Every PR that adds or changes a page must add or update its flow below and confirm in the PR description that the flow was checked.**
 

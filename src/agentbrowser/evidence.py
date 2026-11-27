@@ -4,6 +4,8 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from agentbrowser.checks import PageChecks, page_checks_json
+
 
 @dataclass
 class StepResult:
@@ -21,6 +23,7 @@ class FlowResult:
     steps: list[StepResult] = field(default_factory=list)
     failures: list[str] = field(default_factory=list)
     reproduce: str | None = None
+    pages: list[PageChecks] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -42,6 +45,7 @@ def _flow_json(result: FlowResult) -> dict[str, object]:
             }
             for s in result.steps
         ],
+        "checks": page_checks_json(result.pages),
         "failures": result.failures,
         "reproduce": result.reproduce,
     }
@@ -78,6 +82,15 @@ def render_markdown(results: list[FlowResult], head_sha: str | None = None) -> s
             shows = f" (shows {step.shows})" if step.shows else ""
             shot = f" [{step.screenshot}]" if step.screenshot else ""
             lines.append(f"{number}. {step.kind}{shows}: {mark}{shot}")
+        if result.pages:
+            lines += ["", "Phone checks:"]
+            for page in result.pages:
+                shot = f" [{page.screenshot}]" if page.screenshot else ""
+                lines.append(f"- {page.url}: {'pass' if page.ok else 'FAIL'}{shot}")
+                for check in page.results:
+                    for f in check.findings:
+                        what = " ".join(x for x in (f.element, f.size and f"({f.size})") if x)
+                        lines.append(f"  - {check.check}: {what} {f.detail}")
         if result.failures:
             lines += ["", "Failures:"]
             lines += [f"- {reason}" for reason in result.failures]
