@@ -262,6 +262,17 @@ def test_the_flow_is_held_to_its_deadline(
     assert "step 1 (goto) failed" in (out / "summary.md").read_text()
 
 
+def test_steps_after_the_flow_deadline_are_not_run(
+    site: _Server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from agentbrowser import driver
+
+    monkeypatch.setattr(driver, "FLOW_TIMEOUT_S", 0.001)
+    code, out = _browse(tmp_path, site.url, [{"goto": "/clean.html"}, {"goto": "/clean.html"}])
+    assert code == 1
+    assert "not run: the flow took longer than" in (out / "summary.md").read_text()
+
+
 def test_final_full_screenshot_is_held_to_one_megabyte(
     site: _Server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

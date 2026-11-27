@@ -326,7 +326,7 @@ def run_flow(
                 result.failures.append(f"step {number} ({step.kind}) failed:\n{detail}")
                 _stop_loading(context, page)
                 break
-        final_error = _finish(page, out_dir, _budget_ms(deadline))
+        final_error = _finish(context, page, out_dir, deadline)
         if final_error is not None:
             result.failures.append(final_error)
     finally:
@@ -363,12 +363,12 @@ def _screenshot(page: Page, path: Path, timeout_ms: int, full_page: bool = False
     return None
 
 
-def _finish(page: Page, out_dir: Path, timeout_ms: int) -> str | None:
+def _finish(context: BrowserContext, page: Page, out_dir: Path, deadline: float) -> str | None:
     try:
-        page.wait_for_load_state("load", timeout=timeout_ms)
+        page.wait_for_load_state("load", timeout=_budget_ms(deadline))
     except PlaywrightError:
-        pass
-    error = _screenshot(page, out_dir / "final-full.png", timeout_ms, full_page=True)
+        _stop_loading(context, page)
+    error = _screenshot(page, out_dir / "final-full.png", _budget_ms(deadline), full_page=True)
     (out_dir / "page.txt").write_text(_page_text(page), encoding="utf-8")
     return error
 
