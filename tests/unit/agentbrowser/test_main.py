@@ -68,3 +68,22 @@ def test_failing_up_returns_1_with_log_tail_on_stderr(
 def test_down_with_no_state_returns_0(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     _use_stub(monkeypatch, tmp_path, STUB_OK)
     assert cli.main(["down", "--name", "nothing"]) == 0
+
+
+@pytest.mark.parametrize(
+    "url", ["https://example.com", "http://example.com:8000", "http://127.0.0.1.evil.test"]
+)
+def test_browse_rejects_a_non_loopback_url_and_writes_the_reason(
+    url: str, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    steps = tmp_path / "s.json"
+    steps.write_text('{"steps": [{"goto": "/"}]}')
+    out = tmp_path / "out"
+    assert cli.main(["browse", "--steps", str(steps), "--url", url, "--out", str(out)]) == 1
+    assert "must be http on 127.0.0.1" in capsys.readouterr().err
+    assert "must be http on 127.0.0.1" in (out / "summary.md").read_text()
+
+
+@pytest.mark.parametrize("url", ["http://127.0.0.1:1", "http://localhost:1", "http://[::1]:1"])
+def test_loopback_urls_are_accepted(url: str) -> None:
+    cli._check_loopback(url)

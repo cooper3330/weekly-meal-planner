@@ -1,4 +1,4 @@
-.PHONY: check fmt sync run bridge-smoke browser-install app-up app-down
+.PHONY: check fmt sync run bridge-smoke browser-install app-up app-down browse
 
 RUN ?= uv run python
 APP_NAME ?= default
@@ -10,6 +10,12 @@ app-up:
 
 app-down:
 	PYTHONPATH=src $(RUN) -m agentbrowser down --name $(APP_NAME)
+
+# Drive the app in headless Chromium (#102): `make browse STEPS=flow.json [URL=...] [OUT=...]`.
+# URL defaults to the app from `make app-up APP_NAME=...`; OUT to .agent-tmp/e2e/<run-id>/.
+browse:
+	@test -n "$(STEPS)" || { echo "Usage: make browse STEPS=<file> [URL=...] [OUT=...] [APP_NAME=default]" >&2; exit 2; }
+	PYTHONPATH=src $(RUN) -m agentbrowser browse --steps "$(STEPS)" --name $(APP_NAME) $(if $(URL),--url "$(URL)") $(if $(OUT),--out "$(OUT)")
 
 # The project is not installed (package = false), so put src/ on the import path.
 run:
