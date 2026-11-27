@@ -33,7 +33,9 @@
         "POST /plan/options/{option_id}/reroll",
         "POST /plan/options/{option_id}/pick",
         "POST /plan/options/{option_id}/unpick",
-        "POST /plan/limits"
+        "POST /plan/limits",
+        "POST /plan/confirm",
+        "POST /plan/reopen"
       ],
       "scenario": "profile",
       "reach": [
@@ -51,7 +53,7 @@
         {"control": {"role": "link", "name": "Home"}, "result": "the home page"}
       ],
       "implements": [{"issue": 7, "criteria": ["AC-1", "AC-2", "AC-3", "AC-6", "AC-7", "AC-8", "AC-9"]},
-        {"issue": 8, "criteria": ["AC-1", "AC-2", "AC-3", "AC-8", "AC-9", "AC-10"]}
+        {"issue": 8, "criteria": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7", "AC-8", "AC-9", "AC-10"]}
       ],
       "flows": [],
       "sources": [

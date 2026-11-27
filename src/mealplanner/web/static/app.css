@@ -176,7 +176,9 @@ details summary {
 
 button.pick,
 button.unpick,
-button.set-limits {
+button.set-limits,
+button.confirm,
+button.reopen {
   min-height: 44px;
   min-width: 44px;
 }

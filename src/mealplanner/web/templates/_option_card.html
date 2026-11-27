@@ -21,6 +21,7 @@
   <ul class="ingredients">
     {% for line in card.ingredients %}<li>{{ line }}</li>{% endfor %}
   </ul>
+  {% if not confirmed %}
   {% if card.picked %}
   <form method="post" action="/plan/options/{{ card.id }}/unpick">
     <button type="submit" class="unpick">Unpick</button>
@@ -34,12 +35,14 @@
   <form method="post" action="/plan/options/{{ card.id }}/reroll">
     <button type="submit" class="replace">Replace</button>
   </form>
+  {% endif %}
 </article>
 {% else %}
 <article class="option unavailable{% if card.picked %} picked{% endif %}" id="option-{{ card.id }}">
   {% if card.picked %}<p class="picked-label"><strong>&#10003; Picked</strong></p>{% endif %}
   <p><strong>This option no longer fits your profile</strong></p>
   <p>{{ card.reason }}</p>
+  {% if not confirmed %}
   {% if card.picked %}
   <form method="post" action="/plan/options/{{ card.id }}/unpick">
     <button type="submit" class="unpick">Unpick</button>
@@ -48,5 +51,6 @@
   <form method="post" action="/plan/options/{{ card.id }}/reroll">
     <button type="submit" class="replace">Replace</button>
   </form>
+  {% endif %}
 </article>
 {% endif %}
