@@ -13,8 +13,10 @@ from mealplanner.llm.client import LLMClient
 from mealplanner.llm.errors import LLMOutputError, LLMUnavailableError
 from mealplanner.nutrition.catalog import Catalog
 from mealplanner.nutrition.exclusions import ExclusionTerm
-from mealplanner.planning.models import ConfirmedPlan, MealOption, Rejection
+from mealplanner.planning.errors import OptionUnavailableError
+from mealplanner.planning.models import ConfirmedPlan, MealOption, Rejection, UnavailableOption
 from mealplanner.planning.selection import get_confirmed_plan
+from mealplanner.planning.view import load_slate_view
 from mealplanner.profile.store import get_current_profile
 from mealplanner.recipes.build import build_recipe
 from mealplanner.recipes.checks import check_recipe
@@ -189,6 +191,66 @@ def get_week_recipe(
     meal = _planned_meal(plan, option_id)
     servings, exclusions = _profile(conn, user_id)
     return _item(conn, catalog, user_id, meal, servings, exclusions)
+
+
+def preview_recipe(
+    conn: sqlite3.Connection,
+    llm: LLMClient,
+    catalog: Catalog,
+    user_id: int,
+    week_start: date,
+    option_id: int,
+    *,
+    now: datetime,
+) -> Recipe:
+    """One option's recipe, written now unless one is stored (ADR 0026).
+
+    Works whether the option is picked or not and whether the week is open or confirmed.
+    Raises ``RecipeNotFoundError`` (not an active option of the user's slate for the week) or
+    ``OptionUnavailableError`` (it fails the checks now), each with no model call. A stored
+    recipe that passes the checks is returned with no call. Otherwise one recipe is written
+    and saved only after it passes every check; on any error nothing is stored.
+    """
+    meal = _slate_meal(conn, catalog, user_id, week_start, option_id)
+    servings, exclusions = _profile(conn, user_id)
+    stored = _stored_steps(conn, catalog, user_id, meal, exclusions)
+    if isinstance(stored, RecipeSteps):
+        return build_recipe(meal, stored, profile_servings=servings, catalog=catalog)
+    steps = generate_recipe_steps(llm, meal, catalog=catalog, exclusions=exclusions)
+    save_recipe(conn, user_id, option_id, _as_draft(steps), now=now)
+    return build_recipe(meal, steps, profile_servings=servings, catalog=catalog)
+
+
+def get_option_recipe(
+    conn: sqlite3.Connection,
+    catalog: Catalog,
+    user_id: int,
+    week_start: date,
+    option_id: int,
+) -> Recipe | Missing | StepsNoLongerFit:
+    """What the preview page may show for one option. Never calls the model.
+
+    Same errors as ``preview_recipe``. The option check, the recipe check and the builder (at
+    the current profile's servings) run on every read.
+    """
+    meal = _slate_meal(conn, catalog, user_id, week_start, option_id)
+    servings, exclusions = _profile(conn, user_id)
+    return _item(conn, catalog, user_id, meal, servings, exclusions)
+
+
+def _slate_meal(
+    conn: sqlite3.Connection, catalog: Catalog, user_id: int, week_start: date, option_id: int
+) -> MealOption:
+    """The option if it is active on the user's slate for the week and passes the checks."""
+    view = load_slate_view(conn, catalog, user_id, week_start)
+    if view is not None:
+        for slots in view.options.values():
+            for slot in slots:
+                if slot.option_id == option_id:
+                    if isinstance(slot, UnavailableOption):
+                        raise OptionUnavailableError("This option no longer fits your profile")
+                    return slot
+    raise RecipeNotFoundError(f"option {option_id} not found")
 
 
 _NO_LONGER_FITS = "A planned meal no longer fits your profile. Reopen the week to change it."

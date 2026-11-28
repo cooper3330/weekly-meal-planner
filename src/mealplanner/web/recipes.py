@@ -17,7 +17,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse,
 from mealplanner.llm.client import LLMClient
 from mealplanner.llm.errors import LLMConfigError, LLMOutputError, LLMUnavailableError
 from mealplanner.nutrition.catalog import Catalog
-from mealplanner.planning.errors import ProfileRequiredError
+from mealplanner.planning.errors import OptionUnavailableError, ProfileRequiredError
 from mealplanner.planning.week import week_start_for
 from mealplanner.recipes.display import format_amount
 from mealplanner.recipes.errors import (
@@ -38,8 +38,10 @@ from mealplanner.recipes.models import (
 )
 from mealplanner.recipes.service import (
     generate_missing_recipes,
+    get_option_recipe,
     get_week_recipe,
     load_recipes_view,
+    preview_recipe,
     regenerate_recipe,
 )
 from mealplanner.web.auth import current_user_id
@@ -270,3 +272,84 @@ async def regenerate(
             errors=[problem.message],
         )
     return RedirectResponse(f"/recipes/{option_id}", status_code=303)
+
+
+# --- Previews during selection (ADR 0026) ---------------------------------------------------
+
+
+def _render_preview(
+    request: Request,
+    conn: sqlite3.Connection,
+    catalog: Catalog,
+    user_id: int,
+    now: datetime,
+    option_id: int,
+    *,
+    status_code: int = 200,
+    errors: list[str] | None = None,
+) -> Response:
+    week_start = week_start_for(_today(now))
+    context: dict[str, Any] = {
+        "week_label": _week_label(week_start),
+        "errors": errors or [],
+        "option_id": option_id,
+        "item": None,
+        "unavailable": False,
+    }
+    try:
+        item = get_option_recipe(conn, catalog, user_id, week_start, option_id)
+    except (RecipeNotFoundError, ProfileRequiredError):
+        return NOT_FOUND
+    except OptionUnavailableError:
+        # No name and no recipe content: the option no longer passes the checks.
+        context["unavailable"] = True
+        return templates.TemplateResponse(request, "recipe_preview.html", context, status_code=409)
+    context["item"] = _item_view(item)
+    return templates.TemplateResponse(
+        request, "recipe_preview.html", context, status_code=status_code
+    )
+
+
+@router.get("/plan/options/{option_id}/recipe", response_class=HTMLResponse, response_model=None)
+async def view_preview(
+    option_id: int,
+    request: Request,
+    user_id: UserId,
+    conn: Conn,
+    catalog: CatalogDep,
+    now: Now,
+) -> Response:
+    return _render_preview(request, conn, catalog, user_id, now, option_id)
+
+
+@router.post("/plan/options/{option_id}/recipe", response_model=None)
+async def show_preview(
+    option_id: int,
+    request: Request,
+    user_id: UserId,
+    conn: Conn,
+    catalog: CatalogDep,
+    llm: Llm,
+    now: Now,
+) -> Response:
+    week_start = week_start_for(_today(now))
+    try:
+        preview_recipe(conn, llm, catalog, user_id, week_start, option_id, now=now)
+    except (RecipeNotFoundError, ProfileRequiredError):
+        return NOT_FOUND
+    except OptionUnavailableError:
+        return _render_preview(request, conn, catalog, user_id, now, option_id)
+    except (RecipeGenerationError, LLMOutputError, LLMUnavailableError, LLMConfigError) as e:
+        name = e.meal_name if isinstance(e, RecipeGenerationError) else ""
+        problem = _problem("recipe preview", e, name)
+        return _render_preview(
+            request,
+            conn,
+            catalog,
+            user_id,
+            now,
+            option_id,
+            status_code=problem.status,
+            errors=[problem.message],
+        )
+    return RedirectResponse(f"/plan/options/{option_id}/recipe", status_code=303)

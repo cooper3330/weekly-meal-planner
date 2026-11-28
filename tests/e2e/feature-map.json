@@ -33,6 +33,8 @@
         "POST /plan/options/{option_id}/reroll",
         "POST /plan/options/{option_id}/pick",
         "POST /plan/options/{option_id}/unpick",
+        "GET /plan/options/{option_id}/recipe",
+        "POST /plan/options/{option_id}/recipe",
         "POST /plan/limits",
         "POST /plan/confirm",
         "POST /plan/reopen"
