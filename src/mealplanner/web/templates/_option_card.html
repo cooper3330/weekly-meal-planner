@@ -32,9 +32,11 @@
     {% if card.full %}<span class="hint">You have picked all you can. Unpick one to change.</span>{% endif %}
   </form>
   {% endif %}
+  {% if not card.picked %}
   <form method="post" action="/plan/options/{{ card.id }}/reroll">
     <button type="submit" class="replace">Replace</button>
   </form>
+  {% endif %}
   {% endif %}
 </article>
 {% else %}
@@ -48,9 +50,11 @@
     <button type="submit" class="unpick">Unpick</button>
   </form>
   {% endif %}
+  {% if not card.picked %}
   <form method="post" action="/plan/options/{{ card.id }}/reroll">
     <button type="submit" class="replace">Replace</button>
   </form>
+  {% endif %}
   {% endif %}
 </article>
 {% endif %}
