@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from planning.slate_support import plain_batch
 
 from mealplanner.db.connection import connect
 from mealplanner.grocery.build import _BASE, build_grocery_list
@@ -12,6 +13,7 @@ from mealplanner.llm.errors import LLMConfigError, LLMOutputError, LLMUnavailabl
 from mealplanner.llm.fake import FakeLLMClient
 from mealplanner.nutrition.exclusions import ExclusionTerm
 from mealplanner.planning.models import ConfirmedPlan, MealOption, MealType
+from mealplanner.planning.reroll import reroll_option
 from mealplanner.planning.selection import (
     confirm_selection,
     reopen_selection,
@@ -361,6 +363,22 @@ def test_regenerate_outside_plan(tmp_path: Path) -> None:
     for option in (unpicked, other_users, 99999):
         with pytest.raises(RecipeNotFoundError):
             regenerate_recipe(conn, llm, PCAT, 1, option, now=LATEST)
+    assert llm.calls == []
+
+
+def test_regenerate_replaced_option(tmp_path: Path) -> None:
+    conn, plan = generated_week(tmp_path)
+    reopen_selection(conn, 1, WEEK, now=LATEST)
+    picked_ids = {m.option_id for m in plan.meals}
+    replaced = next(i for i in option_ids(conn, "lunch") if i not in picked_ids)
+    reroll_option(conn, FakeLLMClient([plain_batch(9, 1)]), PCAT, 1, replaced, now=LATEST)
+    assert conn.execute(
+        "SELECT replaced_at FROM slate_options WHERE id = ?", (replaced,)
+    ).fetchone()[0]
+    confirm_selection(conn, PCAT, 1, WEEK, now=LATEST)
+    llm = no_calls()
+    with pytest.raises(RecipeNotFoundError):
+        regenerate_recipe(conn, llm, PCAT, 1, replaced, now=LATEST)
     assert llm.calls == []
 
 
