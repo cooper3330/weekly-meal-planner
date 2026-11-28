@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Noise</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>body { margin: 0; } canvas { display: block; width: 360px; height: 640px; }</style>
+</head>
+<body>
+<h1>Noise page</h1>
+<canvas id="c" width="720" height="1280"></canvas>
+<script>
+// Pixels that PNG cannot compress, from a fixed seed so every run draws the same picture.
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const image = ctx.createImageData(720, 1280);
+let seed = 12345;
+for (let i = 0; i < image.data.length; i += 4) {
+  seed = (Math.imul(seed, 1103515245) + 12345) >>> 0;
+  image.data[i] = seed >>> 24;
+  seed = (Math.imul(seed, 1103515245) + 12345) >>> 0;
+  image.data[i + 1] = seed >>> 24;
+  seed = (Math.imul(seed, 1103515245) + 12345) >>> 0;
+  image.data[i + 2] = seed >>> 24;
+  image.data[i + 3] = 255;
+}
+ctx.putImageData(image, 0, 0);
+</script>
+</body></html>

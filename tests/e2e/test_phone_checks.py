@@ -29,18 +29,18 @@ def _pages(out: Path) -> list[dict[str, Any]]:
 
 
 def _failed(page: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    return {c["check"]: c for c in page["checks"] if c["status"] == "fail"}
+    return {c["check"]: c for c in page["checks"] if c["status"] == "failed"}
 
 
 @pytest.mark.parametrize(
     ("path", "check", "element", "size"),
     [
-        ("/wide.html", "horizontal-scroll", "div.wide", "400 x 20"),
-        ("/small_font.html", "font-size", "body", "12 px"),
-        ("/small_button.html", "tap-targets", "button#tiny", "x 30"),
-        ("/standalone_link.html", "tap-targets", "a#alone", "x 20"),
-        ("/external.html", "local-requests", "/outside.png", None),
-        ("/no_referrer.html", "security-headers", "Referrer-Policy", None),
+        ("/wide.html", "no_horizontal_scroll", "div.wide", "400 x 20"),
+        ("/small_font.html", "body_font_size", "body", "12 px"),
+        ("/small_button.html", "tap_targets", "button#tiny", "x 30"),
+        ("/standalone_link.html", "tap_targets", "a#alone", "x 20"),
+        ("/external.html", "loopback_only", "/outside.png", None),
+        ("/no_referrer.html", "security_headers", "Referrer-Policy", None),
     ],
 )
 def test_each_broken_rule_fails_and_names_page_check_and_element(
@@ -56,7 +56,7 @@ def test_each_broken_rule_fails_and_names_page_check_and_element(
     assert code == 1
     pages = _pages(out)
     assert [p["url"] for p in pages] == [path]
-    assert pages[0]["status"] == "fail"
+    assert pages[0]["status"] == "failed"
     assert set(_failed(pages[0])) == {check}
     finding = _failed(pages[0])[check]["findings"][0]
     assert element in finding["element"]
@@ -69,20 +69,21 @@ def test_each_broken_rule_fails_and_names_page_check_and_element(
     summary = (out / "summary.md").read_text()
     assert check in summary and element in summary and "case/01-goto.png" in summary
     assert (
-        json.loads((out / "summary.json").read_text())["flows"][0]["checks"][0]["status"] == "fail"
+        json.loads((out / "summary.json").read_text())["flows"][0]["checks"][0]["status"]
+        == "failed"
     )
 
 
 def test_a_link_inside_running_text_is_not_reported(site: Server, tmp_path: Path) -> None:
     code, out = _browse(tmp_path, site.url, [{"goto": "/inline_link.html"}])
     assert code == 0
-    assert _pages(out)[0]["status"] == "pass"
+    assert _pages(out)[0]["status"] == "passed"
 
 
 def test_hidden_input_and_display_none_are_not_reported(site: Server, tmp_path: Path) -> None:
     code, out = _browse(tmp_path, site.url, [{"goto": "/hidden.html"}])
     assert code == 0
-    assert _pages(out)[0]["status"] == "pass"
+    assert _pages(out)[0]["status"] == "passed"
 
 
 def test_compliant_page_passes_every_check(site: Server, tmp_path: Path) -> None:
@@ -90,13 +91,13 @@ def test_compliant_page_passes_every_check(site: Server, tmp_path: Path) -> None
     assert code == 0
     page = _pages(out)[0]
     assert [c["check"] for c in page["checks"]] == [
-        "horizontal-scroll",
-        "font-size",
-        "tap-targets",
-        "local-requests",
-        "security-headers",
+        "no_horizontal_scroll",
+        "body_font_size",
+        "tap_targets",
+        "loopback_only",
+        "security_headers",
     ]
-    assert all(c["status"] == "pass" for c in page["checks"])
+    assert all(c["status"] == "passed" for c in page["checks"])
     assert "Phone checks" in (out / "summary.md").read_text()
 
 
@@ -111,7 +112,7 @@ def test_each_distinct_page_is_checked_once(site: Server, tmp_path: Path) -> Non
     assert code == 1
     pages = _pages(out)
     assert [p["url"] for p in pages] == ["/clean.html", "/second.html", "/wide.html"]
-    assert [p["status"] for p in pages] == ["pass", "pass", "fail"]
+    assert [p["status"] for p in pages] == ["passed", "passed", "failed"]
 
 
 def test_a_page_that_changes_in_place_is_checked_again(site: Server, tmp_path: Path) -> None:

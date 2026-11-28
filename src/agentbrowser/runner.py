@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from agentbrowser import feature_map, lifecycle
-from agentbrowser.evidence import FlowResult, WalkResult, write_summary
+from agentbrowser.evidence import Budget, CutOff, FlowResult, WalkResult, write_summary
 from agentbrowser.flow import Flow, FlowError, coverage, coverage_lines, load
 
 FLOWS_DIR = lifecycle.REPO_ROOT / "tests" / "flows"
@@ -73,6 +73,7 @@ def _run_one(
     browser: Any,
     lifecycle_api: Any,
     driver_api: Any,
+    budget: Budget,
 ) -> FlowResult:
     name = f"e2e-{os.getpid()}-{index}"
     try:
@@ -87,6 +88,7 @@ def _run_one(
             name=path.stem,
             browser=browser,
             reproduce=_reproduce(path),
+            budget=budget,
         )
         return result
     finally:
@@ -101,6 +103,7 @@ def _walk_one(
     browser: Any,
     lifecycle_api: Any,
     driver_api: Any,
+    budget: Budget,
 ) -> WalkResult:
     name = f"e2e-{os.getpid()}-walk-{index}"
     reproduce = f"make e2e FEATURE={feature.name}"
@@ -121,6 +124,7 @@ def _walk_one(
             reproduce=reproduce,
             rel_dir=f"walk/{feature.name}",
             path_check=feature_map.path_check(feature),
+            budget=budget,
         )
         return WalkResult(feature.name, result, near)
     finally:
@@ -136,8 +140,13 @@ def run(
     driver_api: Any = None,
     map_path: Path | None = None,
     feature: str | None = None,
+    budget: Budget | None = None,
 ) -> int:
     """Run the flows, then the walk, and return the exit status.
+
+    The run has one budget (ADR 0030): 10 minutes, 200 screenshots and 30 MB of PNG bytes. When a
+    limit is reached no further flow or step starts, ``summary.json`` says why, and the status is
+    non-zero. ``budget`` is for tests (a fake clock).
 
     ``flow`` runs only that flow (no walk); ``feature`` walks only that feature (no flows).
     ``driver_api`` is the driver module; ``map_path`` defaults to ``MAP_PATH``.
@@ -174,6 +183,7 @@ def run(
         print("no flows")
         return 0
 
+    budget = budget or Budget()
     results: list[FlowResult] = []
     walks: list[WalkResult] = []
     runnable: list[tuple[Path, Flow]] = []
@@ -206,15 +216,26 @@ def run(
                     print(exc, file=sys.stderr)
                     return 1
                 for index, (path, loaded) in enumerate(runnable):
+                    if budget.check() is not None:
+                        break
                     results.append(
-                        _run_one(path, loaded, index, out, browser, lifecycle_api, driver_api)
+                        _run_one(
+                            path, loaded, index, out, browser, lifecycle_api, driver_api, budget
+                        )
                     )
                 for index, item in enumerate(walked):
                     assert fmap is not None
+                    if budget.check() is not None:
+                        break
                     walks.append(
-                        _walk_one(fmap, item, index, out, browser, lifecycle_api, driver_api)
+                        _walk_one(
+                            fmap, item, index, out, browser, lifecycle_api, driver_api, budget
+                        )
                     )
     finally:
+        # A limit reached while the last flow ran is seen here, with no flow left to check it.
+        limit = budget.cut_off
+        cut_off = CutOff(limit, len(results) + len(walks)) if limit else None
         if results or walks:
             write_summary(
                 out,
@@ -222,6 +243,7 @@ def run(
                 head_sha=os.environ.get("AGENTBROWSER_HEAD_SHA") or None,
                 coverage=declared,
                 walk=walks,
+                cut_off=cut_off,
             )
 
     failed = [r for r in results if not r.ok]
@@ -240,7 +262,9 @@ def run(
         _report(result, out)
     for walk in failed_walks:
         _report_walk(walk, out)
-    if failed or failed_walks:
+    if cut_off:
+        print(cut_off.message, file=sys.stderr)
+    if failed or failed_walks or cut_off:
         return 1
     print(f"Evidence: {out}")
     return 0

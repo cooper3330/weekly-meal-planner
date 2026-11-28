@@ -46,13 +46,15 @@ def test_clean_page_writes_every_artifact_and_exits_0(
         {"click": {"text": "Next page"}},
         {"expect_text": "Second page"},
     ]
-    code, out = _browse(tmp_path, site.url, steps)
+    proves = [{"issue": 1, "criteria": ["AC-3"]}]
+    code, out = _browse(tmp_path, site.url, steps, proves=proves)
     assert code == 0, capsys.readouterr().err
     flow_dir = out / "case"
     kinds = [next(k for k in s if k != "shows") for s in steps]
     for number, kind in enumerate(kinds, 1):
-        shot = flow_dir / f"{number:02d}-{kind}.png"
-        assert shot.is_file() and 0 < shot.stat().st_size <= 1_000_000
+        suffix = "--AC-3" if number == 2 else ""
+        shot = flow_dir / f"{number:02d}-{kind}{suffix}.png"
+        assert shot.is_file() and 0 < shot.stat().st_size <= 1_048_576
     for name in ("final-full.png", "page.txt", "console.json", "requests.json", "trace.zip"):
         assert (flow_dir / name).is_file(), name
     assert "Second page" in (flow_dir / "page.txt").read_text()
@@ -62,7 +64,7 @@ def test_clean_page_writes_every_artifact_and_exits_0(
     assert any(r["url"].endswith("/ok.png") and r["status"] == 200 for r in requests)
     assert not any(r["external"] or r["failed"] for r in requests)
     summary = json.loads((out / "summary.json").read_text())
-    assert summary["flows"][0]["status"] == "pass"
+    assert summary["flows"][0]["status"] == "passed"
     assert summary["flows"][0]["steps"][1]["shows"] == "AC-3"
     assert "PASS" in (out / "summary.md").read_text()
     # Phone-size defaults: 360 x 640 at device scale 2.
@@ -214,15 +216,18 @@ def test_steps_after_the_flow_deadline_are_not_run(
     assert "not run: the flow took longer than" in (out / "summary.md").read_text()
 
 
-def test_final_full_screenshot_is_held_to_one_megabyte(
+def test_screenshots_are_held_to_one_megabyte(
     site: _Server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from agentbrowser import driver
+    from agentbrowser import evidence
 
-    monkeypatch.setattr(driver, "MAX_SCREENSHOT_BYTES", 1)
+    monkeypatch.setattr(evidence, "MAX_SCREENSHOT_BYTES", 1)
     code, out = _browse(tmp_path, site.url, [{"goto": "/clean.html"}])
     assert code == 1
-    assert "final-full.png at most 1 bytes" in (out / "summary.md").read_text()
+    text = (out / "summary.md").read_text()
+    assert "screenshot case/01-goto.png is " in text and "over the 1 MB limit" in text
+    assert "screenshot case/final-full.png is " in text
+    assert not list((out / "case").glob("*.png"))
 
 
 def test_viewport_comes_from_the_flow(site: _Server, tmp_path: Path) -> None:

@@ -21,7 +21,7 @@ The file has two keys.
 
 - `internal`: routes that are not pages, each as `{"route": "GET /healthz", "why": "..."}`. Today: `GET /healthz` and `MOUNT /static`.
 - `features`: one entry per page, with these fields (all required, unknown keys fail):
-  - `name`: kebab-case, unique.
+  - `name`: matches `^[a-z0-9][a-z0-9-]{0,63}$` (`NAME_PATTERN` in `src/agentbrowser/evidence.py`), unique. It names the entry's folder `walk/<name>/` in the evidence bundle. `load` fails naming the entry.
   - `routes`: `"METHOD /path"` strings as FastAPI's path template is written (`GET /profile/history/{version}`). At least one `GET` (the page). A form's `POST` belongs to the entry whose page submits it.
   - `scenario`: a demo scenario name (`src/mealplanner/demo/scenarios/`) seeded before the page is visited.
   - `reach`: steps from the home page. The first is `{"goto": "/"}`; no other `goto` is allowed, so a page is always reached by clicking through. Later steps are `click`, `fill`, `select` or `press`, using the real accessible names from the templates.
@@ -66,3 +66,15 @@ When a task adds or changes a page, in the same pull request:
 2. Copy the link and button names from the template into `reach`, `landmarks` and `actions`.
 3. Add the page's demo scenario data if it needs state, and list its flows once they exist.
 4. Run `make check`; the test names whatever is missing.
+
+## The evidence bundle and its limits
+
+`make e2e` writes a bundle (`.agent-tmp/e2e/<run>/`) that CI uploads and that the evidence publisher posts on the pull request (ADR 0030). What the runner writes stays inside the publisher's rules.
+
+- **Flow files**: `tests/flows/<name>.json`, where `<name>` matches `^[a-z0-9][a-z0-9-]{0,63}$` and is not `walk` (the walk's folder). `load` rejects any other file name, naming the file.
+- **`shows`**: a step may say `"shows": "AC-n"`. It must match `^AC-[0-9]+$` and be one of the flow's `proves` criteria; a steps file without `proves` may not use it. The step's screenshot is then `NN-<kind>--AC-n.png`; other steps write `NN-<kind>.png`. Walk entries write the same names under `walk/<feature>/`.
+- **Text snapshot**: every step also writes `NN-<kind>.txt`: the page's visible text, a line `--- accessibility snapshot ---`, then the accessibility snapshot. The file is cut at 8 KB (`TEXT_SNAPSHOT_BYTES`) with a note.
+- **Limits**, module constants in `src/agentbrowser/evidence.py` (not settings): `MAX_SCREENSHOT_BYTES` = 1,048,576 per PNG; `MAX_SCREENSHOTS` = 200 and `MAX_TOTAL_BYTES` = 31,457,280 (30 MB) per run, counted across flows, `final-full.png` and the walk; `RUN_SECONDS` = 600 (10 minutes). The name patterns are `NAME_PATTERN` and `SCREENSHOT_NAME_PATTERN`.
+- **A screenshot over 1 MB** is not written. Its flow fails with `screenshot <path> is <n> bytes, over the 1 MB limit`, that step's `screenshot` in `summary.json` is `null`, and `oversized` lists `{"path", "bytes"}`. The run goes on with the next flow. A long page's `final-full.png` can hit this: use a shorter page or a smaller fixture.
+- **A cut-off** happens when the time, screenshot or byte budget is reached. No further step or flow starts, a screenshot that would cross the limit is not written (its step's `screenshot` is `null`), the running app is stopped, and the run says `cut off: <limit> reached after <n> flows` (`summary.md`, stderr, and `cut_off` in `summary.json` as `{"limit": "time" | "screenshots" | "bytes", "after_flows": n}`). `n` counts the flows and walk features that started, including the one that was running. The exit status is non-zero and everything already written stays.
+- **`summary.json` values**: flow, feature and step `status` are `passed` or `failed`; the phone checks are `no_horizontal_scroll`, `body_font_size`, `tap_targets`, `loopback_only` and `security_headers`; each flow and the run record their `viewport`.
