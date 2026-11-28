@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Recipe preview{% endblock %}
+{% block content %}
+<p class="no-print"><a href="/plan#option-{{ option_id }}">Back to this week's options</a></p>
+<h1>Recipe preview</h1>
+<p class="week">{{ week_label }}</p>
+{% if errors %}
+<div class="error-summary no-print" role="alert">
+  {% for message in errors %}<p>{{ message }}</p>{% endfor %}
+</div>
+{% endif %}
+{% if unavailable %}
+<div class="error-summary" role="alert">
+  <p>This option no longer fits your profile</p>
+</div>
+{% else %}
+<section class="recipe-item">
+  {% if item.kind == "recipe" %}
+  {% with recipe=item.recipe %}{% include "_recipe.html" %}{% endwith %}
+  {% else %}
+  <h2 class="recipe-title">{{ item.name }}</h2>
+  {% if item.kind == "missing" %}
+  <p>No recipe yet</p>
+  {% else %}
+  <p>This recipe no longer fits your profile</p>
+  {% endif %}
+  <form method="post" action="/plan/options/{{ option_id }}/recipe" class="no-print">
+    <button type="submit" class="show-recipe">Show recipe</button>
+    <span class="hint">May take a moment</span>
+  </form>
+  {% endif %}
+</section>
+{% endif %}
+<p class="no-print"><a href="/plan#option-{{ option_id }}">Back to this week's options</a></p>
+{% endblock %}

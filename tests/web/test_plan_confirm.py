@@ -104,7 +104,12 @@ def test_no_downstream_links_while_open(make: Make, tmp_path: Path) -> None:  # 
         assert "/grocery" not in low and "grocery" not in text(low), f"grocery shown {when}"
         assert "/recipes" not in low, f"recipes link shown {when}"
         assert not re.search(r"\bstep\s*1\b|method", text(low)), f"recipe steps shown {when}"
-        assert not re.search(r'(href|action)="[^"]*/recipe', low), f"recipe form or link {when}"
+        # Narrowed by ADR 0026 (the owner's choice B on #10, task #157): the only recipe-related
+        # markup allowed while the week is open is the per-option "Show recipe" form posting to
+        # /plan/options/{id}/recipe. Any other recipe link or form is still refused.
+        allowed = re.compile(r'action="/plan/options/\d+/recipe"')
+        found = re.findall(r'(?:href|action)="[^"]*/recipe[^"]*"', low)
+        assert all(allowed.fullmatch(f) for f in found), f"recipe form or link {when}"
 
     check(client.get("/plan").text, "before the first confirmation")
     confirm(client)

@@ -22,6 +22,10 @@
     {% for line in card.ingredients %}<li>{{ line }}</li>{% endfor %}
   </ul>
   {% if not confirmed %}
+  <form method="post" action="/plan/options/{{ card.id }}/recipe">
+    <button type="submit" class="show-recipe">Show recipe</button>
+    <span class="hint">May take a moment</span>
+  </form>
   {% if card.picked %}
   <form method="post" action="/plan/options/{{ card.id }}/unpick">
     <button type="submit" class="unpick">Unpick</button>

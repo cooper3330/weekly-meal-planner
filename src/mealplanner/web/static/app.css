@@ -235,7 +235,8 @@ button:disabled {
 }
 
 button.generate,
-button.regenerate {
+button.regenerate,
+button.show-recipe {
   min-height: 44px;
   min-width: 44px;
 }
