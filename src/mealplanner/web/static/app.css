@@ -218,6 +218,28 @@ button:disabled {
   font-weight: bold;
 }
 
+/* Recipes (ADR 0025): one column, every control at least 44 px. */
+.recipe-item {
+  border-bottom: 1px solid #ccc;
+  padding: 0.5rem 0 1rem;
+  margin-bottom: 1rem;
+}
+
+.recipe .steps,
+.recipe .ingredients {
+  padding-left: 1.5rem;
+}
+
+.recipe .steps li {
+  margin-bottom: 0.5rem;
+}
+
+button.generate,
+button.regenerate {
+  min-height: 44px;
+  min-width: 44px;
+}
+
 /* Printing: plain black on white, no navigation, links or buttons. */
 @media print {
   body {
@@ -244,5 +266,25 @@ button:disabled {
   .item {
     break-inside: avoid;
     border-color: #000;
+  }
+
+  /* A recipe title is a link on the week's page: keep the words, drop the link look. */
+  .recipe-title a {
+    display: inline;
+    color: #000;
+    text-decoration: none;
+  }
+
+  .recipe-item {
+    border: 0;
+  }
+
+  .recipe-item + .recipe-item {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  .recipe {
+    break-inside: auto;
   }
 }

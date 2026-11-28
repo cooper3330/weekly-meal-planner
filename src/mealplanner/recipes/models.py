@@ -46,6 +46,9 @@ class GenerationFailure:
     option_id: int
     meal_name: str
     message: str
+    # The error class, so a page can choose its own plain wording: ``message`` may carry model
+    # text and is never shown.
+    cause: type[Exception] = Exception
 
 
 @dataclass(frozen=True)

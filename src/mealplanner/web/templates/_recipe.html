@@ -1,0 +1,22 @@
+{# One recipe. Needs only `recipe` (the dict from web/recipes.py) and an optional `heading_href`. #}
+<article class="recipe">
+  <h2 class="recipe-title">{% if heading_href %}<a href="{{ heading_href }}">{{ recipe.title }}</a>{% else %}{{ recipe.title }}{% endif %}</h2>
+  <p>{{ recipe.description }}</p>
+  <p class="meta">Serves {{ recipe.servings }}</p>
+  <p class="meta">Prep {{ recipe.prep_minutes }} min, Cook {{ recipe.cook_minutes }} min, Total {{ recipe.total_minutes }} min</p>
+  <p class="nutrition">
+    <span data-nutrient="kcal">{{ recipe.nutrition.kcal }}</span> kcal,
+    protein <span data-nutrient="protein">{{ recipe.nutrition.protein }}</span> g,
+    carbs <span data-nutrient="carbs">{{ recipe.nutrition.carbs }}</span> g,
+    fat <span data-nutrient="fat">{{ recipe.nutrition.fat }}</span> g
+    per serving
+  </p>
+  <h3>Ingredients</h3>
+  <ul class="ingredients">
+    {% for line in recipe.ingredients %}<li>{{ line }}</li>{% endfor %}
+  </ul>
+  <h3>Steps</h3>
+  <ol class="steps">
+    {% for step in recipe.steps %}<li>{{ step }}</li>{% endfor %}
+  </ol>
+</article>

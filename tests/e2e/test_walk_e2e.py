@@ -80,6 +80,8 @@ def test_the_real_map_walks_green_and_leaves_nothing_behind(
         "home",
         "plan",
         "grocery",
+        "recipes",
+        "recipe",
         "profile",
         "profile-edit",
         "profile-history",
