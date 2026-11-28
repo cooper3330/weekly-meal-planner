@@ -226,8 +226,9 @@ post_comment() { # kind number body
 # "reviewer" the feedback is the reviewer agent's CHANGES_REQUESTED review (the developer is told so in
 # its prompt), and the acknowledgement carries source=reviewer, which is how scripts/after-review.sh
 # counts rounds against REVISION_BUDGET.
-revise_item() { # item-json [source] [ci-run-id]
-  local item="$1" source="${2:-human}" run="${3:-}" kind number agent branch linked ack prompt wt fail turns marker
+revise_item() { # item-json [source] [ci-run-id] [failed CI jobs, e.g. "check e2e"]
+  local item="$1" source="${2:-human}" run="${3:-}" jobs="${4:-check}" jobs_s="" kind number agent branch linked ack prompt wt fail turns marker
+    if [[ "$jobs" == *" "* ]]; then jobs_s="s"; fi
     kind=$(jq -r .kind <<<"$item")
     number=$(jq -r .number <<<"$item")
     agent=$(jq -r .agent <<<"$item")
@@ -252,7 +253,11 @@ revise_item() { # item-json [source] [ci-run-id]
         prompt="$prompt Source: reviewer. The feedback to act on is the latest review on the PR by github-actions[bot] that carries the reviewer marker and requests changes on the current head commit. Treat that review as feedback, as your agent definition describes."
       fi
       if [ "$source" = ci ]; then
-        prompt="$prompt Source: CI. The check job of CI run $run failed on the current head of this PR; there may be no human or reviewer feedback to read. Follow the CI-source rules of your agent definition: read the failure with gh run view $run --log-failed and gh pr checks $number, fix it only if this PR's change caused it, and otherwise comment why it is not this PR's and stop."
+        prompt="$prompt Source: CI. The ${jobs// / and } job$jobs_s of CI run $run failed on the current head of this PR; there may be no human or reviewer feedback to read. Follow the CI-source rules of your agent definition: read the failure with gh run view $run --log-failed and gh pr checks $number, fix it only if this PR's change caused it, and otherwise comment why it is not this PR's and stop."
+        case " $jobs " in
+          *" e2e "*)
+            prompt="$prompt The e2e job runs the browser flows. Its log ends with a line starting Reproduce: make e2e FLOW=... ; run exactly that command in your worktree, read the bundle it writes under .agent-tmp/e2e/ (report, screenshots, logs), and fix the cause only if this PR caused it. Before you push, re-run the same make e2e command and make check until both are green, and never edit, skip or weaken a flow to get green; if a flow is wrong, say so on the PR instead." ;;
+        esac
       fi
       if [ -n "$linked" ]; then
         prompt="$prompt The task's linked issue #$linked also counts: its comments from a trusted reviewer are feedback on this PR too (read them with gh api repos/$REPO/issues/$linked/comments)."
@@ -273,7 +278,7 @@ revise_item() { # item-json [source] [ci-run-id]
     else
       ack="Picked up: the $agent agent is revising in response to the latest feedback. If this run fails, comment /revise again. $marker"
       if [ "$source" = ci ]; then
-        ack="Picked up: the $agent agent is fixing the failed CI check [run $run]. If this run fails, comment /revise to try again. $marker"
+        ack="Picked up: the $agent agent is fixing the failed CI ${jobs// / and } job$jobs_s [run $run]. If this run fails, comment /revise to try again. $marker"
       fi
       post_comment "$kind" "$number" "$ack"
       # The prompt goes first: --allowedTools takes a list and would swallow a trailing prompt.
@@ -312,7 +317,7 @@ hand_to_human() { # pr-number: label needs-human (creating the label if needed);
 # a deterministic check; the model only runs at the end. Stale, duplicate or unfixable events log why
 # and return 0 without posting; a PR that needs a human gets one comment and the needs-human label.
 revise_ci() { # pr-number run-id
-  local number="$1" run="$2" job_json pr state branch head labels run_json jobs_json job_url rounds budget comments main_state item
+  local number="$1" run="$2" job_json pr state branch head labels run_json jobs_json failed_jobs jobs_phrase job_url rounds budget comments main_state item
   pr=$(gh pr view "$number" --repo "$REPO" --json state,headRefName,headRefOid,labels) || return 1
   state=$(jq -r '.state // ""' <<<"$pr")
   branch=$(jq -r '.headRefName // ""' <<<"$pr")
@@ -336,12 +341,16 @@ revise_ci() { # pr-number run-id
     return 0
   fi
   jobs_json=$(gh api "repos/$REPO/actions/runs/$run/jobs?per_page=100") || return 1
-  job_json=$(jq -c '[(.jobs // [])[] | select(.name == "check" and .conclusion == "failure"
+  # Every check or e2e job that failed in a step, check first. One failed run is one revision.
+  job_json=$(jq -c '[(.jobs // [])[] | select((.name == "check" or .name == "e2e") and .conclusion == "failure"
               and ([(.steps // [])[] | select(.conclusion == "failure" and .name != "Set up job")] | length) > 0)]
-            | first // empty' <<<"$jobs_json")
-  job_url=$(jq -r '.html_url // "the failed run"' <<<"${job_json:-null}")
+            | sort_by(.name) | if length == 0 then empty else . end' <<<"$jobs_json")
+  job_url=$(jq -r '(.[0] // {}) | .html_url // "the failed run"' <<<"${job_json:-[]}")
+  failed_jobs=$(jq -r '[.[].name] | unique | join(" ")' <<<"${job_json:-[]}")
+  jobs_phrase="The \`${failed_jobs// /\` and \`}\` job"
+  if [[ "$failed_jobs" == *" "* ]]; then jobs_phrase="${jobs_phrase}s"; fi
   if [ -z "$job_json" ]; then
-    echo "$(ts) PR #$number: the check job of run $run did not fail in a step (cancelled, or a runner or setup failure); nothing to do"
+    echo "$(ts) PR #$number: the check and e2e jobs of run $run did not fail in a step (cancelled, or a runner or setup failure); nothing to do"
     return 0
   fi
 
@@ -352,7 +361,7 @@ revise_ci() { # pr-number run-id
     fi
     echo "$(ts) PR #$number: ADR PRs are not fixed automatically; handing it to $OWNER"
     hand_to_human "$number"
-    post_comment pr "$number" "The \`check\` job failed on this ADR PR ($job_url). ADR PRs are not fixed automatically: the needs-human label is set and the owner's review is requested. Comment /revise after fixing or to ask the architect for a revision.
+    post_comment pr "$number" "$jobs_phrase failed on this ADR PR ($job_url). ADR PRs are not fixed automatically: the needs-human label is set and the owner's review is requested. Comment /revise after fixing or to ask the architect for a revision.
 
 <!-- agent:merge-gate -->"
     return 0
@@ -372,7 +381,7 @@ revise_ci() { # pr-number run-id
     | jq -r '[(.workflow_runs // [])[] | select(.name == "CI" and (.conclusion == "success" or .conclusion == "failure"))] | (first // {}) | .conclusion // ""') || return 1
   if [ "$main_state" = failure ]; then
     echo "$(ts) PR #$number: the latest CI run on main failed; not this PR's to fix"
-    post_comment pr "$number" "The \`check\` job failed on this PR [run $run], but CI on \`main\` is failing too, so the cause is probably not this PR. No automatic fix is started. Fix \`main\` first; then comment /revise if this PR still needs a fix. <!-- agent:ack source=ci -->"
+    post_comment pr "$number" "$jobs_phrase failed on this PR [run $run], but CI on \`main\` is failing too, so the cause is probably not this PR. No automatic fix is started. Fix \`main\` first; then comment /revise if this PR still needs a fix. <!-- agent:ack source=ci -->"
     return 0
   fi
 
@@ -388,7 +397,7 @@ revise_ci() { # pr-number run-id
     fi
     echo "$(ts) PR #$number: revision budget ($budget) is spent after $rounds rounds; handing it to $OWNER"
     hand_to_human "$number"
-    post_comment pr "$number" "The revision budget is spent: the developer has already revised this PR $rounds times in response to the reviewer or to failing CI (budget $budget, set by REVISION_BUDGET). The \`check\` job failed again ($job_url). It is handed to a human: the owner's review is requested. Comment /revise to run another revision; that does not count against the budget.
+    post_comment pr "$number" "The revision budget is spent: the developer has already revised this PR $rounds times in response to the reviewer or to failing CI (budget $budget, set by REVISION_BUDGET). $jobs_phrase failed again ($job_url). It is handed to a human: the owner's review is requested. Comment /revise to run another revision; that does not count against the budget.
 
 <!-- agent:merge-gate -->"
     return 0
@@ -396,7 +405,7 @@ revise_ci() { # pr-number run-id
 
   item=$(jq -nc --argjson n "$number" --arg b "$branch" --arg l "$(sed -nE 's/^issue-([0-9]+)-.*/\1/p' <<<"$branch")" \
     '{kind: "pr", number: $n, agent: "developer", branch: $b, linked_issue: (if $l == "" then null else ($l | tonumber) end)}')
-  revise_item "$item" ci "$run"
+  revise_item "$item" ci "$run" "$failed_jobs"
 }
 
 # --revise <kind> <number> [--source human|reviewer|ci]: one revision for one item, then exit. Events can

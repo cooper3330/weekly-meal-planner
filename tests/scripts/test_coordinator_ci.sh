@@ -154,4 +154,57 @@ ci_pr issue-9-feature-x; acks 'a <!-- agent:ack -->' 'b <!-- agent:ack -->' 'c <
 revise pr 12 --source ci --run 900
 assert_count "$T/claude.calls" "called" 1 "human acknowledgements (no source=) are not counted"
 
+echo "revise: --source ci handles a failed e2e job like a failed check"
+E2E_FAIL='{"name":"e2e","conclusion":"failure","html_url":"https://github.com/o/r/actions/runs/900/job/2","steps":[{"name":"Set up job","conclusion":"success"},{"name":"Run make e2e","conclusion":"failure"}]}'
+CHECK_OK='{"name":"check","conclusion":"success","steps":[{"name":"Run make check","conclusion":"success"}]}'
+CHECK_FAIL='{"name":"check","conclusion":"failure","html_url":"https://github.com/o/r/actions/runs/900/job/1","steps":[{"name":"Run make check","conclusion":"failure"}]}'
+E2E_CANCELLED='{"name":"e2e","conclusion":"cancelled","steps":[{"name":"Run make e2e","conclusion":"cancelled"}]}'
+E2E_SETUP='{"name":"e2e","conclusion":"failure","steps":[{"name":"Set up job","conclusion":"failure"}]}'
+jobs_of() { printf '{"jobs":[%s]}' "$(IFS=,; echo "$*")"; }
+ci_pr issue-9-feature-x; ci_run failure "$CI_HEAD" "$(jobs_of "$CHECK_OK" "$E2E_FAIL")"
+rc=0; revise pr 12 --source ci --run 900 || rc=$?
+assert_eq "$rc" "0" "e2e failed: exits 0"
+assert_count "$T/claude.calls" "called" 1 "e2e failed: one launch"
+assert_grep "$T/claude.args" 'e2e job of CI run 900' "the prompt names the e2e job"
+assert_grep "$T/claude.args" '--log-failed' "the prompt says to read the log"
+assert_grep "$T/claude.args" 'Reproduce:' "the prompt names the Reproduce line"
+assert_grep "$T/claude.args" '.agent-tmp/e2e/' "the prompt names the bundle folder"
+assert_grep "$T/claude.args" 'never edit, skip or weaken a flow' "the prompt forbids weakening a flow"
+assert_grep "$T/gh.log" 'pr comment 12 .*fixing the failed CI e2e job' "the acknowledgement names e2e"
+ci_pr issue-9-feature-x; ci_run failure "$CI_HEAD" "$(jobs_of "$CHECK_FAIL" "$E2E_FAIL")"
+revise pr 12 --source ci --run 900
+assert_count "$T/claude.calls" "called" 1 "both jobs failed: one launch, not two"
+assert_count "$T/gh.log" 'pr comment 12 .*agent:ack' 1 "both jobs failed: one acknowledgement"
+assert_grep "$T/claude.args" 'check and e2e jobs of CI run 900' "both jobs failed: the prompt says jobs (plural)"
+assert_grep "$T/claude.args" 'Reproduce:' "both jobs failed: the prompt has the e2e instructions"
+assert_grep "$T/gh.log" 'pr comment 12 .*fixing the failed CI check and e2e jobs' "both jobs failed: the acknowledgement says jobs (plural)"
+ci_pr issue-9-feature-x; ci_run failure "$CI_HEAD" "$(jobs_of "$CHECK_FAIL")"
+revise pr 12 --source ci --run 900
+assert_no_grep "$T/claude.args" 'Reproduce:' "a check-only failure: no e2e instructions"
+assert_grep "$T/claude.args" 'check job of CI run 900' "a check-only failure: names check"
+ci_pr issue-9-feature-x; ci_run failure "$CI_HEAD" "$(jobs_of "$CHECK_OK" "$E2E_CANCELLED")"
+revise pr 12 --source ci --run 900
+assert_count "$T/claude.calls" "called" 0 "a cancelled e2e job: no launch"
+assert_count "$T/gh.log" 'pr comment' 0 "a cancelled e2e job: nothing posted"
+assert_grep "$T/out" 'did not fail in a step' "a cancelled e2e job: the log says why"
+ci_pr issue-9-feature-x; ci_run failure "$CI_HEAD" "$(jobs_of "$CHECK_OK" "$E2E_SETUP")"
+revise pr 12 --source ci --run 900
+assert_count "$T/claude.calls" "called" 0 "an e2e job that failed in Set up job: no launch"
+ci_pr issue-9-feature-x; ci_run failure sha-older "$(jobs_of "$CHECK_OK" "$E2E_FAIL")"
+revise pr 12 --source ci --run 900
+assert_count "$T/claude.calls" "called" 0 "a stale head with e2e failed: no launch"
+ci_pr issue-9-feature-x; ci_run failure "$CI_HEAD" "$(jobs_of "$CHECK_OK" "$E2E_FAIL")"
+jq -n '{workflow_runs:[{name:"CI",status:"completed",conclusion:"failure"}]}' > "$T/main_runs.json"
+revise pr 12 --source ci --run 900
+assert_count "$T/claude.calls" "called" 0 "red main, e2e failed: no launch"
+assert_grep "$T/gh.log" 'pr comment 12 .*`e2e` job failed on this PR.*main' "red main comment names e2e"
+ci_pr issue-9-feature-x; ci_run failure "$CI_HEAD" "$(jobs_of "$CHECK_OK" "$E2E_FAIL")"
+acks "$RACK" "$RACK" "$CACK"
+revise pr 12 --source ci --run 900
+assert_count "$T/claude.calls" "called" 0 "spent budget, e2e failed: no launch"
+assert_grep "$T/gh.log" 'pr comment 12 .*`e2e` job failed again' "budget comment names e2e"
+ci_pr arch-4-plan; ci_run failure "$CI_HEAD" "$(jobs_of "$CHECK_OK" "$E2E_FAIL")"
+revise pr 12 --source ci --run 900
+assert_grep "$T/gh.log" 'pr comment 12 .*`e2e` job failed on this ADR PR.*actions/runs/900/job/2' "ADR PR comment names e2e and links the job"
+
 finish
