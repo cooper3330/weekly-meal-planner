@@ -16,3 +16,6 @@ scripts/
 src/mealplanner/config.py
 # src/bridge/ decides what program runs, with which flags and environment.
 src/bridge/
+# src/agentbrowser/ decides whether the required e2e gate runs (scope.py) and what it checks (the flow
+# schema, the phone checks, the runner's exit status), so a PR must not loosen the gate it is checked by.
+src/agentbrowser/

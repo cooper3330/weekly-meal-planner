@@ -197,9 +197,10 @@ for f in .github/workflows/*.yml; do
   v=$(browser_violations "$f")
   if [ -z "$v" ]; then ok "$f: ok"; else bad "$f: $v"; fi
 done
-echo "workflows: review.yml and ci.yml do not install the browser here (#105)"
+echo "workflows: review.yml and ci.yml's check job do not install the browser here (#105, #143)"
 assert_no_grep .github/workflows/review.yml 'browser-install|ms-playwright' "review.yml has no browser steps"
-assert_no_grep .github/workflows/ci.yml 'browser-install|ms-playwright' "ci.yml has no browser steps"
+# ci.yml's `e2e` job (#143) is the one place besides the developer workflows that installs the browser.
+assert_no_grep <(awk '/^  check:/ { on = 1; print; next } on && /^  [A-Za-z0-9_-]+:/ { exit } on { print }' .github/workflows/ci.yml) 'browser-install|ms-playwright' "ci.yml's check job has no browser steps"
 
 CI=.github/workflows/ci.yml
 echo "workflows: ci.yml"
@@ -215,6 +216,57 @@ assert_no_grep "$CI" ':[[:space:]]+write' "no write permission"
 assert_grep "$CI" 'timeout-minutes:[[:space:]]+10' "sets timeout-minutes"
 assert_grep "$CI" 'uses:[[:space:]]+astral-sh/setup-uv@' "installs uv with setup-uv"
 assert_grep "$CI" 'python-version:[[:space:]]+"?3\.12"?' "uses Python 3.12"
+
+# --- the e2e job in ci.yml (#143, ADR 0028) ----------------------------------------------------------
+# e2e_violations FILE: the `e2e` job holds no secret and no write permission, always reports (no workflow
+# `paths:` filter, scope decided inside the job), has a timeout, pins its actions, uploads its evidence with
+# `if: always()`, and calls the protected module directly, never through the unprotected Makefile.
+e2e_violations() {
+  local f="$1" job
+  job=$(awk '/^  e2e:/ { on = 1; print; next } on && /^  [A-Za-z0-9_-]+:/ { exit } on { print }' "$f")
+  if [ -z "$job" ]; then echo "has no e2e job"; return; fi
+  grep -Eq '^    timeout-minutes:[[:space:]]+15[[:space:]]*$' <<<"$job" || echo "e2e has no timeout-minutes: 15"
+  grep -q 'secrets\.' <<<"$job" && echo "e2e references a secret"
+  grep -Eq ':[[:space:]]+write' <<<"$job" && echo "e2e has a write permission"
+  grep -q 'pull_request_target' "$f" && echo "ci.yml uses pull_request_target"
+  grep -Eq '^[[:space:]]+paths(-ignore)?:' "$f" && echo "ci.yml has a paths: filter, so a required e2e check could hang"
+  grep -E '^[[:space:]]+(-[[:space:]]+)?uses:' <<<"$job" | grep -Evq '@[0-9a-f]{40}( |$)' && echo "e2e uses an action that is not pinned to a SHA"
+  grep -q 'persist-credentials: false' <<<"$job" || echo "e2e checkout keeps credentials"
+  grep -Eq 'fetch-depth:[[:space:]]+0' <<<"$job" || echo "e2e checkout is not full depth (the scope diff needs the base)"
+  grep -Eq 'python -m agentbrowser scope' <<<"$job" || echo "e2e does not call python -m agentbrowser scope"
+  grep -Eq 'python -m agentbrowser e2e' <<<"$job" || echo "e2e does not call python -m agentbrowser e2e"
+  grep -Eq '(^|[^a-z])make e2e' <<<"$job" && echo "e2e runs make e2e (the Makefile is not protected)"
+  grep -Eq 'run:[[:space:]]+make browser-install' <<<"$job" || echo "e2e does not run make browser-install"
+  grep -Eq '~/\.cache/ms-playwright' <<<"$job" || echo "e2e does not cache ~/.cache/ms-playwright"
+  grep -Eq 'AGENTBROWSER_HEAD_SHA:' <<<"$job" || echo "e2e does not pass the head commit"
+  awk '/uses: actions\/upload-artifact@/ { u = 1 } u && /if: always\(\)/ { f = 1 } END { exit !f }' <<<"$job" || echo "the upload step has no if: always()"
+  grep -Eq 'retention-days:[[:space:]]+14' <<<"$job" || echo "the upload has no retention-days: 14"
+  grep -Eq 'if-no-files-found:[[:space:]]+ignore' <<<"$job" || echo "the upload does not ignore a missing bundle"
+  grep -Eq 'name:[[:space:]]+e2e-evidence' <<<"$job" || echo "the artifact is not named e2e-evidence"
+}
+echo "workflows: ci.yml's e2e job"
+assert_grep "$CI" '^  e2e:' "has a job with id e2e"
+assert_grep "$CI" '^  check:' "and still has check"
+assert_eq "$(e2e_violations "$CI")" "" "the e2e job meets every rule"
+E2E_FX=$(mktemp -d)
+sed 's/^    timeout-minutes: 15$//' "$CI" > "$E2E_FX/no-timeout.yml"
+sed 's/^  pull_request:$/  pull_request:\n    paths: ["src\/**"]/' "$CI" > "$E2E_FX/paths.yml"
+sed 's/python -m agentbrowser e2e/make e2e/' "$CI" > "$E2E_FX/make-e2e.yml"
+{ cat "$CI"; printf '      - run: echo "${{ secrets.TOKEN }}"\n'; } > "$E2E_FX/secret.yml"
+{ cat "$CI"; printf '      - uses: actions/checkout@v4\n'; } > "$E2E_FX/unpinned.yml"
+sed 's/^    permissions:$/    permissions:\n      contents: write/;s/^permissions:$/permissions:\n  pull-requests: write/' "$CI" > "$E2E_FX/write.yml"
+sed 's/if: always()/if: success()/' "$CI" > "$E2E_FX/no-always.yml"
+# Each mutated copy must be reported for its own reason (not just "has no e2e job").
+for pair in "no-timeout:no timeout-minutes" "paths:paths: filter" "make-e2e:runs make e2e" "secret:references a secret" \
+            "unpinned:not pinned" "no-always:no if: always()"; do
+  fx=${pair%%:*}; want=${pair#*:}
+  if e2e_violations "$E2E_FX/$fx.yml" | grep -qF -- "$want"; then ok "the e2e checker reports '$want' for a workflow with: $fx"; else bad "the e2e checker reports '$want' for a workflow with: $fx"; fi
+done
+assert_grep .github/workflows/ci-fix.yml 'workflows:[[:space:]]*\[CI\]' "ci-fix.yml still triggers on a failed CI run, so it sees e2e with no trigger change"
+assert_grep "$CI" 'scope' "the scope step is in the job"
+assert_grep "$CI" 'git diff --name-only' "and lists the files changed against the base"
+assert_grep "$CI" "steps\.scope\.outputs\.run == 'true'|run == 'true'" "the later steps run only when the scope says so"
+assert_grep "$CI" 'e2e: no runtime change, skipped|github\.event_name' "and a push to main always runs"
 
 RL=.github/workflows/risk-label.yml
 echo "workflows: risk-label.yml"
@@ -372,16 +424,20 @@ assert_grep .github/workflows/coordinator.yml 'daily cap does count' "coordinato
 # the review step 18; wait step + review step <= job timeout.
 review_budget_violations() {
   local f="$1" bound job wstep rstep
+  # The wait is an inline loop (fixtures) or scripts/wait-for-check.sh with WAIT_SECONDS set in the workflow.
+  local src="$f"
+  if grep -q 'scripts/wait-for-check\.sh' "$f"; then src="$f $ROOT/scripts/wait-for-check.sh"; fi
   bound=$(sed -nE 's/.*while \[ "\$waited" -lt ([0-9]+) \].*/\1/p' "$f" | head -1)
+  [ -n "$bound" ] || bound=$(sed -nE 's/^[[:space:]]*WAIT_SECONDS:[[:space:]]*"?([0-9]+)"?.*/\1/p' "$f" | head -1)
   job=$(sed -nE 's/^    timeout-minutes:[[:space:]]*([0-9]+).*/\1/p' "$f" | head -1)
   wstep=$(awk '/^      - name:/ { n = $0 } /^        timeout-minutes:/ && n ~ /Wait for the check/ { print $2; exit }' "$f")
   rstep=$(awk '/^      - name:/ { n = $0 } /^        timeout-minutes:/ && n ~ /Run the reviewer/ { print $2; exit }' "$f")
   if [ ! -r "$f" ] || [ -z "$bound" ] || [ -z "$job" ]; then echo "could not read the time budget from $f"; return; fi
   if [ "$bound" -gt 720 ]; then echo "wait bound is '$bound' seconds, want at most 720"; fi
   # The loop is bounded by wall-clock time, and a timed-out wait step must not skip the reviewer.
-  { grep -q 'start=\$SECONDS' "$f" && grep -q 'waited=\$((SECONDS - start))' "$f"; } || echo "wait loop is not bounded by wall-clock time (SECONDS)"
+  { cat $src | grep -q 'start=\$SECONDS' && cat $src | grep -q 'waited=\$((SECONDS - start))'; } || echo "wait loop is not bounded by wall-clock time (SECONDS)"
   awk '/^      - name:/ { n = $0 } /^        continue-on-error:[[:space:]]*true/ && n ~ /Wait for the check/ { f = 1 } END { exit !f }' "$f" || echo "wait step is not continue-on-error, so a timeout would skip the reviewer"
-  grep -q 'did not finish within 12 minutes' "$f" || echo "warning text does not say 12 minutes"
+  cat $src | grep -q 'did not finish within 12 minutes' || echo "warning text does not say 12 minutes"
   [ "$job" = "30" ] || echo "job timeout-minutes is '$job', want 30"
   [ "$wstep" = "12" ] || echo "wait step timeout-minutes is '$wstep', want 12"
   [ "$rstep" = "18" ] || echo "review step timeout-minutes is '$rstep', want 18"
@@ -429,9 +485,9 @@ if [ "$(grep -E '^[[:space:]]*run:' <<<"$rv_mg" | grep -vc 'trusted/scripts/')" 
 if grep -q 'create-github-app-token\|steps\.app' <<<"$rv_rj"; then bad "the review job never sees the App token"; else ok "the review job never sees the App token"; fi
 assert_grep "$RV" 'CLAUDE_CODE_OAUTH_TOKEN:[[:space:]]*\$\{\{[[:space:]]*secrets\.CLAUDE_CODE_OAUTH_TOKEN' "CLAUDE_CODE_OAUTH_TOKEN comes from secrets"
 assert_no_grep "$RV" 'ANTHROPIC_' "sets no ANTHROPIC_* variable"
-assert_grep "$RV" 'check-runs|gh pr checks' "waits for the check status on the head SHA"
+assert_grep "$RV" 'wait-for-check\.sh|check-runs|gh pr checks' "waits for the check status on the head SHA"
 assert_grep "$RV" 'github\.event\.pull_request\.head\.sha' "looks at the head SHA"
-w=$(grep -n 'check-runs\|gh pr checks' "$RV" | head -1 | cut -d: -f1)
+w=$(grep -n 'wait-for-check\.sh\|check-runs\|gh pr checks' "$RV" | head -1 | cut -d: -f1)
 g=$(grep -n 'scripts/agent-guard.sh preflight' "$RV" | head -1 | cut -d: -f1)
 c=$(grep -n 'scripts/review.sh' "$RV" | head -1 | cut -d: -f1)
 if [ -n "$w" ] && [ -n "$g" ] && [ -n "$c" ] && [ "$w" -lt "$g" ] && [ "$g" -lt "$c" ]; then ok "wait for check, then preflight, then review.sh"; else bad "wait for check, then preflight, then review.sh"; fi
@@ -521,6 +577,19 @@ rv_rj=$(awk '/^  review:/ { on = 1; print; next } on && /^  [a-z-]+:/ { exit } o
 if grep -Eq '^      actions:[[:space:]]+write' <<<"$rv_mg"; then ok "review.yml: the merge-gate job has actions: write (to dispatch revise.yml)"; else bad "review.yml: the merge-gate job has actions: write (to dispatch revise.yml)"; fi
 if grep -q 'actions:' <<<"$rv_rj"; then bad "review.yml: the review job (which runs PR scripts) has no actions permission"; else ok "review.yml: the review job (which runs PR scripts) has no actions permission"; fi
 assert_no_grep <(sed -n '1,/^jobs:/p' "$RV") 'actions:' "review.yml: no workflow-level actions permission"
+# The failing CI output (#192): a separate trusted job on base-branch code is the only one with actions: read.
+rv_ci=$(awk '/^  ci-output:/ { on = 1; print; next } on && /^  [a-z-]+:/ { exit } on { print }' "$RV")
+if grep -Eq '^      actions:[[:space:]]+read' <<<"$rv_ci"; then ok "review.yml: the ci-output job has actions: read"; else bad "review.yml: the ci-output job has actions: read"; fi
+if grep -Eq 'actions:[[:space:]]+write' <<<"$rv_ci"; then bad "review.yml: the ci-output job has no write permission"; else ok "review.yml: the ci-output job has no write permission"; fi
+if grep -q 'ref: \${{ github.event.pull_request.base.ref }}' <<<"$rv_ci" && ! grep -q 'head.sha }}$' <<<"$(grep -A3 'checkout' <<<"$rv_ci")"; then ok "review.yml: the ci-output job checks out the base branch"; else bad "review.yml: the ci-output job checks out the base branch"; fi
+if grep -q 'needs: ci-output' <<<"$rv_rj"; then ok "review.yml: the review job waits for ci-output"; else bad "review.yml: the review job waits for ci-output"; fi
+if grep -q 'needs.ci-output.outputs.text' <<<"$rv_rj"; then ok "review.yml: the review job takes the text from ci-output"; else bad "review.yml: the review job takes the text from ci-output"; fi
+if grep -Eq '^[[:space:]]+run:.*needs\.ci-output' <<<"$rv_rj"; then bad "review.yml: the CI text is never on a command line"; else ok "review.yml: the CI text is never on a command line"; fi
+# Both wait steps run scripts/wait-for-check.sh, which looks at the newest `check` run (a re-run is waited
+# for) and gives up early when no run appears (#192). No loop is left inline in the workflow.
+if [ "$(grep -Ec '^[[:space:]]+run: bash scripts/wait-for-check\.sh "\$HEAD_SHA"$' "$RV")" = 2 ]; then ok "review.yml: both wait steps run scripts/wait-for-check.sh"; else bad "review.yml: both wait steps run scripts/wait-for-check.sh"; fi
+if grep -q 'while \[ "\$waited"' "$RV"; then bad "review.yml: no wait loop is left inline"; else ok "review.yml: no wait loop is left inline"; fi
+assert_grep scripts/wait-for-check.sh 'sort_by\(\.id\) \| if length == 0 then "missing" else last \| \.status end' "wait-for-check.sh reads the newest check run"
 assert_grep "$RV" 'REVISION_BUDGET:[[:space:]]*\$\{\{[[:space:]]*vars\.REVISION_BUDGET' "review.yml passes REVISION_BUDGET to the merge gate"
 
 # A workflow step that runs a script directly (scripts/x.sh, not "bash scripts/x.sh") needs the git

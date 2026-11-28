@@ -3,6 +3,7 @@ and ``make browse``."""
 
 import argparse
 import json
+import os
 import signal
 import sys
 from collections.abc import Sequence
@@ -10,7 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from agentbrowser import lifecycle
+from agentbrowser import lifecycle, scope
 from agentbrowser.flow import FlowError, load
 
 LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
@@ -99,6 +100,18 @@ def _e2e(args: argparse.Namespace) -> int:
         signal.signal(signal.SIGTERM, previous)
 
 
+def _scope(args: argparse.Namespace) -> int:
+    """Read changed paths on stdin; say whether the ``e2e`` job runs, and set the ``run`` output."""
+    paths = scope.parse(sys.stdin.read())
+    run = scope.in_scope(paths)
+    print("e2e: runtime change, running" if run else "e2e: no runtime change, skipped")
+    output = os.environ.get("GITHUB_OUTPUT")
+    if output:
+        with open(output, "a", encoding="utf-8") as handle:
+            handle.write(f"run={'true' if run else 'false'}\n")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="agentbrowser")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -121,6 +134,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--map", default="", help="feature map file (default tests/e2e/feature-map.json)"
     )
     e2e.add_argument("--out", default="", help="artifact directory")
+    sub.add_parser(
+        "scope",
+        help="read changed file names on stdin; print whether the CI e2e job runs "
+        "and write run=true|false to $GITHUB_OUTPUT",
+    )
     return parser
 
 
@@ -128,6 +146,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.cmd == "e2e":
         return _e2e(args)
+    if args.cmd == "scope":
+        return _scope(args)
     try:
         if args.cmd == "up":
             handle = lifecycle.start(args.name, args.scenario)

@@ -45,6 +45,14 @@ expect high docs/adr/sub/dir/x.md
 expect low x.gitignore CLAUDE.md.bak src/NOTCLAUDE.md
 expect low tests/scripts/lib.sh src/scripts/x.py
 
+echo "classify: agent browser package (#143, ADR 0028)"
+expect high src/agentbrowser/scope.py
+expect high src/agentbrowser/checks.py
+expect high src/agentbrowser/__main__.py
+expect low tests/flows/home.json
+expect low tests/e2e/test_driver.py
+expect low tests/unit/agentbrowser/test_scope.py
+
 echo "classify: bridge package (ADR 0022)"
 expect high src/bridge/commands.toml
 expect high src/bridge/__main__.py
@@ -84,10 +92,11 @@ docs/adr/
 docs/constitution.md
 docs/workflow.md
 scripts/
+src/agentbrowser/
 src/bridge/
 src/mealplanner/config.py'
 got=$(grep -Ev '^[[:space:]]*(#|$)' "$RULES" | tr -d '\r' | LC_ALL=C sort)
-assert_eq "$got" "$(printf '%s\n' "$want" | LC_ALL=C sort)" "risk-paths holds exactly the ADR 0013 list plus src/bridge/ (ADR 0022)"
+assert_eq "$got" "$(printf '%s\n' "$want" | LC_ALL=C sort)" "risk-paths holds exactly the ADR 0013 list plus src/bridge/ (ADR 0022) and src/agentbrowser/ (ADR 0028, #143)"
 
 # co_patterns FILE: the path pattern of each non-comment CODEOWNERS line.
 co_patterns() { grep -Ev '^[[:space:]]*(#|$)' "$1" | awk '{print $1}'; }
