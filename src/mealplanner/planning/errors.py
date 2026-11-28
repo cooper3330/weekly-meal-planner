@@ -25,6 +25,10 @@ class SelectionLockedError(RuntimeError):
     """The week is confirmed, so picks, limits and a second confirmation are refused (ADR 0021)."""
 
 
+class OptionPickedError(RuntimeError):
+    """The option is picked, so it cannot be replaced until it is unpicked (ADR 0021)."""
+
+
 class SelectionNotConfirmedError(RuntimeError):
     """The week has no current confirmation, so there is nothing to reopen."""
 
