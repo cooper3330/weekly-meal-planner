@@ -19,15 +19,22 @@ from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from agentbrowser.checks import MEASURE_JS, PageChecks, evaluate, page_checks_json
-from agentbrowser.evidence import MAX_OFFERED, FlowResult, StepResult, format_offered
+from agentbrowser.evidence import (
+    MAX_OFFERED,
+    TEXT_SNAPSHOT_BYTES,
+    Budget,
+    FlowResult,
+    StepResult,
+    format_offered,
+)
 from agentbrowser.feature_map import PathCheck, path_matches
 from agentbrowser.flow import Flow, Locator, Step
 from mealplanner.demo import DEMO_OWNER
 
 STEP_TIMEOUT_MS = 5_000
 FLOW_TIMEOUT_S = 60.0
-MAX_SCREENSHOT_BYTES = 1_000_000
 DEVICE_SCALE = 2
+SNAPSHOT_MARKER = "--- accessibility snapshot ---"
 IDENTITY_HEADER = "Tailscale-User-Login"
 _NETWORK_SCHEMES = {"http": 80, "https": 443, "ws": 80, "wss": 443}
 _LOAD_FAILED = "Failed to load resource"
@@ -306,7 +313,7 @@ class _PhoneChecks:
         self._seen: set[tuple[str, str]] = set()
         self._requests_seen = 0
 
-    def run(self, page: Page, screenshot: str) -> str | None:
+    def run(self, page: Page, screenshot: str | None) -> str | None:
         """Measure the page now; return an error message if it could not be measured."""
         new = [r["url"] for r in self.recorder.requests[self._requests_seen :] if r["external"]]
         self._requests_seen = len(self.recorder.requests)
@@ -352,13 +359,15 @@ def run_flow(
     reproduce: str | None = None,
     rel_dir: str | None = None,
     path_check: PathCheck | None = None,
+    budget: Budget | None = None,
 ) -> FlowResult:
     """Run ``flow`` against ``base_url`` and write its artifacts into ``out_dir``.
 
     Opens its own browser unless one is given. A missing browser raises ``BrowserMissingError``.
     ``rel_dir`` is how the evidence bundle names ``out_dir`` in screenshot paths (default: its
     last part). ``path_check`` (the feature walk) requires the page path to match a template
-    once its step has run.
+    once its step has run. ``budget`` is the run's (default: a fresh one): no step starts once a
+    limit is reached, and every screenshot is checked against it before it is written.
     """
     if browser is None:
         with open_browser() as own:
@@ -371,7 +380,9 @@ def run_flow(
                 reproduce=reproduce,
                 rel_dir=rel_dir,
                 path_check=path_check,
+                budget=budget,
             )
+    budget = budget or Budget()
     rel = rel_dir or out_dir.name
     base = base_url.rstrip("/")
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -379,6 +390,7 @@ def run_flow(
         name or out_dir.name,
         [p.model_dump() for p in flow.proves],
         reproduce=reproduce,
+        viewport=flow.viewport,
     )
     recorder = _Recorder(base)
     phone = _PhoneChecks(recorder)
@@ -410,21 +422,31 @@ def run_flow(
                     f"{FLOW_TIMEOUT_S:g} s"
                 )
                 break
+            if budget.check() is not None:
+                _note_cut(result, budget, f"step {number} ({step.kind}) not run: ")
+                break
             offered: list[dict[str, str]] = []
             error = _run_step(page, step, base, min(STEP_TIMEOUT_MS, remaining_ms), offered)
-            shot_name = f"{number:02d}-{step.kind}.png"
-            shot_error = _screenshot(page, out_dir / shot_name, _budget_ms(deadline))
+            stem = f"{number:02d}-{step.kind}"
+            shot_name = f"{stem}--{step.shows}.png" if step.shows else f"{stem}.png"
+            shot_rel = f"{rel}/{shot_name}"
+            written, shot_error = _screenshot(
+                page, out_dir / shot_name, shot_rel, _budget_ms(deadline), budget, result
+            )
+            if error is not None:
+                _stop_loading(context, page)  # reading the page text must not wait for it
+            _write_text_snapshot(page, out_dir / f"{stem}.txt", _budget_ms(deadline))
             if error is None:
                 error = shot_error
             if error is None and step.kind in _MEASURED_KINDS:
-                error = phone.run(page, f"{rel}/{shot_name}")
+                error = phone.run(page, shot_rel if written else None)
             if error is None and path_check is not None and number == path_check.after_step:
                 error = _path_error(page, path_check)
             result.steps.append(
                 StepResult(
                     step.kind,
                     step.shows,
-                    f"{rel}/{shot_name}",
+                    shot_rel if written else None,
                     error is None,
                     error,
                     offered or None,
@@ -435,9 +457,10 @@ def run_flow(
                 result.failures.append(f"step {number} ({step.kind}) failed:\n{detail}")
                 _stop_loading(context, page)
                 break
-        final_error = _finish(context, page, out_dir, deadline)
+        final_error = _finish(context, page, out_dir, rel, deadline, budget, result)
         if final_error is not None:
             result.failures.append(final_error)
+        _note_cut(result, budget)
     finally:
         _save_trace(context, out_dir)
         context.close()
@@ -473,24 +496,89 @@ def _budget_ms(deadline: float) -> int:
     return max(1, min(STEP_TIMEOUT_MS, int((deadline - time.monotonic()) * 1000)))
 
 
-def _screenshot(page: Page, path: Path, timeout_ms: int, full_page: bool = False) -> str | None:
-    """Take a screenshot; return an error message if it fails or is over 1 MB."""
+def _screenshot(
+    page: Page,
+    path: Path,
+    rel: str,
+    timeout_ms: int,
+    budget: Budget,
+    result: FlowResult,
+    full_page: bool = False,
+    check_time: bool = True,
+) -> tuple[bool, str | None]:
+    """Take a screenshot as bytes, check it against the budget, then write it.
+
+    Returns whether it was written, and an error message if it was over 1 MB or could not be
+    taken. One not written because of a cut-off returns no error: the run records the cut-off.
+    """
+    if (budget.check() if check_time else budget.check_count()) is not None:
+        return False, None
     try:
-        page.screenshot(path=path, full_page=full_page, timeout=timeout_ms)
+        data = page.screenshot(full_page=full_page, timeout=timeout_ms)
     except PlaywrightError as exc:
-        return f"expected: {path.name} to be written\nactual: {_first_line(exc)}"
-    size = path.stat().st_size
-    if size > MAX_SCREENSHOT_BYTES:
-        return f"expected: {path.name} at most {MAX_SCREENSHOT_BYTES} bytes\nactual: {size} bytes"
-    return None
+        return False, f"expected: {path.name} to be written\nactual: {_first_line(exc)}"
+    verdict = budget.admit(len(data))
+    if verdict is None:
+        path.write_bytes(data)
+        return True, None
+    if verdict == "oversized":
+        result.oversized.append({"path": rel, "bytes": len(data)})
+        return False, f"screenshot {rel} is {len(data)} bytes, over the 1 MB limit"
+    return False, None
 
 
-def _finish(context: BrowserContext, page: Page, out_dir: Path, deadline: float) -> str | None:
+def _note_cut(result: FlowResult, budget: Budget, prefix: str = "") -> None:
+    """Say on the flow that the run was cut off (once), so a flow that was stopped is not green."""
+    if budget.cut_off is None:
+        return
+    message = f"cut off: {budget.cut_off} reached"
+    if not any(f.endswith(message) for f in result.failures):
+        result.failures.append(prefix + message)
+
+
+def _cut_text(text: str) -> str:
+    """The text cut to 8 KB (the note included), on a character boundary."""
+    data = text.encode("utf-8")
+    if len(data) <= TEXT_SNAPSHOT_BYTES:
+        return text
+    note = b"\n[cut at 8 KB]\n"
+    keep = data[: TEXT_SNAPSHOT_BYTES - len(note)]
+    return keep.decode("utf-8", errors="ignore") + note.decode()
+
+
+def _write_text_snapshot(page: Page, path: Path, timeout_ms: int) -> None:
+    """``NN-<kind>.txt``: the visible text, a marker line, then the accessibility snapshot."""
+    try:
+        snapshot = page.locator("body").aria_snapshot(timeout=timeout_ms)
+    except PlaywrightError:
+        snapshot = ""
+    text = f"{_page_text(page)}\n{SNAPSHOT_MARKER}\n{snapshot}\n"
+    path.write_text(_cut_text(text), encoding="utf-8")
+
+
+def _finish(
+    context: BrowserContext,
+    page: Page,
+    out_dir: Path,
+    rel: str,
+    deadline: float,
+    budget: Budget,
+    result: FlowResult,
+) -> str | None:
     try:
         page.wait_for_load_state("load", timeout=_budget_ms(deadline))
     except PlaywrightError:
         _stop_loading(context, page)
-    error = _screenshot(page, out_dir / "final-full.png", _budget_ms(deadline), full_page=True)
+    _, error = _screenshot(
+        page,
+        out_dir / "final-full.png",
+        f"{rel}/final-full.png",
+        _budget_ms(deadline),
+        budget,
+        result,
+        full_page=True,
+        check_time=False,
+    )
     (out_dir / "page.txt").write_text(_page_text(page), encoding="utf-8")
     return error
 

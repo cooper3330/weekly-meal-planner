@@ -5,12 +5,16 @@ an invalid flow is rejected before any browser starts.
 """
 
 import json
+import re
 from pathlib import Path
 from typing import Annotated, Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, ValidationError, model_validator
 
+from agentbrowser.evidence import NAME_PATTERN
+
 MAX_STEPS = 40
+RESERVED_NAME = "walk"  # the evidence bundle keeps the feature walk in walk/
 CRITERION = r"^AC-[0-9]+$"
 VIEWPORT = r"^[1-9][0-9]*x[1-9][0-9]*$"
 STEP_KINDS = (
@@ -111,14 +115,17 @@ class Flow(_Strict):
     @model_validator(mode="after")
     def _shows_are_declared(self) -> Self:
         declared = {c for p in self.proves for c in p.criteria}
-        if not declared:  # an ad hoc steps file (make browse) may label steps freely
-            return self
         for number, step in enumerate(self.steps, 1):
-            if step.shows is not None and step.shows not in declared:
+            if step.shows is None or step.shows in declared:
+                continue
+            if not declared:
                 raise ValueError(
-                    f"step {number} shows {step.shows}, which proves does not declare "
-                    f"(declared: {', '.join(sorted(declared))})"
+                    f"step {number} shows {step.shows}, but the flow has no proves to declare it"
                 )
+            raise ValueError(
+                f"step {number} shows {step.shows}, which proves does not declare "
+                f"(declared: {', '.join(sorted(declared))})"
+            )
         return self
 
     @property
@@ -139,7 +146,17 @@ def _format(exc: ValidationError) -> str:
 
 
 def load(path: Path, strict: bool = False) -> Flow:
-    """Read and validate a flow file. ``strict`` (tests/flows/) requires ``proves``."""
+    """Read and validate a flow file. ``strict`` (tests/flows/) requires ``proves``.
+
+    The file name, without ``.json``, must match ``NAME_PATTERN`` and not be ``walk``: it names the
+    flow's directory in the evidence bundle (ADR 0030, change 5).
+    """
+    stem = Path(path).name.removesuffix(".json")
+    if not re.fullmatch(NAME_PATTERN, stem) or stem == RESERVED_NAME:
+        raise FlowError(
+            f"{path}: invalid flow file name {Path(path).name!r}: the name without .json must "
+            f"match {NAME_PATTERN} and not be {RESERVED_NAME!r}"
+        )
     try:
         raw = json.loads(Path(path).read_text(encoding="utf-8"))
     except OSError as exc:

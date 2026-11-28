@@ -12,11 +12,11 @@ MIN_FONT_PX = 16.0
 MIN_TARGET_PX = 44
 REQUIRED_HEADERS = ("Content-Security-Policy", "Referrer-Policy", "X-Content-Type-Options")
 CHECK_NAMES = (
-    "horizontal-scroll",
-    "font-size",
-    "tap-targets",
-    "local-requests",
-    "security-headers",
+    "no_horizontal_scroll",
+    "body_font_size",
+    "tap_targets",
+    "loopback_only",
+    "security_headers",
 )
 
 # Runs in the page. Visible means a box with size, not display:none or visibility:hidden.
@@ -129,7 +129,7 @@ def evaluate(
     document_headers: dict[str, str] | None,
 ) -> PageChecks:
     """Judge one page. ``document_headers`` has lower-case names; None means no response seen."""
-    scroll = CheckResult("horizontal-scroll")
+    scroll = CheckResult("no_horizontal_scroll")
     viewport = measurement["viewport_width"]
     if measurement["scroll_width"] > viewport:
         widest = measurement.get("widest")
@@ -140,19 +140,19 @@ def evaluate(
                 f"page is {measurement['scroll_width']} px wide in a {viewport} px viewport",
             )
         )
-    font = CheckResult("font-size")
+    font = CheckResult("body_font_size")
     if measurement["body_font_px"] < MIN_FONT_PX:
         size = f"{measurement['body_font_px']:g} px"
         font.findings.append(
             Finding("body", size, f"body text is {size}, needs {MIN_FONT_PX:g} px")
         )
-    tap = CheckResult("tap-targets")
+    tap = CheckResult("tap_targets")
     for item in measurement["small_targets"]:
         tap.findings.append(Finding(item["path"], _dims(item), f"is under {MIN_TARGET_PX} px tall"))
-    local = CheckResult("local-requests")
+    local = CheckResult("loopback_only")
     for ext in external_requests:
         local.findings.append(Finding(ext, None, "request left the app's own host and port"))
-    headers = CheckResult("security-headers")
+    headers = CheckResult("security_headers")
     if document_headers is None:
         headers.findings.append(Finding(None, None, "no document response was recorded"))
     else:
@@ -167,12 +167,12 @@ def page_checks_json(pages: list[PageChecks]) -> list[dict[str, Any]]:
     return [
         {
             "url": page.url,
-            "status": "pass" if page.ok else "fail",
+            "status": "passed" if page.ok else "failed",
             "screenshot": page.screenshot,
             "checks": [
                 {
                     "check": r.check,
-                    "status": "pass" if r.ok else "fail",
+                    "status": "passed" if r.ok else "failed",
                     "findings": [
                         {"element": f.element, "size": f.size, "detail": f.detail}
                         for f in r.findings

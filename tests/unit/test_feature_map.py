@@ -195,7 +195,7 @@ def _set(key: str, value: Any) -> Any:
 SCHEMA_CASES: list[tuple[str, Any, str]] = [
     ("missing-field", _drop("phone_notes"), "phone_notes"),
     ("unknown-key", _set("colour", "red"), "colour"),
-    ("not-kebab", _set("name", "Profile_Edit"), "kebab-case"),
+    ("not-kebab", _set("name", "Profile_Edit"), "name must match"),
     ("no-get", _set("routes", ["POST /profile"]), "GET"),
     ("no-landmarks", _set("landmarks", []), "landmarks"),
     ("no-sources", _set("sources", []), "sources"),

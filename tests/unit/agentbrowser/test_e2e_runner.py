@@ -75,6 +75,7 @@ class FakeDriver:
         name: str | None = None,
         browser: object = None,
         reproduce: str | None = None,
+        budget: object = None,
     ) -> FlowResult:
         assert name is not None
         self.calls.append(name)

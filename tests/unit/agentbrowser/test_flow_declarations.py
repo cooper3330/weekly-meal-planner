@@ -69,10 +69,12 @@ def test_shows_must_be_a_declared_criterion(tmp_path: Path) -> None:
     flow.load(_write(tmp_path, steps=[{"goto": "/", "shows": "AC-4"}]), strict=True)
 
 
-def test_shows_is_free_in_an_ad_hoc_file_without_proves(tmp_path: Path) -> None:
+def test_shows_is_rejected_in_an_ad_hoc_file_without_proves(tmp_path: Path) -> None:
     path = tmp_path / "adhoc.json"
-    path.write_text(json.dumps({"steps": [{"goto": "/", "shows": "AC-9"}]}))
-    flow.load(path)
+    path.write_text(json.dumps({"steps": [{"goto": "/"}, {"goto": "/", "shows": "AC-9"}]}))
+    with pytest.raises(flow.FlowError) as info:
+        flow.load(path)
+    assert "step 2 shows AC-9" in str(info.value)
 
 
 def _flows(tmp_path: Path) -> dict[str, flow.Flow]:

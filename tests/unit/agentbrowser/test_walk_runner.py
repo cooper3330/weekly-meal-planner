@@ -104,6 +104,7 @@ class FakeDriver:
         name: str | None = None,
         browser: object = None,
         reproduce: str | None = None,
+        budget: object = None,
         **extra: Any,
     ) -> FlowResult:
         assert name is not None
@@ -362,8 +363,8 @@ def test_summary_json_has_a_walk_record_per_feature(env: Env) -> None:
     assert [w["feature"] for w in walk] == SORTED
     assert {"feature", "status", "neighbours", "steps", "failures"} <= set(walk[0])
     by_name = {w["feature"]: w for w in walk}
-    assert by_name["home"]["status"] == "pass"
-    assert by_name["profile"]["status"] == "fail"
+    assert by_name["home"]["status"] == "passed"
+    assert by_name["profile"]["status"] == "failed"
     assert by_name["profile"]["neighbours"] == ["home", "profile-edit", "profile-version"]
     assert by_name["home"]["neighbours"] == ["profile"]
     assert by_name["profile"]["steps"][0]["screenshot"] == "walk/profile/01-goto.png"

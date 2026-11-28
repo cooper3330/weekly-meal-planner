@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Long text</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+<h1>Long text page</h1>
+<p id="long" style="height: 40px; overflow: hidden"></p>
+<script>
+document.getElementById('long').textContent = 'lorem ipsum dolor '.repeat(1200);
+</script>
+</body></html>

@@ -17,6 +17,7 @@ from fastapi.routing import APIRoute, iter_route_contexts
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 from starlette.routing import Mount
 
+from agentbrowser.evidence import NAME_PATTERN
 from agentbrowser.flow import Flow, Locator, Proves, Step
 from mealplanner.demo.build import scenario_names
 
@@ -24,7 +25,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 FLOWS_DIR = REPO_ROOT / "tests" / "flows"
 WALK_VIEWPORT = "360x640"
 
-KEBAB = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+NAME = re.compile(NAME_PATTERN)
 ROUTE = re.compile(r"^[A-Z]+ /\S*$")
 SHARED_LAYOUT = {"base.html", "app.css"}
 NAVIGATION = ("click", "fill", "select", "press")
@@ -83,9 +84,9 @@ class Feature(_Strict):
 
     @field_validator("name")
     @classmethod
-    def _kebab(cls, value: str) -> str:
-        if not KEBAB.match(value):
-            raise ValueError("name must be kebab-case")
+    def _name(cls, value: str) -> str:
+        if not NAME.fullmatch(value):
+            raise ValueError(f"name must match {NAME_PATTERN}")
         return value
 
     @field_validator("routes")
@@ -153,7 +154,9 @@ def _format(exc: ValidationError, data: Any) -> list[str]:
             try:
                 name = data["features"][loc[1]]["name"]
             except (KeyError, IndexError, TypeError):
-                name = "<unnamed>"
+                name = ""
+            if not isinstance(name, str) or not name:
+                name = f"<entry {loc[1]}>"
             where = _place(loc[2:])
             lines.append(f"{name}: {where + ': ' if where else ''}{msg}")
         else:
