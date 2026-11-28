@@ -14,6 +14,7 @@ from mealplanner.nutrition.compute import Nutrition
 from mealplanner.planning.checks import check_option
 from mealplanner.planning.errors import (
     OptionNotFoundError,
+    OptionPickedError,
     OptionUnavailableError,
     ProfileRequiredError,
     SelectionLimitError,
@@ -141,6 +142,15 @@ def _current_confirmation_id(conn: sqlite3.Connection, user_id: int, slate_id: i
 def _refuse_if_confirmed(conn: sqlite3.Connection, user_id: int, slate_id: int) -> None:
     if _current_confirmation_id(conn, user_id, slate_id) is not None:
         raise SelectionLockedError("This week's plan is confirmed. Reopen it to make changes.")
+
+
+def refuse_if_not_replaceable(
+    conn: sqlite3.Connection, user_id: int, slate_id: int, option_id: int
+) -> None:
+    """Raise unless the option may be replaced: the week is open and the option is not picked."""
+    _refuse_if_confirmed(conn, user_id, slate_id)
+    if option_id in _picked_ids(conn, user_id, slate_id):
+        raise OptionPickedError("Unpick this meal before replacing it.")
 
 
 def _begin(conn: sqlite3.Connection) -> None:

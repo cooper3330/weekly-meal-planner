@@ -92,6 +92,7 @@ def test_real_map_matches_real_app(app: FastAPI, real_map: dict[str, Any]) -> No
 def test_real_map_has_the_expected_pages(real_map: dict[str, Any]) -> None:
     assert {f["name"] for f in real_map["features"]} >= {
         "home",
+        "grocery",
         "profile",
         "profile-edit",
         "profile-history",
