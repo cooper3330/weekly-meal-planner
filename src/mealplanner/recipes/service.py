@@ -107,7 +107,9 @@ def generate_missing_recipes(
         try:
             steps = generate_recipe_steps(llm, meal, catalog=catalog, exclusions=exclusions)
         except (RecipeGenerationError, LLMOutputError, LLMUnavailableError) as error:
-            failed.append(GenerationFailure(_option_id(meal), meal.draft.name, str(error)))
+            failed.append(
+                GenerationFailure(_option_id(meal), meal.draft.name, str(error), type(error))
+            )
             continue
         save_recipe(conn, user_id, _option_id(meal), _as_draft(steps), now=now)
         succeeded.append(_option_id(meal))

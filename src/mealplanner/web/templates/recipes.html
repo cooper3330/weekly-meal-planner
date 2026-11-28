@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Recipes{% endblock %}
+{% block content %}
+<p class="no-print"><a href="/">Home</a></p>
+<h1>Recipes</h1>
+<p class="week">{{ week_label }}</p>
+{% if errors %}
+<div class="error-summary no-print" role="alert">
+  {% for message in errors %}<p>{{ message }}</p>{% endfor %}
+</div>
+{% endif %}
+{% if state == "open" %}
+<p>Confirm your week's plan to get recipes</p>
+<p><a class="button" href="/plan">Go to this week's plan</a></p>
+{% elif state == "unavailable" %}
+<div class="error-summary" role="alert">
+  <p>A planned meal no longer fits your profile. Reopen the week to change it.</p>
+</div>
+<p><a class="button" href="/plan">Go to this week's plan</a></p>
+{% elif state == "no_meals" %}
+<p>No meals planned this week</p>
+<p class="no-print"><a href="/plan">Back to this week's plan</a></p>
+{% else %}
+{% if missing %}
+<form method="post" action="/recipes/generate" class="no-print">
+  <p>Get recipes for {{ missing }} meal{% if missing != 1 %}s{% endif %}. This can take a few minutes.</p>
+  <button type="submit" class="generate">Get recipes</button>
+</form>
+{% endif %}
+<p class="hint no-print">Use your browser's Print or Share to print or save these recipes.</p>
+{% for item in items %}
+<section class="recipe-item">
+  {% if item.kind == "recipe" %}
+  {% with recipe=item.recipe, heading_href="/recipes/" ~ item.id %}{% include "_recipe.html" %}{% endwith %}
+  <form method="post" action="/recipes/{{ item.id }}/regenerate" class="no-print">
+    <button type="submit" class="regenerate">Regenerate</button>
+  </form>
+  {% else %}
+  <h2 class="recipe-title"><a href="/recipes/{{ item.id }}">{{ item.name }}</a></h2>
+  {% if item.kind == "missing" %}
+  <p>No recipe yet</p>
+  {% else %}
+  <p>This recipe no longer fits your profile</p>
+  <form method="post" action="/recipes/{{ item.id }}/regenerate" class="no-print">
+    <button type="submit" class="regenerate">Regenerate</button>
+  </form>
+  {% endif %}
+  {% endif %}
+</section>
+{% endfor %}
+<p class="no-print"><a href="/plan">Back to this week's plan</a></p>
+{% endif %}
+{% endblock %}

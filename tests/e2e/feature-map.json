@@ -88,6 +88,58 @@
       "phone_notes": ""
     },
     {
+      "name": "recipes",
+      "routes": ["GET /recipes", "POST /recipes/generate", "POST /recipes/{option_id}/regenerate"],
+      "scenario": "confirmed_week",
+      "reach": [
+        {"goto": "/"},
+        {"click": {"role": "link", "name": "This week's options"}},
+        {"click": {"role": "link", "name": "Recipes"}}
+      ],
+      "landmarks": [
+        {"role": "heading", "name": "Recipes"},
+        {"role": "button", "name": "Get recipes"}
+      ],
+      "actions": [
+        {"control": {"role": "button", "name": "Get recipes"}, "result": "a recipe is written for every planned meal and the page shows them, or it is shown again with a plain error message per failed meal"},
+        {"control": {"role": "link", "name": "Home"}, "result": "the home page"}
+      ],
+      "implements": [{"issue": 10, "criteria": ["AC-1", "AC-4", "AC-5", "AC-6", "AC-7"]}],
+      "flows": [],
+      "sources": [
+        "src/mealplanner/web/templates/recipes.html",
+        "src/mealplanner/web/templates/_recipe.html",
+        "src/mealplanner/web/recipes.py"
+      ],
+      "phone_notes": ""
+    },
+    {
+      "name": "recipe",
+      "routes": ["GET /recipes/{option_id}"],
+      "scenario": "confirmed_week",
+      "reach": [
+        {"goto": "/"},
+        {"click": {"role": "link", "name": "This week's options"}},
+        {"click": {"role": "link", "name": "Recipes"}},
+        {"click": {"role": "link", "name": "Lemon chicken and rice"}}
+      ],
+      "landmarks": [
+        {"role": "heading", "name": "Recipe"},
+        {"role": "link", "name": "All recipes"}
+      ],
+      "actions": [
+        {"control": {"role": "link", "name": "All recipes"}, "result": "the week's recipes"}
+      ],
+      "implements": [{"issue": 10, "criteria": ["AC-1", "AC-6"]}],
+      "flows": [],
+      "sources": [
+        "src/mealplanner/web/templates/recipe.html",
+        "src/mealplanner/web/templates/_recipe.html",
+        "src/mealplanner/web/recipes.py"
+      ],
+      "phone_notes": ""
+    },
+    {
       "name": "profile",
       "routes": ["GET /profile"],
       "scenario": "profile",
