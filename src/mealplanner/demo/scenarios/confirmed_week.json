@@ -1,0 +1,68 @@
+{
+  "profile": {
+    "exclusions": ["peanuts"],
+    "servings": 2,
+    "max_cook_minutes": 40,
+    "skill": "intermediate",
+    "repeat_after_weeks": 2,
+    "preferences": "Likes: roasted vegetables, lemon, fresh herbs.\nDislikes: cilantro, very spicy food."
+  },
+  "week": {
+    "lunches": [
+      {
+        "name": "Lemon chicken and rice",
+        "description": "Pan-seared chicken breast over rice with lemon.",
+        "cook_minutes": 30,
+        "tags": ["quick"],
+        "ingredients": [
+          {"ingredient_id": "chicken_breast_raw", "quantity": 100, "unit": "g"},
+          {"ingredient_id": "rice_white_long_raw", "quantity": 60, "unit": "g"},
+          {"ingredient_id": "lemon_juice", "quantity": 1, "unit": "tbsp"},
+          {"ingredient_id": "salt_table", "quantity": 0.125, "unit": "tsp"}
+        ]
+      },
+      {
+        "name": "Tomato pasta with spinach",
+        "description": "Dry pasta in a quick tomato sauce with spinach.",
+        "cook_minutes": 25,
+        "tags": ["vegetarian"],
+        "ingredients": [
+          {"ingredient_id": "pasta_dry", "quantity": 80, "unit": "g"},
+          {"ingredient_id": "tomato_sauce_canned", "quantity": 120, "unit": "g"},
+          {"ingredient_id": "spinach_raw", "quantity": 50, "unit": "g"}
+        ]
+      }
+    ],
+    "dinners": [
+      {
+        "name": "Roasted salmon and broccoli",
+        "description": "Oven-roasted salmon with broccoli and rice.",
+        "cook_minutes": 35,
+        "tags": ["roasted"],
+        "ingredients": [
+          {"ingredient_id": "salmon_atlantic_farmed_raw", "quantity": 120, "unit": "g"},
+          {"ingredient_id": "broccoli_raw", "quantity": 150, "unit": "g"},
+          {"ingredient_id": "rice_white_long_raw", "quantity": 60, "unit": "g"},
+          {"ingredient_id": "oil_olive", "quantity": 1, "unit": "tbsp"}
+        ]
+      },
+      {
+        "name": "Chicken and pepper stir-fry",
+        "description": "Chicken breast and red pepper over rice.",
+        "cook_minutes": 30,
+        "tags": ["quick"],
+        "ingredients": [
+          {"ingredient_id": "chicken_breast_raw", "quantity": 120, "unit": "g"},
+          {"ingredient_id": "pepper_bell_red_raw", "quantity": 100, "unit": "g"},
+          {"ingredient_id": "onion_raw", "quantity": 50, "unit": "g"},
+          {"ingredient_id": "rice_white_long_raw", "quantity": 60, "unit": "g"}
+        ]
+      }
+    ],
+    "picks": [
+      "Lemon chicken and rice",
+      "Tomato pasta with spinach",
+      "Roasted salmon and broccoli"
+    ]
+  }
+}

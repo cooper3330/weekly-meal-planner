@@ -65,6 +65,29 @@
       "phone_notes": ""
     },
     {
+      "name": "grocery",
+      "routes": ["GET /grocery"],
+      "scenario": "confirmed_week",
+      "reach": [
+        {"goto": "/"},
+        {"click": {"role": "link", "name": "This week's options"}},
+        {"click": {"role": "link", "name": "Grocery list"}}
+      ],
+      "landmarks": [
+        {"role": "heading", "name": "Grocery list"}
+      ],
+      "actions": [
+        {"control": {"role": "link", "name": "Home"}, "result": "the home page"}
+      ],
+      "implements": [{"issue": 9, "criteria": ["AC-1", "AC-4", "AC-5", "AC-6", "AC-7", "AC-8"]}],
+      "flows": [],
+      "sources": [
+        "src/mealplanner/web/templates/grocery.html",
+        "src/mealplanner/web/grocery.py"
+      ],
+      "phone_notes": ""
+    },
+    {
       "name": "profile",
       "routes": ["GET /profile"],
       "scenario": "profile",

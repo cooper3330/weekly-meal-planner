@@ -7,6 +7,7 @@ from datetime import datetime
 from fastapi import Request
 
 from mealplanner.db import connect
+from mealplanner.grocery.info import GroceryInfo
 from mealplanner.llm.client import LLMClient
 from mealplanner.nutrition.catalog import Catalog
 
@@ -32,6 +33,11 @@ async def get_db(request: Request) -> AsyncIterator[sqlite3.Connection]:
 def get_catalog(request: Request) -> Catalog:
     catalog: Catalog = request.app.state.catalog
     return catalog
+
+
+def get_grocery_info(request: Request) -> GroceryInfo:
+    info: GroceryInfo = request.app.state.grocery_info
+    return info
 
 
 def get_now(request: Request) -> datetime:
