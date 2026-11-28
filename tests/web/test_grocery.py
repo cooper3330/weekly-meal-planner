@@ -33,6 +33,8 @@ def lunches() -> dict[str, Any]:
     # Meal 6 holds egg in grams (from option 6) and 2 eggs counted, so egg has two need lines.
     items = [option(i) for i in range(8)]
     items[6] = option(6, name="Egg Rice Bowl", extra=(("egg", 2, "each"),))
+    # A pinch of oil: a tiny need still buys the smallest pack.
+    items[7] = option(7, name="Pinch Meal", extra=(("olive_oil", 0.125, "tsp"),))
     return batch(*items)
 
 
@@ -106,6 +108,7 @@ def text(html: str) -> str:
 MEAL_1 = "Test meal number 1"  # dense + chicken
 MEAL_3 = "Test meal number 3"  # dense + chicken + rice
 MEAL_4 = "Test meal number 4"  # dense + egg
+MEAL_PINCH = "Pinch Meal"  # dense + chicken + rice + egg + 1/8 tsp olive oil
 MEAL_6 = "Egg Rice Bowl"  # dense + rice + egg (g) + 2 eggs
 
 
@@ -147,6 +150,13 @@ def test_grocery_page_buy_suggestion(make: Make, tmp_path: Path) -> None:
     client = make()
     pick_confirm(client, tmp_path, MEAL_1)
     assert "Suggested: buy 1 x 1 lb pack" in text(client.get("/grocery").text)
+
+
+def test_grocery_page_pinch_buys_the_smallest_pack(make: Make, tmp_path: Path) -> None:
+    client = make()
+    pick_confirm(client, tmp_path, MEAL_PINCH)
+    oil = text(item_html(client.get("/grocery").text, "olive_oil"))
+    assert "Suggested: buy 1 x 16.9 fl oz bottle" in oil
 
 
 def test_grocery_page_open_week(make: Make, tmp_path: Path) -> None:

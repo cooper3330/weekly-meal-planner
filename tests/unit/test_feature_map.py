@@ -92,17 +92,13 @@ def test_real_map_matches_real_app(app: FastAPI, real_map: dict[str, Any]) -> No
 def test_real_map_has_the_expected_pages(real_map: dict[str, Any]) -> None:
     assert {f["name"] for f in real_map["features"]} >= {
         "home",
+        "grocery",
         "profile",
         "profile-edit",
         "profile-history",
         "profile-version",
     }
-    # GET /grocery is internal until a demo scenario has a confirmed week to walk to it.
-    assert {i["route"] for i in real_map["internal"]} == {
-        "GET /healthz",
-        "GET /grocery",
-        "MOUNT /static",
-    }
+    assert {i["route"] for i in real_map["internal"]} == {"GET /healthz", "MOUNT /static"}
     assert entry(real_map, "home")["reach"] == [{"goto": "/"}]
 
 
