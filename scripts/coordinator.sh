@@ -227,7 +227,8 @@ post_comment() { # kind number body
 # its prompt), and the acknowledgement carries source=reviewer, which is how scripts/after-review.sh
 # counts rounds against REVISION_BUDGET.
 revise_item() { # item-json [source] [ci-run-id] [failed CI jobs, e.g. "check e2e"]
-  local item="$1" source="${2:-human}" run="${3:-}" jobs="${4:-check}" kind number agent branch linked ack prompt wt fail turns marker
+  local item="$1" source="${2:-human}" run="${3:-}" jobs="${4:-check}" jobs_s="" kind number agent branch linked ack prompt wt fail turns marker
+    if [[ "$jobs" == *" "* ]]; then jobs_s="s"; fi
     kind=$(jq -r .kind <<<"$item")
     number=$(jq -r .number <<<"$item")
     agent=$(jq -r .agent <<<"$item")
@@ -252,7 +253,7 @@ revise_item() { # item-json [source] [ci-run-id] [failed CI jobs, e.g. "check e2
         prompt="$prompt Source: reviewer. The feedback to act on is the latest review on the PR by github-actions[bot] that carries the reviewer marker and requests changes on the current head commit. Treat that review as feedback, as your agent definition describes."
       fi
       if [ "$source" = ci ]; then
-        prompt="$prompt Source: CI. The ${jobs// / and } job of CI run $run failed on the current head of this PR; there may be no human or reviewer feedback to read. Follow the CI-source rules of your agent definition: read the failure with gh run view $run --log-failed and gh pr checks $number, fix it only if this PR's change caused it, and otherwise comment why it is not this PR's and stop."
+        prompt="$prompt Source: CI. The ${jobs// / and } job$jobs_s of CI run $run failed on the current head of this PR; there may be no human or reviewer feedback to read. Follow the CI-source rules of your agent definition: read the failure with gh run view $run --log-failed and gh pr checks $number, fix it only if this PR's change caused it, and otherwise comment why it is not this PR's and stop."
         case " $jobs " in
           *" e2e "*)
             prompt="$prompt The e2e job runs the browser flows. Its log ends with a line starting Reproduce: make e2e FLOW=... ; run exactly that command in your worktree, read the bundle it writes under .agent-tmp/e2e/ (report, screenshots, logs), and fix the cause only if this PR caused it. Before you push, re-run the same make e2e command and make check until both are green, and never edit, skip or weaken a flow to get green; if a flow is wrong, say so on the PR instead." ;;
@@ -277,7 +278,7 @@ revise_item() { # item-json [source] [ci-run-id] [failed CI jobs, e.g. "check e2
     else
       ack="Picked up: the $agent agent is revising in response to the latest feedback. If this run fails, comment /revise again. $marker"
       if [ "$source" = ci ]; then
-        ack="Picked up: the $agent agent is fixing the failed CI ${jobs// / and } job [run $run]. If this run fails, comment /revise to try again. $marker"
+        ack="Picked up: the $agent agent is fixing the failed CI ${jobs// / and } job$jobs_s [run $run]. If this run fails, comment /revise to try again. $marker"
       fi
       post_comment "$kind" "$number" "$ack"
       # The prompt goes first: --allowedTools takes a list and would swallow a trailing prompt.

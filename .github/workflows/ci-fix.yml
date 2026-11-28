@@ -1,6 +1,6 @@
 name: CI fix
 
-# Starts the developer when the `check` job of CI fails on an agent PR (docs/adr/0015; issue #56).
+# Starts the developer when the `check` or `e2e` job of CI fails on an agent PR (docs/adr/0015; issue #56).
 # This workflow only triggers; the coordinator script in its CI-source revise mode decides
 # (the failure is the PR's, it is on the current head, main is green, the revision budget is not
 # spent) and posts the acknowledgement. The fixer is the developer agent, never the reviewer.
@@ -108,7 +108,7 @@ jobs:
             exit "$rc"
           fi
 
-      - name: Fix the failed check
+      - name: Fix the failed CI job
         if: steps.preflight.outputs.skip != 'true'
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}

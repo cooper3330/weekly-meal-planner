@@ -175,6 +175,9 @@ ci_pr issue-9-feature-x; ci_run failure "$CI_HEAD" "$(jobs_of "$CHECK_FAIL" "$E2
 revise pr 12 --source ci --run 900
 assert_count "$T/claude.calls" "called" 1 "both jobs failed: one launch, not two"
 assert_count "$T/gh.log" 'pr comment 12 .*agent:ack' 1 "both jobs failed: one acknowledgement"
+assert_grep "$T/claude.args" 'check and e2e jobs of CI run 900' "both jobs failed: the prompt says jobs (plural)"
+assert_grep "$T/claude.args" 'Reproduce:' "both jobs failed: the prompt has the e2e instructions"
+assert_grep "$T/gh.log" 'pr comment 12 .*fixing the failed CI check and e2e jobs' "both jobs failed: the acknowledgement says jobs (plural)"
 ci_pr issue-9-feature-x; ci_run failure "$CI_HEAD" "$(jobs_of "$CHECK_FAIL")"
 revise pr 12 --source ci --run 900
 assert_no_grep "$T/claude.args" 'Reproduce:' "a check-only failure: no e2e instructions"
