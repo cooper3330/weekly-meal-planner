@@ -271,3 +271,35 @@ def test_cli_e2e_with_no_flows_exits_0(
     monkeypatch.setattr(runner, "FLOWS_DIR", tmp_path / "none")
     assert cli.main(["e2e", "--out", str(tmp_path / "out")]) == 0
     assert "no flows" in capsys.readouterr().out
+
+
+def test_the_summary_records_the_head_commit_from_the_environment(
+    env: Env, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _write(env.flows, "a")
+    monkeypatch.setenv("AGENTBROWSER_HEAD_SHA", "0123456789abcdef0123456789abcdef01234567")
+    assert env.run() == 0
+    data = json.loads((env.out / "summary.json").read_text())
+    assert data["head_sha"] == "0123456789abcdef0123456789abcdef01234567"
+    assert (
+        "Head commit: 0123456789abcdef0123456789abcdef01234567"
+        in (env.out / "summary.md").read_text()
+    )
+
+
+def test_the_head_commit_is_null_when_the_environment_has_none(
+    env: Env, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _write(env.flows, "a")
+    monkeypatch.delenv("AGENTBROWSER_HEAD_SHA", raising=False)
+    assert env.run() == 0
+    assert json.loads((env.out / "summary.json").read_text())["head_sha"] is None
+
+
+def test_an_empty_head_commit_variable_counts_as_none(
+    env: Env, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _write(env.flows, "a")
+    monkeypatch.setenv("AGENTBROWSER_HEAD_SHA", "")
+    assert env.run() == 0
+    assert json.loads((env.out / "summary.json").read_text())["head_sha"] is None
