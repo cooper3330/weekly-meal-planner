@@ -62,7 +62,7 @@ def test_clean_page_writes_every_artifact_and_exits_0(
     assert any(r["url"].endswith("/ok.png") and r["status"] == 200 for r in requests)
     assert not any(r["external"] or r["failed"] for r in requests)
     summary = json.loads((out / "summary.json").read_text())
-    assert summary["flows"][0]["status"] == "pass"
+    assert summary["flows"][0]["status"] == "passed"
     assert summary["flows"][0]["steps"][1]["shows"] == "AC-3"
     assert "PASS" in (out / "summary.md").read_text()
     # Phone-size defaults: 360 x 640 at device scale 2.

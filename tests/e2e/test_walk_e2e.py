@@ -88,7 +88,7 @@ def test_the_real_map_walks_green_and_leaves_nothing_behind(
     for name in names:
         assert f"PASS feature {name}" in out
     summary = json.loads((tmp_path / "out" / "summary.json").read_text())
-    assert [w["status"] for w in summary["walk"]] == ["pass"] * len(names)
+    assert [w["status"] for w in summary["walk"]] == ["passed"] * len(names)
     shots = [s["screenshot"] for w in summary["walk"] for s in w["steps"]]
     assert all(s.startswith("walk/") for s in shots)
     assert all((tmp_path / "out" / s).is_file() for s in shots)
