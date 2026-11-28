@@ -1,6 +1,7 @@
 """Build the demo app: migrations, scenario seed data, demo client, fixed clock."""
 
 import json
+import sqlite3
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +12,12 @@ from mealplanner.config import Settings
 from mealplanner.db import apply_migrations, connect
 from mealplanner.demo import DEMO_OWNER, FIXED_NOW, DemoError
 from mealplanner.demo.client import DemoLLMClient
+from mealplanner.nutrition.catalog import Catalog, load_catalog
+from mealplanner.planning.generate import generate_slate
+from mealplanner.planning.models import MealOption, MealType
+from mealplanner.planning.selection import confirm_selection, pick_option
+from mealplanner.planning.store import get_slate
+from mealplanner.planning.week import week_start_for
 from mealplanner.profile.models import Profile
 from mealplanner.profile.store import save_profile
 
@@ -31,6 +38,46 @@ def load_scenario(name: str) -> dict[str, Any]:
     return data
 
 
+class _WeekClient:
+    """Answers the slate's batch calls from the scenario: lunches first, then dinners."""
+
+    def __init__(self, week: dict[str, Any]) -> None:
+        self._batches = [week["lunches"], week["dinners"]]
+
+    def generate(
+        self, *, system: str, messages: list[Any], output: type[Any], max_tokens: int
+    ) -> Any:
+        return output.model_validate({"options": self._batches.pop(0)})
+
+
+def _seed_week(conn: sqlite3.Connection, catalog: Catalog, week: dict[str, Any]) -> None:
+    """Generate, pick and confirm the week of ``FIXED_NOW`` through the planning functions."""
+    week_start = week_start_for(FIXED_NOW.date())
+    if get_slate(conn, DEMO_USER_ID, week_start) is not None:
+        return  # already seeded
+    view = generate_slate(
+        conn,
+        _WeekClient(week),
+        catalog,
+        DEMO_USER_ID,
+        week_start=week_start,
+        now=FIXED_NOW,
+        lunch_count=len(week["lunches"]),
+        dinner_count=len(week["dinners"]),
+    )
+    ids = {
+        slot.draft.name: slot.option_id
+        for meal_type in MealType
+        for slot in view.options[meal_type]
+        if isinstance(slot, MealOption) and slot.option_id is not None
+    }
+    for name in week["picks"]:
+        if name not in ids:
+            raise DemoError(f"Scenario picks {name!r}, which is not one of its options")
+        pick_option(conn, catalog, DEMO_USER_ID, ids[name], now=FIXED_NOW)
+    confirm_selection(conn, catalog, DEMO_USER_ID, week_start, now=FIXED_NOW)
+
+
 def seed_scenario(db_path: Path, name: str) -> None:
     """Seed ``name`` through the feature packages' own functions. Safe to run twice."""
     scenario = load_scenario(name)
@@ -40,6 +87,9 @@ def seed_scenario(db_path: Path, name: str) -> None:
     conn = connect(db_path)
     try:
         save_profile(conn, DEMO_USER_ID, Profile.model_validate(profile), now=FIXED_NOW)
+        week = scenario.get("week")
+        if week is not None:
+            _seed_week(conn, load_catalog(), week)
     finally:
         conn.close()
 

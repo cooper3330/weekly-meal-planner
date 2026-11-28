@@ -135,3 +135,24 @@ def test_main_serves_on_loopback_and_starts_lifeline(
     argv = ["--port", "8123", "--data-dir", str(tmp_path), "--scenario", "empty"]
     entry.main([*argv, "--lifeline-stdin"])
     assert calls == {"host": "127.0.0.1", "port": 8123, "lifeline": True}
+
+
+def test_confirmed_week_scenario_shows_the_grocery_list(tmp_path: Path) -> None:
+    with make(tmp_path, "confirmed_week") as client:
+        page = client.get("/grocery", headers=HEADERS)
+        plan = client.get("/plan", headers=HEADERS)
+    assert page.status_code == 200
+    assert "Grocery list" in page.text
+    assert "Used in:" in page.text
+    assert "Grocery list" in plan.text  # the link, on the confirmed plan
+
+
+def test_confirmed_week_seeding_twice_does_not_duplicate(tmp_path: Path) -> None:
+    build_demo_app(tmp_path, "confirmed_week")
+    seed_scenario(tmp_path / DB_FILENAME, "confirmed_week")
+    conn = sqlite3.connect(tmp_path / DB_FILENAME)
+    try:
+        assert conn.execute("SELECT COUNT(*) FROM slates").fetchone()[0] == 1
+        assert conn.execute("SELECT COUNT(*) FROM selection_confirmations").fetchone()[0] == 1
+    finally:
+        conn.close()

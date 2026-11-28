@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Grocery list{% endblock %}
+{% block content %}
+<p class="no-print"><a href="/">Home</a></p>
+<h1>Grocery list</h1>
+{% if state == "no_profile" %}
+<p>Set up your profile first, so the plan fits your needs.</p>
+<p><a class="button" href="/profile">Go to your profile</a></p>
+{% else %}
+<p class="week">{{ week_label }}</p>
+{% if state == "open" %}
+<p>Confirm your week's meals to get a grocery list.</p>
+<p><a class="button" href="/plan">Go to this week's plan</a></p>
+{% elif state == "unavailable" %}
+<div class="error-summary" role="alert">
+  <p>A meal in this week's plan no longer fits your profile. Reopen the week to change it.</p>
+</div>
+<p><a class="button" href="/plan">Go to this week's plan</a></p>
+{% elif state == "no_meals" %}
+<p>No meals planned this week.</p>
+<p><a href="/plan">Back to this week's plan</a></p>
+{% else %}
+<p class="hint no-print">Use your browser's Print or Share to print or save this list.</p>
+{% for section in sections %}
+<section class="aisle">
+  <h2>{{ section.label }}</h2>
+  <ul class="items">
+    {% for item in section["items"] %}
+    <li class="item" data-item="{{ item.ingredient_id }}">
+      <p class="item-name">{{ item.name }}</p>
+      <ul class="needs">
+        {% for need in item.needs %}<li class="need">{{ need }}</li>{% endfor %}
+      </ul>
+      {% if item.buy %}<p class="buy">{{ item.buy }}</p>{% endif %}
+      <p class="used-in">Used in: {{ item.meals }}</p>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endfor %}
+<p class="no-print"><a href="/plan">Back to this week's plan</a></p>
+{% endif %}
+{% endif %}
+{% endblock %}

@@ -17,6 +17,7 @@ from mealplanner.llm.cli_bridge_client import CLIBridgeLLMClient
 from mealplanner.llm.client import LLMClient
 from mealplanner.nutrition.catalog import Catalog, load_catalog
 from mealplanner.web.auth import cross_site_protection, make_identity_middleware
+from mealplanner.web.grocery import router as grocery_router
 from mealplanner.web.plan import router as plan_router
 from mealplanner.web.profile import router as profile_router
 from mealplanner.web.routes import router
@@ -160,4 +161,5 @@ def create_app(
     app.include_router(router)
     app.include_router(profile_router)
     app.include_router(plan_router)
+    app.include_router(grocery_router)
     return app
