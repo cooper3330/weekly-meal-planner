@@ -197,9 +197,10 @@ for f in .github/workflows/*.yml; do
   v=$(browser_violations "$f")
   if [ -z "$v" ]; then ok "$f: ok"; else bad "$f: $v"; fi
 done
-echo "workflows: review.yml and ci.yml do not install the browser here (#105)"
+echo "workflows: review.yml and ci.yml's check job do not install the browser here (#105, #143)"
 assert_no_grep .github/workflows/review.yml 'browser-install|ms-playwright' "review.yml has no browser steps"
-assert_no_grep .github/workflows/ci.yml 'browser-install|ms-playwright' "ci.yml has no browser steps"
+# ci.yml's `e2e` job (#143) is the one place besides the developer workflows that installs the browser.
+assert_no_grep <(awk '/^  check:/ { on = 1; print; next } on && /^  [A-Za-z0-9_-]+:/ { exit } on { print }' .github/workflows/ci.yml) 'browser-install|ms-playwright' "ci.yml's check job has no browser steps"
 
 CI=.github/workflows/ci.yml
 echo "workflows: ci.yml"
@@ -215,6 +216,57 @@ assert_no_grep "$CI" ':[[:space:]]+write' "no write permission"
 assert_grep "$CI" 'timeout-minutes:[[:space:]]+10' "sets timeout-minutes"
 assert_grep "$CI" 'uses:[[:space:]]+astral-sh/setup-uv@' "installs uv with setup-uv"
 assert_grep "$CI" 'python-version:[[:space:]]+"?3\.12"?' "uses Python 3.12"
+
+# --- the e2e job in ci.yml (#143, ADR 0028) ----------------------------------------------------------
+# e2e_violations FILE: the `e2e` job holds no secret and no write permission, always reports (no workflow
+# `paths:` filter, scope decided inside the job), has a timeout, pins its actions, uploads its evidence with
+# `if: always()`, and calls the protected module directly, never through the unprotected Makefile.
+e2e_violations() {
+  local f="$1" job
+  job=$(awk '/^  e2e:/ { on = 1; print; next } on && /^  [A-Za-z0-9_-]+:/ { exit } on { print }' "$f")
+  if [ -z "$job" ]; then echo "has no e2e job"; return; fi
+  grep -Eq '^    timeout-minutes:[[:space:]]+15[[:space:]]*$' <<<"$job" || echo "e2e has no timeout-minutes: 15"
+  grep -q 'secrets\.' <<<"$job" && echo "e2e references a secret"
+  grep -Eq ':[[:space:]]+write' <<<"$job" && echo "e2e has a write permission"
+  grep -q 'pull_request_target' "$f" && echo "ci.yml uses pull_request_target"
+  grep -Eq '^[[:space:]]+paths(-ignore)?:' "$f" && echo "ci.yml has a paths: filter, so a required e2e check could hang"
+  grep -E '^[[:space:]]+(-[[:space:]]+)?uses:' <<<"$job" | grep -Evq '@[0-9a-f]{40}( |$)' && echo "e2e uses an action that is not pinned to a SHA"
+  grep -q 'persist-credentials: false' <<<"$job" || echo "e2e checkout keeps credentials"
+  grep -Eq 'fetch-depth:[[:space:]]+0' <<<"$job" || echo "e2e checkout is not full depth (the scope diff needs the base)"
+  grep -Eq 'python -m agentbrowser scope' <<<"$job" || echo "e2e does not call python -m agentbrowser scope"
+  grep -Eq 'python -m agentbrowser e2e' <<<"$job" || echo "e2e does not call python -m agentbrowser e2e"
+  grep -Eq '(^|[^a-z])make e2e' <<<"$job" && echo "e2e runs make e2e (the Makefile is not protected)"
+  grep -Eq 'run:[[:space:]]+make browser-install' <<<"$job" || echo "e2e does not run make browser-install"
+  grep -Eq '~/\.cache/ms-playwright' <<<"$job" || echo "e2e does not cache ~/.cache/ms-playwright"
+  grep -Eq 'AGENTBROWSER_HEAD_SHA:' <<<"$job" || echo "e2e does not pass the head commit"
+  awk '/uses: actions\/upload-artifact@/ { u = 1 } u && /if: always\(\)/ { f = 1 } END { exit !f }' <<<"$job" || echo "the upload step has no if: always()"
+  grep -Eq 'retention-days:[[:space:]]+14' <<<"$job" || echo "the upload has no retention-days: 14"
+  grep -Eq 'if-no-files-found:[[:space:]]+ignore' <<<"$job" || echo "the upload does not ignore a missing bundle"
+  grep -Eq 'name:[[:space:]]+e2e-evidence' <<<"$job" || echo "the artifact is not named e2e-evidence"
+}
+echo "workflows: ci.yml's e2e job"
+assert_grep "$CI" '^  e2e:' "has a job with id e2e"
+assert_grep "$CI" '^  check:' "and still has check"
+assert_eq "$(e2e_violations "$CI")" "" "the e2e job meets every rule"
+E2E_FX=$(mktemp -d)
+sed 's/^    timeout-minutes: 15$//' "$CI" > "$E2E_FX/no-timeout.yml"
+sed 's/^  pull_request:$/  pull_request:\n    paths: ["src\/**"]/' "$CI" > "$E2E_FX/paths.yml"
+sed 's/python -m agentbrowser e2e/make e2e/' "$CI" > "$E2E_FX/make-e2e.yml"
+{ cat "$CI"; printf '      - run: echo "${{ secrets.TOKEN }}"\n'; } > "$E2E_FX/secret.yml"
+{ cat "$CI"; printf '      - uses: actions/checkout@v4\n'; } > "$E2E_FX/unpinned.yml"
+sed 's/^    permissions:$/    permissions:\n      contents: write/;s/^permissions:$/permissions:\n  pull-requests: write/' "$CI" > "$E2E_FX/write.yml"
+sed 's/if: always()/if: success()/' "$CI" > "$E2E_FX/no-always.yml"
+# Each mutated copy must be reported for its own reason (not just "has no e2e job").
+for pair in "no-timeout:no timeout-minutes" "paths:paths: filter" "make-e2e:runs make e2e" "secret:references a secret" \
+            "unpinned:not pinned" "no-always:no if: always()"; do
+  fx=${pair%%:*}; want=${pair#*:}
+  if e2e_violations "$E2E_FX/$fx.yml" | grep -qF -- "$want"; then ok "the e2e checker reports '$want' for a workflow with: $fx"; else bad "the e2e checker reports '$want' for a workflow with: $fx"; fi
+done
+assert_grep .github/workflows/ci-fix.yml 'workflows:[[:space:]]*\[CI\]' "ci-fix.yml still triggers on a failed CI run, so it sees e2e with no trigger change"
+assert_grep "$CI" 'scope' "the scope step is in the job"
+assert_grep "$CI" 'git diff --name-only' "and lists the files changed against the base"
+assert_grep "$CI" "steps\.scope\.outputs\.run == 'true'|run == 'true'" "the later steps run only when the scope says so"
+assert_grep "$CI" 'e2e: no runtime change, skipped|github\.event_name' "and a push to main always runs"
 
 RL=.github/workflows/risk-label.yml
 echo "workflows: risk-label.yml"

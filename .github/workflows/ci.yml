@@ -20,3 +20,71 @@ jobs:
           python-version: "3.12"
       - name: Run make check
         run: make check
+
+  # The browser gate (#143, ADR 0028): every flow and the feature walk, with the phone checks, against a
+  # fresh demo app. It holds no secret and can write nothing. There is no `paths:` filter on the workflow
+  # (a filtered-out required check would hang): the scope step decides, so the job always reports, and a
+  # change that touches no runtime path finishes in seconds without installing a browser. It calls the
+  # protected module directly, not `make e2e`, because the Makefile is not a protected path. The evidence
+  # bundle is uploaded even when the run fails.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          python-version: "3.12"
+
+      # The changed files go to a file first, so a failing `git diff` fails the step instead of
+      # reading as "no changes" and switching the gate off.
+      - name: Decide whether the browser run is needed
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            git diff --name-only "origin/$BASE_REF...HEAD" > changed-files.txt
+            PYTHONPATH=src uv run python -m agentbrowser scope < changed-files.txt
+          else
+            echo "e2e: push to main, running"
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Restore the Playwright browser cache
+        if: steps.scope.outputs.run == 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('uv.lock') }}
+
+      - name: Install the dependencies
+        if: steps.scope.outputs.run == 'true'
+        run: uv sync
+
+      - name: Install the browser
+        if: steps.scope.outputs.run == 'true'
+        run: make browser-install
+
+      - name: Run every flow and walk every feature
+        if: steps.scope.outputs.run == 'true'
+        env:
+          AGENTBROWSER_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: PYTHONPATH=src uv run python -m agentbrowser e2e --out e2e-evidence
+
+      - name: Run the browser tests
+        if: steps.scope.outputs.run == 'true'
+        run: PYTHONPATH=src uv run pytest tests/e2e -o addopts=
+
+      - name: Upload the evidence
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always() && steps.scope.outputs.run == 'true'
+        with:
+          name: e2e-evidence
+          path: e2e-evidence/
+          retention-days: 14
+          if-no-files-found: ignore

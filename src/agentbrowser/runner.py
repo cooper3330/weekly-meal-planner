@@ -216,7 +216,13 @@ def run(
                     )
     finally:
         if results or walks:
-            write_summary(out, results, coverage=declared, walk=walks)
+            write_summary(
+                out,
+                results,
+                head_sha=os.environ.get("AGENTBROWSER_HEAD_SHA") or None,
+                coverage=declared,
+                walk=walks,
+            )
 
     failed = [r for r in results if not r.ok]
     failed_walks = [w for w in walks if not w.ok]
